@@ -1,0 +1,66 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "packages/*/src",
+    "openclaw",
+    "e2e",
+    "components/slide-renderer/Editor/Canvas",
+    "components/slide-renderer/components/element/ProsemirrorEditor",
+    "components/slide-renderer/components/element/TextElement",
+    "components/slide-renderer/components/element/hooks",
+    "components/slide-renderer/components/element/ChartElement",
+    "components/slide-renderer/components/element/ShapeElement",
+    "components/slide-renderer/components/element/TableElement",
+    "components/slide-renderer/components/element/VideoElement",
+    "components/slide-renderer/components/element/ImageElement",
+    "components/slide-renderer/components/element/LatexElement",
+    "components/slide-renderer/components/element/LineElement",
+    "components/slide-renderer/components/ThumbnailSlide",
+    "components/slide-renderer/Editor/Ruler.tsx",
+    "components/slide-renderer/Editor/HighlightOverlay.tsx",
+    "components/scene-renderers/pbl",
+    "components/scene-renderers/pbl-renderer.tsx",
+    "components/scene-renderers/quiz-renderer.tsx",
+    "components/scene-renderers/quiz-view.tsx",
+    "components/scene-renderers/interactive-renderer.tsx",
+    "components/whiteboard"
+  ]
+}

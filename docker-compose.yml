@@ -1,0 +1,47 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/smartlearn
+      - REDIS_URL=redis://redis:6379
+      - AI_PROVIDER=${AI_PROVIDER:-spark}
+      - AI_MODEL=${AI_MODEL:-spark-4.0-turbo}
+      - SPARK_API_KEY=${SPARK_API_KEY}
+      - SPARK_API_SECRET=${SPARK_API_SECRET}
+      - SPARK_BASE_URL=${SPARK_BASE_URL:-https://spark-api-open.xf-yun.com/v1}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: smartlearn
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
