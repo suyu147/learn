@@ -12,15 +12,7 @@
 - 资源决策引擎：lib/generation/resource-decision.ts（规则层+反馈层可用，LLM 层是占位）
 - 全项目零测试覆盖
 
-## 已知关键问题
 
-- ~~engine.ts 类型缺陷~~ ✅ 已修复（Action 规范化、移除 as any、getTask 语义修正）
-- ~~spark-adapter.ts modelPathMap bug~~ ✅ 已修复（路径查找已接入 modelId）
-- ~~next build 编译警告~~ ✅ 已清零（零错误零警告）
-- ~~资源生成串行~~ ✅ 已修复（分批并行 Promise.allSettled，MAX_CONCURRENCY=3，含 agent_status 事件推送和失败降级）
-- ~~评估闭环断裂~~ ✅ 已修复（evaluationFeedback 字段贯通 state→evaluate→plan-resources→resource-decision；plan-node 注入薄弱点提示；决策引擎支持 boostTypes/suppressTypes）
-- 设置页语言选择器只展示 2/4 种语言
-- stage-api.ts 白板方法仍为空壳实现（运行时白板操作无效）
 
 ## 代码规范
 
