@@ -13,6 +13,13 @@ interface SettingsState {
   // Appearance
   theme: 'light' | 'dark' | 'snow' | 'glass' | 'system';
   language: string;
+  // SmartLearn-specific settings (bridged from v1 useSettingsStore)
+  smartlearnProviderId?: string;
+  smartlearnModelId?: string;
+  smartlearnApiKey?: string;
+  smartlearnBaseUrl?: string;
+  disabledAgentIds?: string[];
+  maxResourceConcurrency?: number;
   // Methods
   setDefaultModel: (m: string) => void;
   setTemperature: (t: number) => void;
@@ -22,6 +29,12 @@ interface SettingsState {
   toggleRateLimit: () => void;
   setTheme: (t: SettingsState['theme']) => void;
   setLanguage: (l: string) => void;
+  // SmartLearn setters
+  setSmartlearnModel: (providerId: string, modelId: string) => void;
+  setSmartlearnApiKey: (key: string) => void;
+  setSmartlearnBaseUrl: (url: string) => void;
+  setDisabledAgentIds: (ids: string[]) => void;
+  setMaxResourceConcurrency: (n: number) => void;
 }
 
 export const useSettingsStoreV2 = create<SettingsState>()(
@@ -38,6 +51,13 @@ export const useSettingsStoreV2 = create<SettingsState>()(
       // Appearance defaults
       theme: 'system',
       language: 'zh-CN',
+      // SmartLearn defaults
+      smartlearnProviderId: '',
+      smartlearnModelId: '',
+      smartlearnApiKey: '',
+      smartlearnBaseUrl: '',
+      disabledAgentIds: [],
+      maxResourceConcurrency: 3,
 
       // LLM methods
       setDefaultModel: (m) => set({ defaultModel: m }),
@@ -53,6 +73,14 @@ export const useSettingsStoreV2 = create<SettingsState>()(
       // Appearance methods
       setTheme: (t) => set({ theme: t }),
       setLanguage: (l) => set({ language: l }),
+
+      // SmartLearn methods
+      setSmartlearnModel: (providerId, modelId) =>
+        set({ smartlearnProviderId: providerId, smartlearnModelId: modelId }),
+      setSmartlearnApiKey: (key) => set({ smartlearnApiKey: key }),
+      setSmartlearnBaseUrl: (url) => set({ smartlearnBaseUrl: url }),
+      setDisabledAgentIds: (ids) => set({ disabledAgentIds: ids }),
+      setMaxResourceConcurrency: (n) => set({ maxResourceConcurrency: n }),
     }),
     { name: 'sl-settings-storage' }
   )

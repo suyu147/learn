@@ -15,11 +15,15 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  profiles      LearningProfile[]
-  resources     Resource[]
-  learningPaths LearningPath[]
-  chatSessions  ChatSession[]
-  quizResults   QuizResult[]
+  profiles       LearningProfile[]
+  resources      Resource[]
+  learningPaths  LearningPath[]
+  chatSessions   ChatSession[]
+  quizResults    QuizResult[]
+  dtSessions     DtSession[]
+  dtMessages     DtMessage[]
+  dtApiKeys      DtApiKey[]
+  knowledgeBases DtKnowledgeBase[]
 }
 
 model LearningProfile {
@@ -137,4 +141,227 @@ model StageOutline {
   outlines  Json
   createdAt Int    @default(0)
   updatedAt Int    @default(0)
+}
+
+// ===========================================================================
+// Phase 1: DeepTutor Migration — Session/Turn/Message/Auth/Config
+// ===========================================================================
+
+enum DtTurnStatus {
+  running
+  completed
+  failed
+  cancelled
+}
+
+enum DtMessageRole {
+  user
+  assistant
+  system
+  tool
+}
+
+/// DeepTutor conversation session — one per chat thread.
+/// Maps to DeepTutor's sessions table with title, summary, and preferences.
+model DtSession {
+  id                  String   @id @default(cuid())
+  userId              String
+  title               String   @default("New Chat")
+  capability          String?
+  compressedSummary   String?  @map("compressed_summary")
+  summaryUpToMsgId    Int?     @map("summary_up_to_msg_id")
+  preferences         Json?
+  metadata            Json?
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  turns    DtTurn[]
+  messages DtMessage[]
+
+  @@index([userId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("dt_sessions")
+}
+
+/// A single LLM turn within a session (one user message → one full response cycle).
+model DtTurn {
+  id          String       @id @default(cuid())
+  sessionId   String       @map("session_id")
+  capability  String?
+  status      DtTurnStatus @default(running)
+  error       String?
+  tokenUsage  Json?        @map("token_usage")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  finishedAt  DateTime?    @map("finished_at")
+
+  session DtSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  events  DtTurnEvent[]
+
+  @@index([sessionId])
+  @@index([sessionId, status])
+  @@map("dt_turns")
+}
+
+/// A message in the conversation history.
+/// Supports edit-branching via parentMessageId (messages form a tree).
+model DtMessage {
+  id               Int             @id @default(autoincrement())
+  sessionId        String          @map("session_id")
+  role             DtMessageRole
+  content          String
+  capability       String?
+  turnId           String?         @map("turn_id")
+  attachments      Json?
+  metadata         Json?
+  parentMessageId  Int?            @map("parent_message_id")
+  createdAt        DateTime        @default(now()) @map("created_at")
+
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String      @map("user_id")
+  session        DtSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  parentMessage  DtMessage?  @relation("MessageTree", fields: [parentMessageId], references: [id])
+  childMessages  DtMessage[] @relation("MessageTree")
+
+  @@index([sessionId])
+  @@index([sessionId, createdAt])
+  @@index([userId])
+  @@map("dt_messages")
+}
+
+/// Persisted streaming events for a turn (enables replay and late subscription).
+model DtTurnEvent {
+  id        Int      @id @default(autoincrement())
+  turnId    String   @map("turn_id")
+  seq       Int
+  type      String
+  source    String   @default("")
+  stage     String   @default("")
+  content   String   @default("")
+  metadata  Json?
+  timestamp Float    @default(0)
+
+  turn DtTurn @relation(fields: [turnId], references: [id], onDelete: Cascade)
+
+  @@index([turnId])
+  @@index([turnId, seq])
+  @@map("dt_turn_events")
+}
+
+/// Server-side encrypted API keys (so keys never live in the browser).
+model DtApiKey {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  provider    String
+  apiKey      String   // AES-256 encrypted; decrypted at runtime
+  label       String   @default("")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@index([userId])
+  @@map("dt_api_keys")
+}
+
+/// Model catalog: stores provider profiles and model lists for LLM/embedding/search.
+model DtModelCatalog {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  service   String   // "llm" | "embedding" | "search"
+  catalog   Json     // Full catalog JSON (profiles, active_profile_id, etc.)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, service])
+  @@index([userId])
+  @@map("dt_model_catalogs")
+}
+
+// ===========================================================================
+// Phase 2b: Knowledge Base / RAG System
+// ===========================================================================
+
+enum DtKbStatus {
+  initializing
+  processing
+  ready
+  error
+  needs_reindex
+}
+
+enum DtDocStatus {
+  pending
+  parsing
+  chunking
+  embedding
+  ready
+  error
+}
+
+model DtKnowledgeBase {
+  id              String     @id @default(cuid())
+  userId          String     @map("user_id")
+  name            String
+  description     String     @default("")
+  status          DtKbStatus @default(initializing)
+  documentCount   Int        @default(0) @map("document_count")
+  totalChunks     Int        @default(0) @map("total_chunks")
+  embeddingModel  String     @default("") @map("embedding_model")
+  embeddingDim    Int        @default(0)  @map("embedding_dim")
+  progress        Json?      // { stage, message, percent }
+  metadata        Json?
+  lastIndexedAt   DateTime?  @map("last_indexed_at")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents  DtDocument[]
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("dt_knowledge_bases")
+}
+
+model DtDocument {
+  id           String      @id @default(cuid())
+  kbId         String      @map("kb_id")
+  title        String
+  filePath     String      @map("file_path")
+  fileSize     Int         @default(0)  @map("file_size")
+  mimeType     String      @default("") @map("mime_type")
+  chunkCount   Int         @default(0)  @map("chunk_count")
+  status       DtDocStatus @default(pending)
+  fileHash     String      @default("") @map("file_hash")
+  errorMessage String?     @map("error_message")
+  metadata     Json?
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  kb      DtKnowledgeBase   @relation(fields: [kbId], references: [id], onDelete: Cascade)
+  chunks  DtDocumentChunk[]
+
+  @@index([kbId])
+  @@map("dt_documents")
+}
+
+model DtDocumentChunk {
+  id         String   @id @default(cuid())
+  documentId String   @map("document_id")
+  content    String
+  /// Stores embedding vector as JSON array [0.1, 0.2, ...].
+  /// When pgvector is available, change to: Unsupported("vector(1536)")?
+  /// and migrate data with: UPDATE dt_document_chunks SET embedding = (metadata->>'embedding')::vector
+  embedding  Json?
+  chunkIndex Int      @map("chunk_index")
+  metadata   Json?    // { page, source, title, charCount }
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  document DtDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("dt_document_chunks")
 }

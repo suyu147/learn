@@ -8,6 +8,10 @@ export interface Session {
   createdAt: string;
   updatedAt: string;
   status: 'active' | 'completed' | 'failed';
+  // SmartLearn-specific session metadata (optional for backward compatibility)
+  smartlearnProfileId?: string;
+  smartlearnGoal?: string;
+  smartlearnNodeCount?: number;
 }
 
 interface SessionState {
@@ -17,11 +21,12 @@ interface SessionState {
   removeSession: (id: string) => void;
   setActiveSession: (id: string) => void;
   updateSession: (id: string, updates: Partial<Session>) => void;
+  getSessionsByMode: (mode: string) => Session[];
 }
 
 export const useSessionStore = create<SessionState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       sessions: [],
       activeSessionId: null,
 
@@ -45,6 +50,9 @@ export const useSessionStore = create<SessionState>()(
             s.id === id ? { ...s, ...updates } : s
           ),
         })),
+
+      getSessionsByMode: (mode) =>
+        get().sessions.filter((s) => s.mode === mode),
     }),
     { name: 'sl-session-storage' }
   )
