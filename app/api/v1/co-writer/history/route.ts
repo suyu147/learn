@@ -1,6 +1,9 @@
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/server/api-response';
 import { getOperationHistory } from '@/lib/deeptutor/bootstrap';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('api:co-writer');
 
 /**
  * GET /api/v1/co-writer/history — List operation history
@@ -16,7 +19,7 @@ export async function GET(req: NextRequest) {
 
     return apiSuccess(records.slice(0, limit));
   } catch (err) {
-    console.error('[co-writer] GET history error:', err);
+    log.error('[co-writer] GET history error:', err);
     return apiError('Failed to load history', 500);
   }
 }

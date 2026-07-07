@@ -3,6 +3,9 @@ import { apiSuccess, apiError } from '@/lib/server/api-response';
 import { getBookEngine } from '@/lib/deeptutor/bootstrap';
 import { validatedBody, errorToMessage, isValidationError, isSyntaxError } from '@/lib/server/validate';
 import { BookDeleteBlockSchema } from '@/lib/server/schemas';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('api:book');
 
 /**
  * POST /api/v1/book/delete-block
@@ -25,7 +28,7 @@ export async function POST(req: NextRequest) {
     if (isValidationError(err) || isSyntaxError(err)) {
       return apiError(errorToMessage(err), 400);
     }
-    console.error('[book] delete-block error:', err);
+    log.error('[book] delete-block error:', err);
     return apiError('Failed to delete block', 500);
   }
 }

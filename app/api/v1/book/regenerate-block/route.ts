@@ -3,6 +3,9 @@ import { apiSuccess, apiError } from '@/lib/server/api-response';
 import { getBookEngine } from '@/lib/deeptutor/bootstrap';
 import { validatedBody, errorToMessage, isValidationError, isSyntaxError } from '@/lib/server/validate';
 import { BookRegenerateBlockSchema } from '@/lib/server/schemas';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('api:book');
 
 /**
  * POST /api/v1/book/regenerate-block
@@ -25,7 +28,7 @@ export async function POST(req: NextRequest) {
     if (isValidationError(err) || isSyntaxError(err)) {
       return apiError(errorToMessage(err), 400);
     }
-    console.error('[book] regenerate-block error:', err);
+    log.error('[book] regenerate-block error:', err);
     return apiError('Failed to regenerate block', 500);
   }
 }

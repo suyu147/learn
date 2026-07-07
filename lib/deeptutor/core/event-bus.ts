@@ -9,6 +9,10 @@
  * - SETTINGS_CHANGED notifies LangGraph nodes for config hot-reload
  */
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('EventBus');
+
 export type EventBusHandler = (...args: unknown[]) => void;
 
 export class EventBus {
@@ -33,7 +37,7 @@ export class EventBus {
           handler(...args);
         } catch (error) {
           // Don't let handler errors crash the event bus
-          console.error(`[EventBus] Error in handler for "${event}":`, error);
+          log.error(`Error in handler for "${event}":`, error);
         }
       }
     }

@@ -1,6 +1,9 @@
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/server/api-response';
 import { getBookEngine } from '@/lib/deeptutor/bootstrap';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('api:book');
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -19,7 +22,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
     return apiSuccess(result);
   } catch (err) {
-    console.error('[book] GET :id error:', err);
+    log.error('[book] GET :id error:', err);
     return apiError('Failed to load book', 500);
   }
 }
@@ -39,7 +42,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
 
     return apiSuccess({ deleted: true });
   } catch (err) {
-    console.error('[book] DELETE :id error:', err);
+    log.error('[book] DELETE :id error:', err);
     return apiError('Failed to delete book', 500);
   }
 }

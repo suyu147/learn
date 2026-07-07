@@ -3,6 +3,9 @@ import { apiSuccess, apiError } from '@/lib/server/api-response';
 import { getCoWriterStorage } from '@/lib/deeptutor/bootstrap';
 import { validatedBody, errorToMessage, isValidationError, isSyntaxError } from '@/lib/server/validate';
 import { CoWriterUpdateSchema } from '@/lib/server/schemas';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('api:co-writer');
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -21,7 +24,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
     return apiSuccess(doc);
   } catch (err) {
-    console.error('[co-writer] GET :id error:', err);
+    log.error('[co-writer] GET :id error:', err);
     return apiError('Failed to load document', 500);
   }
 }
@@ -47,7 +50,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     if (isValidationError(err) || isSyntaxError(err)) {
       return apiError(errorToMessage(err), 400);
     }
-    console.error('[co-writer] PUT :id error:', err);
+    log.error('[co-writer] PUT :id error:', err);
     return apiError('Failed to update document', 500);
   }
 }
@@ -67,7 +70,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
 
     return apiSuccess({ deleted: true });
   } catch (err) {
-    console.error('[co-writer] DELETE :id error:', err);
+    log.error('[co-writer] DELETE :id error:', err);
     return apiError('Failed to delete document', 500);
   }
 }

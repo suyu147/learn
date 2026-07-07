@@ -3,6 +3,9 @@ import { apiSuccess, apiError } from '@/lib/server/api-response';
 import { getEditAgent, getOperationHistory, getCoWriterStorage } from '@/lib/deeptutor/bootstrap';
 import { validatedBody, errorToMessage, isValidationError, isSyntaxError } from '@/lib/server/validate';
 import { CoWriterEditSchema } from '@/lib/server/schemas';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('api:co-writer');
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -54,7 +57,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (isValidationError(err) || isSyntaxError(err)) {
       return apiError(errorToMessage(err), 400);
     }
-    console.error('[co-writer] POST :id/edit error:', err);
+    log.error('[co-writer] POST :id/edit error:', err);
     return apiError('Edit operation failed', 500);
   }
 }
