@@ -55,6 +55,11 @@ import {
 import { DeepSolveCapability } from '@/lib/deeptutor/capabilities/solve';
 import { MasteryPathCapability } from '@/lib/deeptutor/capabilities/mastery';
 import { ExploreContextCapability } from '@/lib/deeptutor/capabilities/explore';
+// Phase 3b — Capabilities + MCP
+import { DeepQuestionCapability } from '@/lib/deeptutor/capabilities/question';
+import { DeepResearchCapability } from '@/lib/deeptutor/capabilities/research';
+import { VisualizeCapability } from '@/lib/deeptutor/capabilities/visualize';
+import { MCPService } from '@/lib/deeptutor/services/mcp';
 
 const log = createLogger('Bootstrap');
 
@@ -77,6 +82,8 @@ let _notebookService: NotebookServiceImpl | null = null;
 let _personaService: PersonaServiceImpl | null = null;
 let _skillService: SkillServiceImpl | null = null;
 let _learningService: LearningServiceImpl | null = null;
+// Phase 3b services
+let _mcpService: MCPService | null = null;
 
 /** Create an LLM call function for tools (brainstorm, reason) */
 function createToolLLMCall() {
@@ -136,6 +143,7 @@ function bootstrap(): {
   personaService: PersonaServiceImpl;
   skillService: SkillServiceImpl;
   learningService: LearningServiceImpl;
+  mcpService: MCPService;
 } {
   if (_orchestrator) {
     return {
@@ -151,6 +159,7 @@ function bootstrap(): {
       personaService: _personaService!,
       skillService: _skillService!,
       learningService: _learningService!,
+      mcpService: _mcpService!,
     };
   }
 
@@ -275,7 +284,17 @@ function bootstrap(): {
   const exploreContextCapability = new ExploreContextCapability(toolRegistry);
   capabilityRegistry.register(exploreContextCapability);
 
-  log.info(`Registered ${capabilityRegistry.getAll().length} capabilities (chat, smartlearn, deep_solve, mastery_path, explore_context)`);
+  // Phase 3b: Agent Capabilities
+  const deepQuestionCapability = new DeepQuestionCapability(toolRegistry);
+  capabilityRegistry.register(deepQuestionCapability);
+
+  const deepResearchCapability = new DeepResearchCapability(toolRegistry);
+  capabilityRegistry.register(deepResearchCapability);
+
+  const visualizeCapability = new VisualizeCapability();
+  capabilityRegistry.register(visualizeCapability);
+
+  log.info(`Registered ${capabilityRegistry.getAll().length} capabilities (chat, smartlearn, deep_solve, mastery_path, explore_context, deep_question, deep_research, visualize)`);
 
   // -----------------------------------------------------------------------
   // 3. Create orchestrator
@@ -284,6 +303,27 @@ function bootstrap(): {
     capabilityRegistry,
     toolRegistry,
   });
+
+  // -----------------------------------------------------------------------
+  // 4. Phase 3b — MCP Service
+  // -----------------------------------------------------------------------
+  const mcpService = new MCPService();
+
+  // Connect any pre-configured MCP servers from environment
+  const mcpServersEnv = process.env.DT_MCP_SERVERS;
+  if (mcpServersEnv) {
+    try {
+      const serverConfigs = JSON.parse(mcpServersEnv);
+      if (Array.isArray(serverConfigs)) {
+        for (const config of serverConfigs) {
+          mcpService.addServer(config);
+        }
+        log.info(`Configured ${serverConfigs.length} MCP server(s) from DT_MCP_SERVERS`);
+      }
+    } catch (err) {
+      log.error('Failed to parse DT_MCP_SERVERS env var:', err);
+    }
+  }
 
   // Persist singleton state
   _toolRegistry = toolRegistry;
@@ -298,13 +338,15 @@ function bootstrap(): {
   _personaService = personaService;
   _skillService = skillService;
   _learningService = learningService;
+  _mcpService = mcpService;
 
-  log.info('DeepTutor bootstrap complete (Phase 3a)');
+  log.info('DeepTutor bootstrap complete (Phase 3b)');
   return {
     toolRegistry, capabilityRegistry, orchestrator,
     embeddingService, ragService, kbSeedService,
     sandboxService, memoryService, notebookService,
     personaService, skillService, learningService,
+    mcpService,
   };
 }
 
@@ -360,4 +402,9 @@ export function getSkillService() {
 
 export function getLearningService() {
   return bootstrap().learningService;
+}
+
+// Phase 3b service accessors
+export function getMCPService() {
+  return bootstrap().mcpService;
 }
