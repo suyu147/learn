@@ -5,6 +5,8 @@ import { createStreamEvent } from '@/lib/deeptutor/core/types';
 import type { LearnRequest } from '@/lib/learning-graph/types';
 import type { LearningStateType } from '@/lib/learning-graph/state';
 import { createLogger } from '@/lib/logger';
+import { validatedBody, errorToMessage, isValidationError, isSyntaxError } from '@/lib/server/validate';
+import { SmartLearnRequestSchema } from '@/lib/server/schemas';
 
 const log = createLogger('api:smartlearn');
 
@@ -15,15 +17,8 @@ export async function GET(_req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) as LearnRequest;
-
-    // Validate required fields
-    if (!body.action || !body.sessionId || !body.profile || !body.goal) {
-      return NextResponse.json(
-        { success: false, error: 'Missing required fields: action, sessionId, profile, goal' },
-        { status: 400 },
-      );
-    }
+    const validated = await validatedBody(SmartLearnRequestSchema, req);
+    const body = validated as unknown as LearnRequest;
 
     const sessionId = body.sessionId;
     const turnId = `turn_${Date.now()}`;
@@ -118,6 +113,12 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err) {
+    if (isValidationError(err) || isSyntaxError(err)) {
+      return NextResponse.json(
+        { success: false, error: errorToMessage(err) },
+        { status: 400 },
+      );
+    }
     const message = err instanceof Error ? err.message : String(err);
     log.error('SmartLearn POST handler error:', err);
     return NextResponse.json(

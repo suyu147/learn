@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/server/api-response';
 import { getCoWriterStorage } from '@/lib/deeptutor/bootstrap';
+import { validatedBody, errorToMessage, isValidationError, isSyntaxError } from '@/lib/server/validate';
+import { CoWriterUpdateSchema } from '@/lib/server/schemas';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -31,12 +33,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 export async function PUT(req: NextRequest, { params }: Params) {
   try {
     const { id } = await params;
-    const body = await req.json();
-    const { title, content } = body;
-
-    if (title === undefined && content === undefined) {
-      return apiError('title or content is required', 400);
-    }
+    const { title, content } = await validatedBody(CoWriterUpdateSchema, req);
 
     const storage = getCoWriterStorage();
     const doc = await storage.updateDocument(id, { title, content });
@@ -47,6 +44,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
     return apiSuccess(doc);
   } catch (err) {
+    if (isValidationError(err) || isSyntaxError(err)) {
+      return apiError(errorToMessage(err), 400);
+    }
     console.error('[co-writer] PUT :id error:', err);
     return apiError('Failed to update document', 500);
   }

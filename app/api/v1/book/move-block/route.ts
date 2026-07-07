@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/server/api-response';
 import { getBookEngine } from '@/lib/deeptutor/bootstrap';
+import { validatedBody, errorToMessage, isValidationError, isSyntaxError } from '@/lib/server/validate';
+import { BookMoveBlockSchema } from '@/lib/server/schemas';
 
 /**
  * POST /api/v1/book/move-block
@@ -8,12 +10,8 @@ import { getBookEngine } from '@/lib/deeptutor/bootstrap';
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { bookId, pageId, fromIndex, toIndex } = body;
-
-    if (!bookId || !pageId || fromIndex === undefined || toIndex === undefined) {
-      return apiError('bookId, pageId, fromIndex, and toIndex are required', 400);
-    }
+    const { bookId, pageId, fromIndex, toIndex } =
+      await validatedBody(BookMoveBlockSchema, req);
 
     const engine = getBookEngine();
     const page = await engine.moveBlock(bookId, pageId, fromIndex, toIndex);
@@ -24,6 +22,9 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess(page);
   } catch (err) {
+    if (isValidationError(err) || isSyntaxError(err)) {
+      return apiError(errorToMessage(err), 400);
+    }
     console.error('[book] move-block error:', err);
     return apiError('Failed to move block', 500);
   }

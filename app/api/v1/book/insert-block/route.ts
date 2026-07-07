@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/server/api-response';
 import { getBookEngine } from '@/lib/deeptutor/bootstrap';
+import { validatedBody, errorToMessage, isValidationError, isSyntaxError } from '@/lib/server/validate';
+import { BookInsertBlockSchema } from '@/lib/server/schemas';
 import type { BlockType } from '@/lib/deeptutor/services/book/models';
 
 /**
@@ -9,12 +11,8 @@ import type { BlockType } from '@/lib/deeptutor/services/book/models';
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { bookId, pageId, index, type, params } = body;
-
-    if (!bookId || !pageId || type === undefined) {
-      return apiError('bookId, pageId, and type are required', 400);
-    }
+    const { bookId, pageId, index, type, params } =
+      await validatedBody(BookInsertBlockSchema, req);
 
     const engine = getBookEngine();
     const page = await engine.insertBlock(
@@ -31,6 +29,9 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess(page);
   } catch (err) {
+    if (isValidationError(err) || isSyntaxError(err)) {
+      return apiError(errorToMessage(err), 400);
+    }
     console.error('[book] insert-block error:', err);
     return apiError('Failed to insert block', 500);
   }

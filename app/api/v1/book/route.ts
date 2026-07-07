@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/server/api-response';
 import { getBookEngine } from '@/lib/deeptutor/bootstrap';
+import { validatedBody, errorToMessage, isValidationError, isSyntaxError } from '@/lib/server/validate';
+import { BookCreateSchema } from '@/lib/server/schemas';
 
 /**
  * GET /api/v1/book — List all books (summary view)
@@ -23,12 +25,8 @@ export async function GET(_req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { userIntent, chatSelections, notebookRefs, knowledgeBases } = body;
-
-    if (!userIntent) {
-      return apiError('userIntent is required', 400);
-    }
+    const { userIntent, chatSelections, notebookRefs, knowledgeBases } =
+      await validatedBody(BookCreateSchema, req);
 
     const engine = getBookEngine();
     const book = await engine.createBook(
@@ -39,6 +37,9 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess(book, 201);
   } catch (err) {
+    if (isValidationError(err) || isSyntaxError(err)) {
+      return apiError(errorToMessage(err), 400);
+    }
     console.error('[book] POST error:', err);
     return apiError('Failed to create book', 500);
   }

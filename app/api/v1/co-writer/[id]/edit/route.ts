@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/server/api-response';
 import { getEditAgent, getOperationHistory, getCoWriterStorage } from '@/lib/deeptutor/bootstrap';
+import { validatedBody, errorToMessage, isValidationError, isSyntaxError } from '@/lib/server/validate';
+import { CoWriterEditSchema } from '@/lib/server/schemas';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -14,19 +16,8 @@ type Params = { params: Promise<{ id: string }> };
 export async function POST(req: NextRequest, { params }: Params) {
   try {
     const { id } = await params;
-    const body = await req.json();
-
-    const { text, instruction, action, source, kbName, language } = body;
-
-    // Validate required fields
-    if (!text || !action) {
-      return apiError('text and action are required', 400);
-    }
-
-    const validActions = ['rewrite', 'shorten', 'expand', 'summarize'];
-    if (!validActions.includes(action)) {
-      return apiError(`action must be one of: ${validActions.join(', ')}`, 400);
-    }
+    const { text, instruction, action, source, kbName, language } =
+      await validatedBody(CoWriterEditSchema, req);
 
     const agent = getEditAgent();
     const result = await agent.edit({
@@ -60,6 +51,9 @@ export async function POST(req: NextRequest, { params }: Params) {
       operationId: result.operationId,
     });
   } catch (err) {
+    if (isValidationError(err) || isSyntaxError(err)) {
+      return apiError(errorToMessage(err), 400);
+    }
     console.error('[co-writer] POST :id/edit error:', err);
     return apiError('Edit operation failed', 500);
   }

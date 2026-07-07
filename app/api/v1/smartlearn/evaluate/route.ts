@@ -7,6 +7,8 @@ import type { ProfileDimensions } from '@/lib/types/profile';
 import type { LearningPathNode } from '@/lib/types/learning-path';
 import type { LearningStateType } from '@/lib/learning-graph/state';
 import { createLogger } from '@/lib/logger';
+import { validatedBody, errorToMessage, isValidationError, isSyntaxError } from '@/lib/server/validate';
+import { SmartLearnEvaluateSchema } from '@/lib/server/schemas';
 
 const log = createLogger('api:smartlearn:evaluate');
 
@@ -23,15 +25,8 @@ interface EvaluateRequest {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) as EvaluateRequest;
-
-    // Validate required fields
-    if (!body.quizResults || !body.profile || !body.goal) {
-      return NextResponse.json(
-        { success: false, error: 'Missing required fields: quizResults, profile, goal' },
-        { status: 400 },
-      );
-    }
+    const validated = await validatedBody(SmartLearnEvaluateSchema, req);
+    const body = validated as unknown as EvaluateRequest;
 
     const sessionId = body.sessionId ?? `eval_${Date.now()}`;
     const turnId = `turn_eval_${Date.now()}`;
@@ -122,6 +117,12 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err) {
+    if (isValidationError(err) || isSyntaxError(err)) {
+      return NextResponse.json(
+        { success: false, error: errorToMessage(err) },
+        { status: 400 },
+      );
+    }
     const message = err instanceof Error ? err.message : String(err);
     log.error('Evaluate POST handler error:', err);
     return NextResponse.json(

@@ -39,15 +39,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const userId = getUserId(req);
-    const body = await req.json();
-    const { name, description } = body;
-
-    if (!name || typeof name !== 'string') {
-      return new Response(JSON.stringify({ error: 'name is required and must be a string' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
+    const { validatedBody } = await import('@/lib/server/validate');
+    const { KnowledgeCreateSchema } = await import('@/lib/server/schemas');
+    const { name, description } = await validatedBody(KnowledgeCreateSchema, req);
 
     const kbService = new KnowledgeServiceImpl();
     const kb = await kbService.createKb(userId, name, description);
@@ -56,6 +50,12 @@ export async function POST(req: NextRequest) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (err) {
+    if (err instanceof Error && err.name === 'ValidationError') {
+      return new Response(JSON.stringify({ error: err.message }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     log.error('POST /api/v1/knowledge failed:', err);
     return errorResponse(err);
   }

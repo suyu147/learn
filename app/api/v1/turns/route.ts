@@ -35,37 +35,25 @@ function encodeSSE(event: StreamEvent): string {
 }
 
 // ---------------------------------------------------------------------------
-// Request body shape
-// ---------------------------------------------------------------------------
-
-interface TurnRequestBody {
-  sessionId: string;
-  message: string;
-  capability?: string;
-  enabledTools?: string[];
-  knowledgeBases?: string[];
-  attachments?: unknown[];
-  language?: string;
-  /** Model configuration */
-  providerId?: string;
-  modelId?: string;
-  apiKey?: string;
-  baseUrl?: string;
-  /** Conversation history (OpenAI format) */
-  conversationHistory?: Record<string, unknown>[];
-}
-
-// ---------------------------------------------------------------------------
 // POST handler
 // ---------------------------------------------------------------------------
 
 export async function POST(req: NextRequest) {
   // --- Parse & validate request body ---
-  let body: TurnRequestBody;
+  let body;
   try {
-    body = await req.json();
-  } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+    const { validatedBody } = await import('@/lib/server/validate');
+    const { TurnCreateSchema } = await import('@/lib/server/schemas');
+    body = await validatedBody(TurnCreateSchema, req);
+  } catch (err) {
+    const { isValidationError, isSyntaxError, errorToMessage } = await import('@/lib/server/validate');
+    if (isValidationError(err) || isSyntaxError(err)) {
+      return new Response(
+        JSON.stringify({ error: errorToMessage(err) }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+    return new Response(JSON.stringify({ error: 'Invalid request' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -85,13 +73,6 @@ export async function POST(req: NextRequest) {
     baseUrl,
     conversationHistory,
   } = body;
-
-  if (!sessionId || !message) {
-    return new Response(
-      JSON.stringify({ error: 'sessionId and message are required' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } },
-    );
-  }
 
   // --- Resolve user identity (placeholder — replace with real auth in Phase 1.2) ---
   const userId = req.headers.get('x-user-id') ?? 'anonymous';

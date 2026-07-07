@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/server/api-response';
 import { getBookEngine } from '@/lib/deeptutor/bootstrap';
+import { validatedBody, errorToMessage, isValidationError, isSyntaxError } from '@/lib/server/validate';
+import { BookCompilePageSchema } from '@/lib/server/schemas';
 
 /**
  * POST /api/v1/book/compile-page
@@ -9,12 +11,7 @@ import { getBookEngine } from '@/lib/deeptutor/bootstrap';
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { bookId, pageId } = body;
-
-    if (!bookId || !pageId) {
-      return apiError('bookId and pageId are required', 400);
-    }
+    const { bookId, pageId } = await validatedBody(BookCompilePageSchema, req);
 
     const engine = getBookEngine();
     const page = await engine.compilePage(bookId, pageId);
@@ -25,6 +22,9 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess(page);
   } catch (err) {
+    if (isValidationError(err) || isSyntaxError(err)) {
+      return apiError(errorToMessage(err), 400);
+    }
     console.error('[book] compile-page error:', err);
     return apiError('Failed to compile page', 500);
   }

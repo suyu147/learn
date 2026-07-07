@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/server/api-response';
 import { getBookEngine } from '@/lib/deeptutor/bootstrap';
+import { validatedBody, errorToMessage, isValidationError, isSyntaxError } from '@/lib/server/validate';
+import { BookRegenerateBlockSchema } from '@/lib/server/schemas';
 
 /**
  * POST /api/v1/book/regenerate-block
@@ -8,12 +10,8 @@ import { getBookEngine } from '@/lib/deeptutor/bootstrap';
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { bookId, pageId, blockIndex } = body;
-
-    if (!bookId || !pageId || blockIndex === undefined) {
-      return apiError('bookId, pageId, and blockIndex are required', 400);
-    }
+    const { bookId, pageId, blockIndex } =
+      await validatedBody(BookRegenerateBlockSchema, req);
 
     const engine = getBookEngine();
     const page = await engine.regenerateBlock(bookId, pageId, blockIndex);
@@ -24,6 +22,9 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess(page);
   } catch (err) {
+    if (isValidationError(err) || isSyntaxError(err)) {
+      return apiError(errorToMessage(err), 400);
+    }
     console.error('[book] regenerate-block error:', err);
     return apiError('Failed to regenerate block', 500);
   }
