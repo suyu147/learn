@@ -1139,5 +1139,28 @@
     "modelsDesc": "浏览和管理可用的模型目录，配置搜索引擎和外部数据源",
     "networkTitle": "网络设置",
     "networkDesc": "配置网络连接、代理设置和请求超时参数"
+  },
+  "auth": {
+    "loginTitle": "欢迎回来",
+    "loginSubtitle": "登录您的 SmartLearn 账户",
+    "registerTitle": "创建账户",
+    "registerSubtitle": "加入 SmartLearn，开始您的学习之旅",
+    "username": "用户名",
+    "usernamePlaceholder": "输入用户名（至少3个字符）",
+    "password": "密码",
+    "passwordPlaceholder": "输入密码（至少6个字符）",
+    "confirmPassword": "确认密码",
+    "confirmPasswordPlaceholder": "再次输入密码",
+    "loginButton": "登录",
+    "registerButton": "注册",
+    "loggingIn": "登录中...",
+    "registering": "注册中...",
+    "noAccount": "还没有账户？",
+    "hasAccount": "已有账户？",
+    "registerLink": "创建账户",
+    "loginLink": "登录",
+    "usernameTooShort": "用户名至少需要3个字符",
+    "passwordTooShort": "密码至少需要6个字符",
+    "passwordMismatch": "两次输入的密码不一致"
   }
 }

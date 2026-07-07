@@ -1139,5 +1139,28 @@
     "modelsDesc": "Browse and manage available model catalogs, configure search engines and external data sources",
     "networkTitle": "Network Settings",
     "networkDesc": "Configure network connections, proxy settings and request timeout parameters"
+  },
+  "auth": {
+    "loginTitle": "Welcome Back",
+    "loginSubtitle": "Sign in to your SmartLearn account",
+    "registerTitle": "Create Account",
+    "registerSubtitle": "Join SmartLearn to start your learning journey",
+    "username": "Username",
+    "usernamePlaceholder": "Enter your username (min 3 characters)",
+    "password": "Password",
+    "passwordPlaceholder": "Enter your password (min 6 characters)",
+    "confirmPassword": "Confirm Password",
+    "confirmPasswordPlaceholder": "Re-enter your password",
+    "loginButton": "Sign In",
+    "registerButton": "Create Account",
+    "loggingIn": "Signing in...",
+    "registering": "Creating account...",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "registerLink": "Create account",
+    "loginLink": "Sign in",
+    "usernameTooShort": "Username must be at least 3 characters.",
+    "passwordTooShort": "Password must be at least 6 characters.",
+    "passwordMismatch": "Passwords do not match."
   }
 }

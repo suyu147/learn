@@ -64,6 +64,21 @@ import { MCPService } from '@/lib/deeptutor/services/mcp';
 import { CoWriterStorage, EditAgent, OperationHistory } from '@/lib/deeptutor/services/co-writer';
 // Phase 4b — Book Engine
 import { BookEngine, BookStorage } from '@/lib/deeptutor/services/book';
+// Phase 5 — Obsidian
+import { createObsidianTools, setObsidianToolContext } from '@/lib/deeptutor/tools/obsidian';
+import { ObsidianCapability } from '@/lib/deeptutor/capabilities/obsidian';
+// Phase 5 — Vision Solver
+import { VisionSolverCapability } from '@/lib/deeptutor/capabilities/vision';
+// Phase 5 — Math Animator
+import { MathAnimatorCapability } from '@/lib/deeptutor/capabilities/math-animator';
+// Phase 5 — Media tools
+import { createMediaTools, setMediaToolContext } from '@/lib/deeptutor/tools/media';
+// Phase 5 — Notebook Capability
+import { NotebookCapability } from '@/lib/deeptutor/capabilities/notebook';
+// Phase 5 — Skill Packs
+import { getBuiltInSkills } from '@/lib/deeptutor/services/skill-packs';
+// Phase 5 — Chat Import
+import { ChatImportService } from '@/lib/deeptutor/services/chat-import';
 
 const log = createLogger('Bootstrap');
 
@@ -95,6 +110,8 @@ let _operationHistory: OperationHistory | null = null;
 // Phase 4b services
 let _bookStorage: BookStorage | null = null;
 let _bookEngine: BookEngine | null = null;
+// Phase 5 services
+let _chatImportService: ChatImportService | null = null;
 
 /** Create an LLM call function for tools (brainstorm, reason) */
 function createToolLLMCall() {
@@ -160,6 +177,8 @@ function bootstrap(): {
   operationHistory: OperationHistory;
   bookStorage: BookStorage;
   bookEngine: BookEngine;
+  chatImportService: ChatImportService;
+  builtInSkills: ReturnType<typeof getBuiltInSkills>;
 } {
   if (_orchestrator) {
     return {
@@ -181,6 +200,8 @@ function bootstrap(): {
       operationHistory: _operationHistory!,
       bookStorage: _bookStorage!,
       bookEngine: _bookEngine!,
+      chatImportService: _chatImportService!,
+      builtInSkills: getBuiltInSkills(),
     };
   }
 
@@ -368,6 +389,69 @@ function bootstrap(): {
 
   log.info('Phase 4b: initialized BookEngine + BookStorage');
 
+  // -----------------------------------------------------------------------
+  // 7. Phase 5 — Obsidian Tools + Capability
+  // -----------------------------------------------------------------------
+  const obsidianVaultPath = process.env.DT_OBSIDIAN_VAULT ?? '';
+  if (obsidianVaultPath) {
+    setObsidianToolContext(obsidianVaultPath);
+  }
+  const obsidianTools = createObsidianTools();
+  for (const tool of obsidianTools) {
+    toolRegistry.register(tool);
+  }
+  log.info(`Phase 5: registered ${obsidianTools.length} obsidian tools`);
+
+  // -----------------------------------------------------------------------
+  // 8. Phase 5 — Media Tools
+  // -----------------------------------------------------------------------
+  setMediaToolContext({
+    imageProvider: (process.env.DT_IMAGE_PROVIDER as 'openai' | 'stability' | 'siliconflow' | 'none') ?? 'none',
+    videoProvider: (process.env.DT_VIDEO_PROVIDER as 'runwayml' | 'pika' | 'none') ?? 'none',
+    voiceProvider: (process.env.DT_VOICE_PROVIDER as 'openai' | 'elevenlabs' | 'edge' | 'none') ?? 'none',
+    apiKeys: {
+      openai: process.env.OPENAI_API_KEY ?? '',
+    },
+    outputDir: process.env.DT_MEDIA_OUTPUT_DIR ?? 'data/media',
+  });
+  const mediaTools = createMediaTools();
+  for (const tool of mediaTools) {
+    toolRegistry.register(tool);
+  }
+  log.info(`Phase 5: registered ${mediaTools.length} media tools (imagegen, videogen, voice)`);
+
+  log.info(`Total registered tools: ${toolRegistry.getAll().length}`);
+
+  // -----------------------------------------------------------------------
+  // 9. Phase 5 — New Capabilities
+  // -----------------------------------------------------------------------
+  const notebookCapability = new NotebookCapability();
+  capabilityRegistry.register(notebookCapability);
+
+  const obsidianCapability = new ObsidianCapability(toolRegistry);
+  capabilityRegistry.register(obsidianCapability);
+
+  const visionSolverCapability = new VisionSolverCapability();
+  capabilityRegistry.register(visionSolverCapability);
+
+  const mathAnimatorCapability = new MathAnimatorCapability();
+  capabilityRegistry.register(mathAnimatorCapability);
+
+  log.info(`Phase 5: registered notebook, obsidian, vision_solver, math_animator capabilities`);
+  log.info(`Total registered capabilities: ${capabilityRegistry.getAll().length}`);
+
+  // -----------------------------------------------------------------------
+  // 10. Phase 5 — Skill Packs
+  // -----------------------------------------------------------------------
+  const builtInSkills = getBuiltInSkills();
+  log.info(`Phase 5: loaded ${builtInSkills.size} built-in skill packs (${[...builtInSkills.keys()].join(', ')})`);
+
+  // -----------------------------------------------------------------------
+  // 11. Phase 5 — Chat Import Service
+  // -----------------------------------------------------------------------
+  const chatImportService = new ChatImportService();
+  log.info('Phase 5: initialized ChatImportService');
+
   // Persist singleton state
   _toolRegistry = toolRegistry;
   _capabilityRegistry = capabilityRegistry;
@@ -387,8 +471,9 @@ function bootstrap(): {
   _operationHistory = operationHistory;
   _bookStorage = bookStorage;
   _bookEngine = bookEngine;
+  _chatImportService = chatImportService;
 
-  log.info('DeepTutor bootstrap complete (Phase 4b)');
+  log.info('DeepTutor bootstrap complete (Phase 5)');
   return {
     toolRegistry, capabilityRegistry, orchestrator,
     embeddingService, ragService, kbSeedService,
@@ -397,6 +482,7 @@ function bootstrap(): {
     mcpService,
     coWriterStorage, editAgent, operationHistory,
     bookStorage, bookEngine,
+    chatImportService, builtInSkills,
   };
 }
 
@@ -479,4 +565,13 @@ export function getBookStorage() {
 
 export function getBookEngine() {
   return bootstrap().bookEngine;
+}
+
+// Phase 5 service accessors
+export function getChatImportService() {
+  return bootstrap().chatImportService;
+}
+
+export function getBuiltInSkillPacks() {
+  return bootstrap().builtInSkills;
 }

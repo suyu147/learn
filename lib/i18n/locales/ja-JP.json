@@ -1139,5 +1139,28 @@
     "modelsDesc": "利用可能なモデルカタログの閲覧と管理、検索エンジンと外部データソースの設定",
     "networkTitle": "ネットワーク設定",
     "networkDesc": "ネットワーク接続、プロキシ設定、リクエストタイムアウトパラメータを設定"
+  },
+  "auth": {
+    "loginTitle": "おかえりなさい",
+    "loginSubtitle": "SmartLearn アカウントにサインイン",
+    "registerTitle": "アカウント作成",
+    "registerSubtitle": "SmartLearn に参加して学習の旅を始めましょう",
+    "username": "ユーザー名",
+    "usernamePlaceholder": "ユーザー名を入力（3文字以上）",
+    "password": "パスワード",
+    "passwordPlaceholder": "パスワードを入力（6文字以上）",
+    "confirmPassword": "パスワード確認",
+    "confirmPasswordPlaceholder": "パスワードを再入力",
+    "loginButton": "サインイン",
+    "registerButton": "アカウント作成",
+    "loggingIn": "サインイン中...",
+    "registering": "アカウント作成中...",
+    "noAccount": "アカウントをお持ちでないですか？",
+    "hasAccount": "すでにアカウントをお持ちですか？",
+    "registerLink": "アカウント作成",
+    "loginLink": "サインイン",
+    "usernameTooShort": "ユーザー名は3文字以上必要です",
+    "passwordTooShort": "パスワードは6文字以上必要です",
+    "passwordMismatch": "パスワードが一致しません"
   }
 }

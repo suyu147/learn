@@ -1140,5 +1140,28 @@
     "modelsDesc": "Просмотр и управление каталогами моделей, настройка поисковых движков и внешних источников данных",
     "networkTitle": "Настройки сети",
     "networkDesc": "Настройте сетевые подключения, прокси и параметры таймаута запросов"
+  },
+  "auth": {
+    "loginTitle": "С возвращением",
+    "loginSubtitle": "Войдите в свой аккаунт SmartLearn",
+    "registerTitle": "Создать аккаунт",
+    "registerSubtitle": "Присоединяйтесь к SmartLearn и начните своё обучение",
+    "username": "Имя пользователя",
+    "usernamePlaceholder": "Введите имя пользователя (мин. 3 символа)",
+    "password": "Пароль",
+    "passwordPlaceholder": "Введите пароль (мин. 6 символов)",
+    "confirmPassword": "Подтвердите пароль",
+    "confirmPasswordPlaceholder": "Введите пароль ещё раз",
+    "loginButton": "Войти",
+    "registerButton": "Создать аккаунт",
+    "loggingIn": "Вход...",
+    "registering": "Создание аккаунта...",
+    "noAccount": "Нет аккаунта?",
+    "hasAccount": "Уже есть аккаунт?",
+    "registerLink": "Создать аккаунт",
+    "loginLink": "Войти",
+    "usernameTooShort": "Имя пользователя должно содержать не менее 3 символов",
+    "passwordTooShort": "Пароль должен содержать не менее 6 символов",
+    "passwordMismatch": "Пароли не совпадают"
   }
 }
