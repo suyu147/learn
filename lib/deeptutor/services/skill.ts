@@ -117,8 +117,8 @@ export class SkillServiceImpl {
         body,
         filePath,
       };
-    } catch (err: any) {
-      if (err.code === 'ENOENT') {
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
         return null;
       }
       log.error(`Failed to get skill "${name}":`, err);
@@ -209,8 +209,8 @@ export class SkillServiceImpl {
 
       log.info(`Deleted skill: ${name}`);
       return true;
-    } catch (err: any) {
-      if (err.code === 'ENOENT') {
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
         return false;
       }
       log.error(`Failed to delete skill "${name}":`, err);

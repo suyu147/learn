@@ -565,7 +565,7 @@ export default function CoWriterPage() {
               </div>
               <div className="flex items-center gap-4 text-[11px] text-[var(--muted-foreground)]">
                 <span>
-                  {t('cowriter.lastUpdated', { time: new Date(activeDoc.lastEdited || Date.now()).toLocaleString(locale) })}
+                  {t('cowriter.lastUpdated', { time: new Date(activeDoc.lastEdited || 0).toLocaleString(locale) })}
                 </span>
               </div>
             </div>

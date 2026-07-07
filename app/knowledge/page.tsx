@@ -59,11 +59,6 @@ export default function KnowledgePage() {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  // Fetch KBs on mount
-  useEffect(() => {
-    fetchKnowledgeBases();
-  }, []);
-
   const fetchKnowledgeBases = async () => {
     setLoading(true);
     setError(null);
@@ -87,6 +82,11 @@ export default function KnowledgePage() {
       setLoading(false);
     }
   };
+
+  // Fetch KBs on mount
+  useEffect(() => {
+    fetchKnowledgeBases();
+  }, []);
 
   // Fetch KB details
   const fetchKBDetails = useCallback(async (kbId: string) => {

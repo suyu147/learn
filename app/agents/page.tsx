@@ -140,11 +140,6 @@ export default function AgentsPage() {
   const [selectedAgent, setSelectedAgent] = useState<AgentInfo | null>(null);
   const [filter, setFilter] = useState<'all' | 'loop' | 'agent' | 'pipeline' | 'graph'>('all');
 
-  useEffect(() => {
-    // Try to fetch dynamic agent list from API
-    fetchAgents();
-  }, []);
-
   const fetchAgents = async () => {
     setLoading(true);
     try {
@@ -165,6 +160,11 @@ export default function AgentsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Try to fetch dynamic agent list from API
+    fetchAgents();
+  }, []);
 
   const filteredAgents =
     filter === 'all' ? agents : agents.filter((a) => a.type === filter);

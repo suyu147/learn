@@ -4,6 +4,7 @@ import { ThemeProvider } from 'next-themes';
 import { Toaster } from '@/components/ui/sonner';
 import { Sidebar } from '@/components/sidebar';
 import { ThemeScript } from '@/components/theme-script';
+import { Providers } from '@/components/providers';
 import './globals.css';
 
 const fontSans = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-sans' });
@@ -28,10 +29,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           enableSystem
           disableTransitionOnChange
         >
-          <div className="flex h-screen">
-            <Sidebar />
-            <main className="flex-1 overflow-hidden">{children}</main>
-          </div>
+          <Providers>
+            <div className="flex h-screen">
+              <Sidebar />
+              <main className="flex-1 overflow-hidden">{children}</main>
+            </div>
+          </Providers>
           <Toaster />
         </ThemeProvider>
       </body>

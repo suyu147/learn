@@ -57,11 +57,6 @@ export default function NotebookPage() {
   const [newDesc, setNewDesc] = useState('');
   const [creating, setCreating] = useState(false);
 
-  // Fetch notebooks on mount
-  useEffect(() => {
-    fetchNotebooks();
-  }, []);
-
   const fetchNotebooks = async () => {
     setLoading(true);
     try {
@@ -74,6 +69,11 @@ export default function NotebookPage() {
       setLoading(false);
     }
   };
+
+  // Fetch notebooks on mount
+  useEffect(() => {
+    fetchNotebooks();
+  }, []);
 
   // Fetch notes for selected notebook
   const fetchNotes = async (notebookId: string) => {

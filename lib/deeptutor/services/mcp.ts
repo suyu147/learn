@@ -242,7 +242,7 @@ export class MCPService {
         version: '1.0.0',
       });
 
-      await client.connect(transport as any);
+      await client.connect(transport as Parameters<typeof client.connect>[0]);
 
       const { tools } = await client.listTools();
 
@@ -317,7 +317,7 @@ export class MCPService {
         version: '1.0.0',
       });
 
-      await client.connect(transport as any);
+      await client.connect(transport as Parameters<typeof client.connect>[0]);
 
       const result = await client.callTool({
         name: toolName,

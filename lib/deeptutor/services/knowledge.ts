@@ -18,11 +18,13 @@ import { ParsingServiceImpl } from './parsing';
 import { ChunkerService } from './chunker';
 import type { EmbeddingServiceImpl } from './embedding';
 
+import { Prisma } from '@prisma/client';
+
 const log = createLogger('KnowledgeService');
 
 // Type-safe Prisma JSON
-type JsonSafe = any;
-const asJson = (val: unknown): any => val;
+type JsonValue = Prisma.InputJsonValue;
+const asJson = (val: unknown): JsonValue => val as JsonValue;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -126,7 +128,7 @@ export class KnowledgeServiceImpl {
     }
     return prisma.dtKnowledgeBase.update({
       where: { id: kbId },
-      data: data as any,
+      data: data as Record<string, unknown>,
     });
   }
 
@@ -184,7 +186,7 @@ export class KnowledgeServiceImpl {
     if (errorMessage !== undefined) data.errorMessage = errorMessage;
     return prisma.dtDocument.update({
       where: { id: docId },
-      data: data as any,
+      data: data as Record<string, unknown>,
     });
   }
 

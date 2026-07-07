@@ -115,7 +115,7 @@ function runGh(cmd: string, args: string[]): Promise<string> {
             return;
           }
 
-          const exitCode = (error as any).code ?? 'unknown';
+          const exitCode = (error as NodeJS.ErrnoException & { code?: number | string }).code ?? 'unknown';
           const stderrStr = typeof stderr === 'string' ? stderr : stderr.toString();
           const detail = stderrStr.trim() || error.message;
           reject(new Error(`gh exited with code ${exitCode}: ${detail}`));

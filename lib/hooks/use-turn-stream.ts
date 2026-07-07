@@ -68,66 +68,6 @@ export function useTurnStream() {
   const setStreaming = useChatStore((s) => s.setStreaming);
 
   /**
-   * Send a message and consume the SSE stream.
-   */
-  const send = useCallback(
-    async (params: {
-      sessionId: string;
-      message: string;
-      capability?: string;
-      enabledTools?: string[];
-      knowledgeBases?: string[];
-      language?: string;
-      providerId?: string;
-      modelId?: string;
-      apiKey?: string;
-      baseUrl?: string;
-      conversationHistory?: Record<string, unknown>[];
-    }) => {
-      // Abort previous stream if any
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-
-      // Reset state
-      contentBufferRef.current = '';
-      setState({
-        ...INITIAL_STATE,
-        isStreaming: true,
-      });
-      setStreaming(true);
-
-      // Add user message to store
-      const userMsgId = `msg-${Date.now()}-user`;
-      addMessage({
-        id: userMsgId,
-        role: 'user',
-        content: params.message,
-        timestamp: new Date().toISOString(),
-      });
-
-      try {
-        await submitTurn(params, {
-          signal: controller.signal,
-          onEvent: (event: SSEEnvelope) => {
-            handleEvent(event);
-          },
-          onError: (err: Error) => {
-            setState((s) => ({ ...s, error: err.message, isStreaming: false }));
-            setStreaming(false);
-          },
-        });
-      } catch (err) {
-        if (controller.signal.aborted) return;
-        const message = err instanceof Error ? err.message : 'Stream failed';
-        setState((s) => ({ ...s, error: message, isStreaming: false }));
-        setStreaming(false);
-      }
-    },
-    [addMessage, setStreaming],
-  );
-
-  /**
    * Handle a single SSE event from the stream.
    */
   const handleEvent = useCallback(
@@ -254,6 +194,66 @@ export function useTurnStream() {
       }
     },
     [addMessage, setStreaming],
+  );
+
+  /**
+   * Send a message and consume the SSE stream.
+   */
+  const send = useCallback(
+    async (params: {
+      sessionId: string;
+      message: string;
+      capability?: string;
+      enabledTools?: string[];
+      knowledgeBases?: string[];
+      language?: string;
+      providerId?: string;
+      modelId?: string;
+      apiKey?: string;
+      baseUrl?: string;
+      conversationHistory?: Record<string, unknown>[];
+    }) => {
+      // Abort previous stream if any
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      // Reset state
+      contentBufferRef.current = '';
+      setState({
+        ...INITIAL_STATE,
+        isStreaming: true,
+      });
+      setStreaming(true);
+
+      // Add user message to store
+      const userMsgId = `msg-${Date.now()}-user`;
+      addMessage({
+        id: userMsgId,
+        role: 'user',
+        content: params.message,
+        timestamp: new Date().toISOString(),
+      });
+
+      try {
+        await submitTurn(params, {
+          signal: controller.signal,
+          onEvent: (event: SSEEnvelope) => {
+            handleEvent(event);
+          },
+          onError: (err: Error) => {
+            setState((s) => ({ ...s, error: err.message, isStreaming: false }));
+            setStreaming(false);
+          },
+        });
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        const message = err instanceof Error ? err.message : 'Stream failed';
+        setState((s) => ({ ...s, error: message, isStreaming: false }));
+        setStreaming(false);
+      }
+    },
+    [addMessage, setStreaming, handleEvent],
   );
 
   /**
