@@ -85,7 +85,7 @@ npx vitest run lib/deeptutor/core/__tests__/
 - [ ] Prisma schema 扩展完成，`prisma migrate` 成功
 - [ ] Session/Turn/Message CRUD 可用
 - [ ] 三种认证模式可切换（无认证/单用户/多用户）
-- [ ] 17 种 StreamEvent 定义完成，SSE 可发送所有事件类型
+- [ ] 14 种 StreamEvent 定义完成（计划扩展为 17 种），SSE 可发送所有事件类型
 - [ ] input-handler 的 ask_user 可用（SSE WAIT_FOR_INPUT → POST 回传 → Promise resolve）
 - [ ] ask_user 超时降级可用（60s 后自动转普通回复）
 - [ ] Turn 取消可用（POST /api/v1/turns/:id/cancel + SSE 断开检测）
@@ -355,7 +355,7 @@ npx vitest run lib/deeptutor/core/__tests__/
 
 ### DoD
 
-- [ ] Book Engine 可用（14 种 Block + 5 个子代理）
+- [ ] Book Engine 可用（13 种 Block + 5 个子代理）
 - [ ] Co-Writer 可用
 - [ ] /book, /co-writer, /playground 页面可用
 

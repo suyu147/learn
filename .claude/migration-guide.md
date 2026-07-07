@@ -55,7 +55,7 @@ Phase 0 → Phase 1 → Phase 2a → Phase 2b → Phase 2c → Phase 2d → Phas
 **假设**：learning-graph 可以包装为 GraphCapability
 
 **约束**：
-- learning-graph 的 15 种 LearnEvent 与 17 种 StreamEvent 的映射不是简单的一对一
+- learning-graph 的 14 种 LearnEvent 与 DeepTutor 的 14 种 StreamEvent（计划扩展为 17 种）的映射不是简单的一对一
 - `agent-switch` 映射为 `STAGE_START`（语义不同：Agent切换 vs 阶段开始）
 - `tutor_response` 需要映射为 `CONTENT`（不是 `RESULT`）
 - director-graph 保留为 smartlearn 内部 PPT 编排，**不复用为 Chat Capability**
@@ -90,8 +90,8 @@ Phase 0 → Phase 1 → Phase 2a → Phase 2b → Phase 2c → Phase 2d → Phas
 | `DEFAULT_USER_ID` 从硬编码改为认证上下文 | Phase 1 | 所有使用 DEFAULT_USER_ID 的代码 | 需全局搜索替换 |
 | `useSettingsStore` 扩展为 DeepTutor 统一设置 | Phase 2d | 设置页面 | API Key 从 localStorage 迁移到服务端 |
 | `useSessionsStore` 数据模型扩展 | Phase 2d | 会话管理 | 新增 turns 层，需向后兼容 |
-| 废弃 `/api/learn` 等 16 个旧路由 | Phase 2d | 所有前端调用 | 一次性切换，旧 API 同步废弃 |
-| SSE 事件格式扩展（15种→17种） | Phase 1 | 前端 SSE 解析 | 新事件类型需前端适配 |
+| 废弃 `/api/learn` 等 17 个旧路由 | Phase 2d | 所有前端调用 | 一次性切换，旧 API 同步废弃 |
+| SSE 事件格式扩展（LearnEvent 14种 → StreamEvent 14种，计划扩展17种） | Phase 1 | 前端 SSE 解析 | 新事件类型需前端适配 |
 
 ### 修改现有文件时的安全策略
 
@@ -166,7 +166,7 @@ feat(deeptutor): Phase {N} - {简述}
 迁移时需要参考 DeepTutor Python 源码：
 
 ```
-d:\python\docment\DeepTutor-main\
+D:\python\docment\DeepTutor-main\
   deeptutor\
     tutorbot\
       agent\          ← AgentLoop, ContextBuilder, Memory, Subagent, Skills, Tools

@@ -1,30 +1,38 @@
 import type { Metadata } from 'next';
+import { Plus_Jakarta_Sans, Lora, JetBrains_Mono } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from '@/components/ui/sonner';
-import { Providers } from '@/components/providers';
+import { Sidebar } from '@/components/sidebar';
+import { ThemeScript } from '@/components/theme-script';
 import './globals.css';
 
+const fontSans = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-sans' });
+const fontSerif = Lora({ subsets: ['latin'], variable: '--font-serif' });
+const fontMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' });
+
 export const metadata: Metadata = {
-  title: 'SmartLearn - 智能学习系统',
+  title: 'SmartLearn — 智能学习系统',
   description: '基于大模型的个性化资源生成与学习多智能体系统',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN" suppressHydrationWarning>
-      <body className="min-h-screen bg-background font-sans antialiased">
+    <html lang="zh-CN" className={`${fontSans.variable} ${fontSerif.variable} ${fontMono.variable}`} suppressHydrationWarning>
+      <head>
+        <ThemeScript />
+      </head>
+      <body className="h-screen overflow-hidden antialiased">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
-          <Providers>
-            <div className="relative flex min-h-screen flex-col">
-              <main className="flex-1">{children}</main>
-            </div>
-            <Toaster />
-          </Providers>
+          <div className="flex h-screen">
+            <Sidebar />
+            <main className="flex-1 overflow-hidden">{children}</main>
+          </div>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>
