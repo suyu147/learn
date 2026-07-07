@@ -1,4 +1,4 @@
-# 会话总结 — SmartLearn 重构文档审计 + CLAUDE.md 重写
+# 会话总结 — Phase 5 完成 + 交接文档整理
 
 **日期**：2026-07-07
 **项目路径**：`D:\python\docment\smartlearn`
@@ -8,115 +8,113 @@
 
 ## 本次会话完成的工作
 
-### 1. 文档-代码交叉验证审计
+### Phase 5 剩余模块实现（commit `aa38ae9`）
 
-对 4 份核心重构文档（迁移路线图.md、功能清单.md、deeptutor项目代码结构说明.md、CLAUDE.md + source-index.md）中的 **34 条可验证声明** 进行了逐项核实，使用 3 个并行 Explore Agent 分别验证文件结构组、代码行为组、配置依赖组。
+25 个文件变更（4254 行新增），涵盖 Phase 5 验收标准的全部 11 个子模块：
 
-**审计结果**：
-- 确认正确：21 条
-- 事实性错误：10 条
-- 部分正确：3 条
+| 子模块 | 文件 | 说明 |
+|--------|------|------|
+| BM25 混合检索 | `services/bm25.ts`, `services/hybrid-search.ts` | BM25 评分 + 向量检索融合 |
+| notebook Capability | `capabilities/notebook/` | LoopCapability，交互式笔记本 |
+| obsidian Capability | `capabilities/obsidian/`, `tools/obsidian.ts` | KnowledgeCapability，9 个专属 vault 工具 |
+| vision solver | `capabilities/vision/` | PipelineCapability，4 stages（bbox → analysis → ggb → reflection） |
+| math animator | `capabilities/math-animator/` | PipelineCapability，6 stages，Manim CE 代码生成 |
+| 媒体工具 | `tools/media.ts` | ImageGen (DALL-E 3) / VideoGen / Voice (OpenAI + Edge TTS) |
+| 技能包 | `services/skill-packs.ts` | DOCX/PDF/PPTX/XLSX/skill-creator 5 个内置包 |
+| Chat Import | `services/chat-import.ts`, `app/api/v1/chat/import/` | ChatGPT/Claude 导出 + JSON/JSONL/纯文本 |
+| Auth 前端 | `app/auth/`, `app/api/v1/auth/` | 登录/注册页面 + API 路由 + 4 语言 i18n |
 
-**关键发现**：
+### 前序提交回顾
 
-| 问题 | 详情 |
-|------|------|
-| DeepTutor 版本 | 文档写 1.4.8，实际 **1.4.2** |
-| 源码路径 | 文档写 `E:\DeepTutor-main`，实际 `D:\python\docment\DeepTutor-main` |
-| 旧 API 路由数 | 文档写 16 个，实际 **17 个** |
-| LearnEvent 数量 | 文档写 15 种，实际 **14 种** |
-| StreamEvent 数量 | 文档写 17 种，DeepTutor 实际 **14 种**（17 是计划值） |
-| RAG 引擎 | 文档写 4 种，实际仅 **1 种**（LlamaIndex） |
-| Partner 渠道 | 文档写 15 个，实际 **12 个**（Teams/NapCat/WeChat 未实现） |
-| API 路由数 | 文档写 27 个，实际 **22-23 个** |
-| Next.js 版本 | 文档写 15.5，实际 `^15.3.0` |
-| Book Block | 文档写 14 种，实际 **13 种** + 1 基类 |
+| 提交 | Phase | 内容 |
+|------|-------|------|
+| `3d546f4` | Phase 0~3a | 核心类型/注册表/Prompt/AgentLoop/Chat/11 Capabilities(Loop)/23 Tools/全部 Services |
+| `2ecd424` | Phase 3b 后端 | 3 个 Agent Capabilities + MCP 服务 |
+| `9abf5e3` | Phase 3b 前端 | 所有页面从 mock 切换到真实 API |
+| `98970e8` | Phase 4a | Co-Writer 完整实现 + Playground |
+| `79d88fb` | Phase 4b | Book Engine (13 Block + 5 子代理) |
+| `d1c9f8c` | Phase 5 前置 | Zod 输入校验 + Vitest 基础设施 |
+| `428f7d8` | Phase 5 Logging | 统一替换 console.error 为 createLogger |
+| `04e3cde` | Phase 5 i18n | book/co-writer/playground/settings 页面国际化 |
+| `aa38ae9` | Phase 5 剩余 | 本次提交 |
 
-**遗漏问题**：
-- TypeScript 编译错误未解决（tsc-errors.txt 记录了 engine.ts 和 use-chat-sessions.ts 的错误）
-- 所有页面使用硬编码 mock 数据
-- Prisma Schema 8 个模型从未被实际调用
-- 新旧两套 Zustand store 并存（13 核心 + 9 v2）
-- SmartLearn（Tailwind v4 + Zustand）vs DeepTutor web（Tailwind v3 + React Context）的前端技术栈差异未讨论
-- v1 API 路由迁移只存在于工作树中，**尚未提交 Git**
+### .claude/ 文档更新
 
-**审计报告路径**：`C:\Users\lenovo\.qoderworkcn\workspace\mr7omf5n2mejna7z\outputs\smartlearn-refactor-audit.md`
-
-### 2. 重写 .claude/CLAUDE.md
-
-完全重写了 `.claude/CLAUDE.md`，包含以下 11 个章节：
-
-1. **项目基本信息** — SmartLearn + DeepTutor 的实际技术栈（含审计修正）
-2. **关键架构事实** — 两套 LangGraph 图、Agent 注册表、LearnEvent/StreamEvent 正确数量、Store 双重体系
-3. **API 路由现状** — 39 个 v1 路由（工作树）+ 17 个旧路由清单
-4. **当前已知问题** — TS 编译错误、mock 数据、Prisma 未接入、Store 双重体系
-5. **迁移执行铁律** — Phase 顺序、禁止事项、代码规范、i18n、安全策略
-6. **架构决策摘要** — 13 条决策的快速参考表
-7. **Phase 速查** — Phase 0-6 的目标和用户可见性
-8. **专项文档索引** — 其他 .claude/ 文件的用途和读取时机
-9. **DeepTutor 源码参考路径** — 模块级目录速查
-10. **提交规范** — 分支命名、提交格式、粒度
-11. **工作流规则** — 会话开始/结束时的标准操作
-12. **审计修正记录** — 所有修正项的来源追溯
-
-### 3. 修正其他 .claude/ 文件
-
-同步修正了以下文件中的事实性错误：
-
-- **`.claude/migration-guide.md`**：
-  - 旧路由数 16 → 17
-  - SSE 事件数 15→17 改为 14→14（计划扩展 17）
-  - 决策 8 中 LearnEvent 15 → 14，StreamEvent 17 → 14（计划扩展 17）
-  - DeepTutor 路径 `d:\` → `D:\`
-
-- **`.claude/acceptance-criteria.md`**：
-  - Phase 1 StreamEvent 17 种 → 14 种（计划扩展 17 种）
-  - Phase 4 Book Block 14 种 → 13 种
+- 更新 `CLAUDE.md` 第三节（API 路由状态 → 已提交）
+- 更新 `CLAUDE.md` 第四节（已知问题标记已解决项）
+- 更新 `CLAUDE.md` 第七节（Phase 速查表加状态列）
+- 更新 `CLAUDE.md` 第六节决策 #9（路由已提交）
 
 ---
 
-## 修改的文件清单
+## 验证状态
 
-| 文件 | 操作 | 说明 |
-|------|------|------|
-| `.claude/CLAUDE.md` | 完全重写 | 新的主控文档，含 11 章节 + 审计修正附录 |
-| `.claude/migration-guide.md` | 4 处修正 | 旧路由数、事件数、LearnEvent/StreamEvent 数、路径 |
-| `.claude/acceptance-criteria.md` | 2 处修正 | StreamEvent 数、Book Block 数 |
+- `npx tsc --noEmit` — **0 错误**
+- `npx vitest run` — **3 test files, 87 tests passed**
+- `git push origin master` — **成功**
 
 ---
 
 ## 项目当前状态
 
 ### 已完成
-- 侧边栏白色文本修复（`components/sidebar.tsx`）
-- `/profile` 学习画像页面创建（`app/profile/page.tsx`，含 SVG 雷达图 + 多维度分析）
-- 3 个 Profile API 路由 stub（`/api/v1/profile`、`/api/v1/profile/weak-points`、`/api/v1/profile/errors`）
-- 39 个 v1 API 路由（工作树中）
-- 4 份重构文档
-- 5 份 .claude/ AI 执行规则文件
-- 文档审计 + 修正
+
+- Phase 0~5 全部完成并提交推送
+- 100+ 个 TypeScript 文件在 `lib/deeptutor/` 下
+- 39+ 个 `/api/v1/*` 路由
+- 14 个 Capability 实现（4 Loop + 4 Agent + 1 Knowledge + 2 Pipeline + 1 Graph + 2 其他）
+- 25+ 个 Tool 实现
+- 20+ 个 Service 实现
+- 4 语言完整 i18n
+- Auth 前端（登录/注册）
 
 ### 待处理
-- ⚠️ **紧急**：提交 v1 API 路由到 Git（当前只在工作树中）
-- ⚠️ **重要**：解决 TypeScript 编译错误（`npm run build` 可能不通过）
-- 开始 Phase 0 迁移（类型定义 + MockTool + LangGraph JS 验证）
-- 统一新旧两套 Zustand store
+
+- **Phase 6 Docker 部署** — 最后一个 Phase
+- Store 双重体系统一（可选，非阻塞）
+- Prisma Schema 原始模型完全接入（可选，非阻塞）
 
 ---
 
-## 下一步建议
+## 关键技术陷阱记录（避免新窗口重复踩坑）
 
-1. **提交 Git**：`git add app/api/v1/ && git commit -m "feat: migrate API routes to /api/v1/*"`
-2. **修复 TS 错误**：解决 `lib/action/engine.ts` 和 `use-chat-sessions.ts` 的编译错误
-3. **跑 `npm run build`**：确认项目可正常构建
-4. **开始 Phase 0**：创建 `lib/deeptutor/` 目录，定义核心类型和接口
+| 陷阱 | 正确写法 |
+|------|---------|
+| StreamEvent 格式 | 用 `bus.emitContent()` / `bus.emitThinking()` 等便利方法，timestamp 是 `number`（epoch seconds） |
+| UnifiedContext | `context.userMessage`（不是 `input`），`context.conversationHistory`（不是 `history`） |
+| AgentLoopResult | `.text`（不是 `.finalContent`） |
+| getModel() | 返回 `{ model, modelInfo }`，需要 `const { model } = getModel(...)` |
+| createToken() | 3 个参数 `(userId, username, role)` |
+| loginUser() | 返回 `{ user, token } \| null` |
+| registerUser() | 返回 `CurrentUser`，需单独调 `createToken()` |
+| Bootstrap 单例 | 显式返回类型注解 + `_orchestrator` 缓存 + 公共 accessor |
+| `t()` i18n | 签名 `t(key: string, options?: Record<string, unknown>)`，第二参数不是默认字符串 |
+| ChatGPT 解析 | `message.content` 是 `unknown`，需要中间类型断言 |
+
+---
+
+## 下一步：Phase 6 Docker 部署
+
+### 验收标准
+
+1. Dockerfile 多阶段构建成功
+2. docker-compose.yml 一键启动（app + PostgreSQL）
+3. `curl http://localhost:3000/api/v1/health` 返回 `{ status: "ok" }`
+4. 所有功能在 Docker 环境中可用
+
+### 关键考量
+
+- Prisma `migrate deploy` 数据库迁移
+- 本地磁盘存储需要 volume 挂载
+- 12 家 AI 提供商 API Key 环境变量文档
+- Piston 沙箱 API 外部依赖
+- BM25 / Obsidian 文件系统依赖
 
 ---
 
 ## 新窗口衔接指引
 
-新会话开始时：
-1. 先读 `.claude/CLAUDE.md`（主控文档）
-2. 确认当前 Phase（目前为 Phase 0 未开始）
-3. 按需读取其他 `.claude/` 专项文档
-4. 参考本总结了解已完成和待处理事项
+1. 先读 `.claude/CLAUDE.md`（主控文档，已更新到最新状态）
+2. 确认当前 Phase 为 **Phase 6**
+3. 读取 `.claude/acceptance-criteria.md` Phase 6 部分
+4. 参考本总结的技术陷阱记录避免重复踩坑
