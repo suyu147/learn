@@ -1,28 +1,45 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { apiSuccess, apiError } from '@/lib/server/api-response';
+import { getBookEngine } from '@/lib/deeptutor/bootstrap';
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id: _id } = await params;
-  // TODO: Implement get book by id
-  return NextResponse.json({ success: true, data: null });
+type Params = { params: Promise<{ id: string }> };
+
+/**
+ * GET /api/v1/book/:id — Load a full book (manifest + spine + pages + progress)
+ */
+export async function GET(_req: NextRequest, { params }: Params) {
+  try {
+    const { id } = await params;
+    const engine = getBookEngine();
+    const result = await engine.getStorage().loadFullBook(id);
+
+    if (!result) {
+      return apiError('Book not found', 404, 'NOT_FOUND');
+    }
+
+    return apiSuccess(result);
+  } catch (err) {
+    console.error('[book] GET :id error:', err);
+    return apiError('Failed to load book', 500);
+  }
 }
 
-export async function PUT(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id: _id } = await params;
-  // TODO: Implement update book
-  return NextResponse.json({ success: true, data: null });
-}
+/**
+ * DELETE /api/v1/book/:id — Delete a book
+ */
+export async function DELETE(_req: NextRequest, { params }: Params) {
+  try {
+    const { id } = await params;
+    const engine = getBookEngine();
+    const deleted = await engine.getStorage().deleteBook(id);
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id: _id } = await params;
-  // TODO: Implement delete book
-  return NextResponse.json({ success: true, data: null });
+    if (!deleted) {
+      return apiError('Book not found', 404, 'NOT_FOUND');
+    }
+
+    return apiSuccess({ deleted: true });
+  } catch (err) {
+    console.error('[book] DELETE :id error:', err);
+    return apiError('Failed to delete book', 500);
+  }
 }

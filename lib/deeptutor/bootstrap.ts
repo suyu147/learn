@@ -62,6 +62,8 @@ import { VisualizeCapability } from '@/lib/deeptutor/capabilities/visualize';
 import { MCPService } from '@/lib/deeptutor/services/mcp';
 // Phase 4a — Co-Writer
 import { CoWriterStorage, EditAgent, OperationHistory } from '@/lib/deeptutor/services/co-writer';
+// Phase 4b — Book Engine
+import { BookEngine, BookStorage } from '@/lib/deeptutor/services/book';
 
 const log = createLogger('Bootstrap');
 
@@ -90,6 +92,9 @@ let _mcpService: MCPService | null = null;
 let _coWriterStorage: CoWriterStorage | null = null;
 let _editAgent: EditAgent | null = null;
 let _operationHistory: OperationHistory | null = null;
+// Phase 4b services
+let _bookStorage: BookStorage | null = null;
+let _bookEngine: BookEngine | null = null;
 
 /** Create an LLM call function for tools (brainstorm, reason) */
 function createToolLLMCall() {
@@ -153,6 +158,8 @@ function bootstrap(): {
   coWriterStorage: CoWriterStorage;
   editAgent: EditAgent;
   operationHistory: OperationHistory;
+  bookStorage: BookStorage;
+  bookEngine: BookEngine;
 } {
   if (_orchestrator) {
     return {
@@ -172,6 +179,8 @@ function bootstrap(): {
       coWriterStorage: _coWriterStorage!,
       editAgent: _editAgent!,
       operationHistory: _operationHistory!,
+      bookStorage: _bookStorage!,
+      bookEngine: _bookEngine!,
     };
   }
 
@@ -346,6 +355,19 @@ function bootstrap(): {
 
   log.info('Phase 4a: initialized CoWriterStorage, EditAgent, OperationHistory');
 
+  // -----------------------------------------------------------------------
+  // 6. Phase 4b — Book Engine
+  // -----------------------------------------------------------------------
+  const bookStorage = new BookStorage();
+  const bookEngine = new BookEngine(bookStorage, {
+    providerId: process.env.DT_DEFAULT_PROVIDER,
+    modelId: process.env.DT_DEFAULT_MODEL,
+    apiKey: process.env.DT_DEFAULT_API_KEY ?? process.env.OPENAI_API_KEY,
+    language: 'zh',
+  });
+
+  log.info('Phase 4b: initialized BookEngine + BookStorage');
+
   // Persist singleton state
   _toolRegistry = toolRegistry;
   _capabilityRegistry = capabilityRegistry;
@@ -363,8 +385,10 @@ function bootstrap(): {
   _coWriterStorage = coWriterStorage;
   _editAgent = editAgent;
   _operationHistory = operationHistory;
+  _bookStorage = bookStorage;
+  _bookEngine = bookEngine;
 
-  log.info('DeepTutor bootstrap complete (Phase 4a)');
+  log.info('DeepTutor bootstrap complete (Phase 4b)');
   return {
     toolRegistry, capabilityRegistry, orchestrator,
     embeddingService, ragService, kbSeedService,
@@ -372,6 +396,7 @@ function bootstrap(): {
     personaService, skillService, learningService,
     mcpService,
     coWriterStorage, editAgent, operationHistory,
+    bookStorage, bookEngine,
   };
 }
 
@@ -445,4 +470,13 @@ export function getEditAgent() {
 
 export function getOperationHistory() {
   return bootstrap().operationHistory;
+}
+
+// Phase 4b service accessors
+export function getBookStorage() {
+  return bootstrap().bookStorage;
+}
+
+export function getBookEngine() {
+  return bootstrap().bookEngine;
 }
