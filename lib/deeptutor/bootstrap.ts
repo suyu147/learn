@@ -60,6 +60,8 @@ import { DeepQuestionCapability } from '@/lib/deeptutor/capabilities/question';
 import { DeepResearchCapability } from '@/lib/deeptutor/capabilities/research';
 import { VisualizeCapability } from '@/lib/deeptutor/capabilities/visualize';
 import { MCPService } from '@/lib/deeptutor/services/mcp';
+// Phase 4a — Co-Writer
+import { CoWriterStorage, EditAgent, OperationHistory } from '@/lib/deeptutor/services/co-writer';
 
 const log = createLogger('Bootstrap');
 
@@ -84,6 +86,10 @@ let _skillService: SkillServiceImpl | null = null;
 let _learningService: LearningServiceImpl | null = null;
 // Phase 3b services
 let _mcpService: MCPService | null = null;
+// Phase 4a services
+let _coWriterStorage: CoWriterStorage | null = null;
+let _editAgent: EditAgent | null = null;
+let _operationHistory: OperationHistory | null = null;
 
 /** Create an LLM call function for tools (brainstorm, reason) */
 function createToolLLMCall() {
@@ -144,6 +150,9 @@ function bootstrap(): {
   skillService: SkillServiceImpl;
   learningService: LearningServiceImpl;
   mcpService: MCPService;
+  coWriterStorage: CoWriterStorage;
+  editAgent: EditAgent;
+  operationHistory: OperationHistory;
 } {
   if (_orchestrator) {
     return {
@@ -160,6 +169,9 @@ function bootstrap(): {
       skillService: _skillService!,
       learningService: _learningService!,
       mcpService: _mcpService!,
+      coWriterStorage: _coWriterStorage!,
+      editAgent: _editAgent!,
+      operationHistory: _operationHistory!,
     };
   }
 
@@ -325,6 +337,15 @@ function bootstrap(): {
     }
   }
 
+  // -----------------------------------------------------------------------
+  // 5. Phase 4a — Co-Writer
+  // -----------------------------------------------------------------------
+  const coWriterStorage = new CoWriterStorage();
+  const editAgent = new EditAgent();
+  const operationHistory = new OperationHistory();
+
+  log.info('Phase 4a: initialized CoWriterStorage, EditAgent, OperationHistory');
+
   // Persist singleton state
   _toolRegistry = toolRegistry;
   _capabilityRegistry = capabilityRegistry;
@@ -339,14 +360,18 @@ function bootstrap(): {
   _skillService = skillService;
   _learningService = learningService;
   _mcpService = mcpService;
+  _coWriterStorage = coWriterStorage;
+  _editAgent = editAgent;
+  _operationHistory = operationHistory;
 
-  log.info('DeepTutor bootstrap complete (Phase 3b)');
+  log.info('DeepTutor bootstrap complete (Phase 4a)');
   return {
     toolRegistry, capabilityRegistry, orchestrator,
     embeddingService, ragService, kbSeedService,
     sandboxService, memoryService, notebookService,
     personaService, skillService, learningService,
     mcpService,
+    coWriterStorage, editAgent, operationHistory,
   };
 }
 
@@ -407,4 +432,17 @@ export function getLearningService() {
 // Phase 3b service accessors
 export function getMCPService() {
   return bootstrap().mcpService;
+}
+
+// Phase 4a service accessors
+export function getCoWriterStorage() {
+  return bootstrap().coWriterStorage;
+}
+
+export function getEditAgent() {
+  return bootstrap().editAgent;
+}
+
+export function getOperationHistory() {
+  return bootstrap().operationHistory;
 }

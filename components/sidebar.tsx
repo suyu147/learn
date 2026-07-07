@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   NotebookPen,
   Bot,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/lib/store/ui-store';
@@ -31,6 +32,7 @@ const navGroups = [
       { href: '/book', label: 'Book', icon: Library },
       { href: '/co-writer', label: 'Co-Writer', icon: PenLine },
       { href: '/agents', label: 'Agents', icon: Bot },
+      { href: '/playground', label: 'Playground', icon: Zap },
     ],
   },
   {
