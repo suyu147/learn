@@ -1,109 +1,136 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { Sun, Moon, Monitor, Palette } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Sun, Moon, Monitor, Palette } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useSettingsStoreV2 } from '@/lib/store/settings-store';
+
+// ---------------------------------------------------------------------------
+// Appearance Page
+// ---------------------------------------------------------------------------
 
 export default function AppearancePage() {
-  const [activeTheme, setActiveTheme] = useState('system')
-  const [fontSize, setFontSize] = useState('14')
+  const theme = useSettingsStoreV2((s) => s.theme);
+  const language = useSettingsStoreV2((s) => s.language);
+  const setTheme = useSettingsStoreV2((s) => s.setTheme);
+  const setLanguage = useSettingsStoreV2((s) => s.setLanguage);
 
-  const themes = [
-    { id: 'light', label: '浅色', icon: Sun, desc: '始终使用浅色主题' },
-    { id: 'dark', label: '深色', icon: Moon, desc: '始终使用深色主题' },
-    { id: 'system', label: '系统', icon: Monitor, desc: '跟随系统主题' },
-    { id: 'sepia', label: '护眼', icon: Palette, desc: '暖色调护眼模式' },
-  ]
+  const themes: {
+    id: typeof theme;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    desc: string;
+  }[] = [
+    { id: 'light', label: 'Light', icon: Sun, desc: 'Always use light theme' },
+    { id: 'dark', label: 'Dark', icon: Moon, desc: 'Always use dark theme' },
+    { id: 'system', label: 'System', icon: Monitor, desc: 'Follow system theme' },
+    { id: 'glass', label: 'Glass', icon: Palette, desc: 'Glassmorphism effect' },
+  ];
+
+  const languages = [
+    { id: 'zh-CN', label: '简体中文' },
+    { id: 'en-US', label: 'English' },
+    { id: 'ja-JP', label: '日本語' },
+    { id: 'ru-RU', label: 'Русский' },
+  ];
 
   return (
     <div className="p-6 max-w-2xl">
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">外观设置</h1>
+        <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">
+          Appearance
+        </h1>
         <p className="text-[13px] text-[var(--muted-foreground)]">
-          自定义应用的视觉外观，包括主题、字体和显示密度
+          Customize the visual appearance, theme, and language
         </p>
       </div>
 
       <div className="space-y-6">
         {/* Theme Picker */}
         <div className="space-y-3">
-          <label className="text-[13px] font-medium text-[var(--foreground)]">主题</label>
+          <label className="text-[13px] font-medium text-[var(--foreground)]">
+            Theme
+          </label>
           <div className="grid grid-cols-2 gap-3">
-            {themes.map((theme) => {
-              const Icon = theme.icon
+            {themes.map((t) => {
+              const Icon = t.icon;
+              const isActive = theme === t.id;
               return (
                 <button
-                  key={theme.id}
-                  onClick={() => setActiveTheme(theme.id)}
+                  key={t.id}
+                  onClick={() => setTheme(t.id)}
                   className={cn(
                     'p-4 rounded-xl border text-left transition-all',
-                    activeTheme === theme.id
+                    isActive
                       ? 'border-[var(--primary)] bg-[var(--primary)]/5'
-                      : 'border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)]/50'
+                      : 'border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)]/50',
                   )}
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <Icon className={cn(
-                      'h-4 w-4',
-                      activeTheme === theme.id ? 'text-[var(--primary)]' : 'text-[var(--muted-foreground)]'
-                    )} />
-                    <span className={cn(
-                      'text-[13px] font-medium',
-                      activeTheme === theme.id ? 'text-[var(--primary)]' : 'text-[var(--foreground)]'
-                    )}>
-                      {theme.label}
+                    <Icon
+                      className={cn(
+                        'h-4 w-4',
+                        isActive
+                          ? 'text-[var(--primary)]'
+                          : 'text-[var(--muted-foreground)]',
+                      )}
+                    />
+                    <span
+                      className={cn(
+                        'text-[13px] font-medium',
+                        isActive
+                          ? 'text-[var(--primary)]'
+                          : 'text-[var(--foreground)]',
+                      )}
+                    >
+                      {t.label}
                     </span>
                   </div>
-                  <p className="text-[11px] text-[var(--muted-foreground)]">{theme.desc}</p>
+                  <p className="text-[11px] text-[var(--muted-foreground)]">
+                    {t.desc}
+                  </p>
                 </button>
-              )
+              );
             })}
           </div>
         </div>
 
-        {/* Font Size */}
+        {/* Language */}
         <div className="space-y-2">
-          <label className="text-[13px] font-medium text-[var(--foreground)]">字体大小</label>
+          <label className="text-[13px] font-medium text-[var(--foreground)]">
+            Interface Language
+          </label>
           <select
-            value={fontSize}
-            onChange={(e) => setFontSize(e.target.value)}
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
             className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
           >
-            <option value="12">小 (12px)</option>
-            <option value="14">默认 (14px)</option>
-            <option value="16">大 (16px)</option>
-            <option value="18">特大 (18px)</option>
+            {languages.map((lang) => (
+              <option key={lang.id} value={lang.id}>
+                {lang.label}
+              </option>
+            ))}
           </select>
         </div>
 
         {/* Density */}
         <div className="space-y-2">
-          <label className="text-[13px] font-medium text-[var(--foreground)]">显示密度</label>
+          <label className="text-[13px] font-medium text-[var(--foreground)]">
+            Display Density
+          </label>
           <select className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]">
-            <option>紧凑</option>
-            <option>默认</option>
-            <option>宽松</option>
-          </select>
-        </div>
-
-        {/* Language */}
-        <div className="space-y-2">
-          <label className="text-[13px] font-medium text-[var(--foreground)]">界面语言</label>
-          <select className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]">
-            <option>简体中文</option>
-            <option>English</option>
+            <option>Compact</option>
+            <option>Default</option>
+            <option>Comfortable</option>
           </select>
         </div>
       </div>
 
-      <div className="flex gap-3 mt-6">
-        <button className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity">
-          应用更改
-        </button>
-        <button className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors">
-          重置为默认
-        </button>
+      {/* Status */}
+      <div className="mt-6 p-4 rounded-lg bg-[var(--card)] border border-[var(--border)]">
+        <p className="text-[12px] text-[var(--muted-foreground)]">
+          Settings are saved automatically. Theme changes apply immediately.
+        </p>
       </div>
     </div>
-  )
+  );
 }

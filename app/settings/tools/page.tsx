@@ -1,13 +1,17 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { cn } from '@/lib/utils'
+import { useState } from 'react';
+import { cn } from '@/lib/utils';
+
+// ---------------------------------------------------------------------------
+// Tool Toggle Component
+// ---------------------------------------------------------------------------
 
 interface ToolToggleProps {
-  name: string
-  description: string
-  enabled: boolean
-  onToggle: () => void
+  name: string;
+  description: string;
+  enabled: boolean;
+  onToggle: () => void;
 }
 
 function ToolToggle({ name, description, enabled, onToggle }: ToolToggleProps) {
@@ -21,40 +25,80 @@ function ToolToggle({ name, description, enabled, onToggle }: ToolToggleProps) {
         onClick={onToggle}
         className={cn(
           'relative h-6 w-11 rounded-full transition-colors',
-          enabled ? 'bg-[var(--primary)]' : 'bg-[var(--muted)]'
+          enabled ? 'bg-[var(--primary)]' : 'bg-[var(--muted)]',
         )}
       >
         <span
           className={cn(
             'absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform',
-            enabled && 'translate-x-5'
+            enabled && 'translate-x-5',
           )}
         />
       </button>
     </div>
-  )
+  );
 }
 
+// ---------------------------------------------------------------------------
+// Tools Settings Page
+// ---------------------------------------------------------------------------
+
+const DEFAULT_TOOLS = [
+  {
+    id: 'web_search',
+    name: 'Web Search',
+    description: 'Allow the agent to search the internet for up-to-date information',
+    enabled: true,
+  },
+  {
+    id: 'code_execution',
+    name: 'Code Execution',
+    description: 'Allow the agent to run Python code for computation and validation',
+    enabled: true,
+  },
+  {
+    id: 'reason',
+    name: 'Reasoning Chain',
+    description: 'Enable step-by-step reasoning with full thought process',
+    enabled: true,
+  },
+  {
+    id: 'rag',
+    name: 'Knowledge Retrieval',
+    description: 'Retrieve relevant document fragments from indexed knowledge bases',
+    enabled: true,
+  },
+  {
+    id: 'brainstorm',
+    name: 'Brainstorm',
+    description: 'Generate multiple creative ideas and directions',
+    enabled: true,
+  },
+  {
+    id: 'paper_search',
+    name: 'Paper Search',
+    description: 'Search academic papers and research publications',
+    enabled: false,
+  },
+];
+
 export default function ToolsPage() {
-  const [tools, setTools] = useState([
-    { id: 'search', name: '网络搜索', description: '允许 Agent 搜索互联网获取最新信息', enabled: true },
-    { id: 'code', name: '代码执行', description: '允许 Agent 运行 Python 代码进行计算和验证', enabled: true },
-    { id: 'reason', name: '推理链', description: '启用分步推理，展示完整的思考过程', enabled: true },
-    { id: 'kb', name: '知识库检索', description: '从已索引的知识库中检索相关文档片段', enabled: true },
-    { id: 'calc', name: '数学计算', description: '使用 Wolfram Alpha 或 SymPy 进行精确数学计算', enabled: false },
-    { id: 'image', name: '图片生成', description: '根据描述生成示意图、思维导图等可视化内容', enabled: false },
-  ])
+  const [tools, setTools] = useState(DEFAULT_TOOLS);
 
   const toggleTool = (id: string) => {
-    setTools(tools.map((t) => (t.id === id ? { ...t, enabled: !t.enabled } : t)))
-  }
+    setTools(tools.map((t) => (t.id === id ? { ...t, enabled: !t.enabled } : t)));
+  };
+
+  const enabledCount = tools.filter((t) => t.enabled).length;
 
   return (
     <div className="p-6 max-w-2xl">
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">工具开关</h1>
+        <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">
+          Tools
+        </h1>
         <p className="text-[13px] text-[var(--muted-foreground)]">
-          管理 Agent 可调用的外部工具，启用或禁用各项能力
+          Manage external tools available to the agent ({enabledCount}/{tools.length} enabled)
         </p>
       </div>
 
@@ -71,13 +115,25 @@ export default function ToolsPage() {
       </div>
 
       <div className="flex gap-3 mt-6">
-        <button className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity">
-          应用更改
+        <button
+          onClick={() => setTools(tools.map((t) => ({ ...t, enabled: true })))}
+          className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors"
+        >
+          Enable All
         </button>
-        <button className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors">
-          全部启用
+        <button
+          onClick={() => setTools(tools.map((t) => ({ ...t, enabled: false })))}
+          className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors"
+        >
+          Disable All
         </button>
       </div>
+
+      <div className="mt-6 p-4 rounded-lg bg-[var(--card)] border border-[var(--border)]">
+        <p className="text-[12px] text-[var(--muted-foreground)]">
+          Tool settings apply to new conversations. The enabled tool set is sent with each turn request.
+        </p>
+      </div>
     </div>
-  )
+  );
 }

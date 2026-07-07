@@ -1,13 +1,17 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { cn } from '@/lib/utils'
+import { useSettingsStoreV2 } from '@/lib/store/settings-store';
+import { cn } from '@/lib/utils';
+
+// ---------------------------------------------------------------------------
+// Toggle Component
+// ---------------------------------------------------------------------------
 
 interface ToggleProps {
-  checked: boolean
-  onChange: (checked: boolean) => void
-  label: string
-  description?: string
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+  description?: string;
 }
 
 function Toggle({ checked, onChange, label, description }: ToggleProps) {
@@ -23,111 +27,165 @@ function Toggle({ checked, onChange, label, description }: ToggleProps) {
         onClick={() => onChange(!checked)}
         className={cn(
           'relative h-6 w-11 rounded-full transition-colors',
-          checked ? 'bg-[var(--primary)]' : 'bg-[var(--muted)]'
+          checked ? 'bg-[var(--primary)]' : 'bg-[var(--muted)]',
         )}
       >
         <span
           className={cn(
             'absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform',
-            checked && 'translate-x-5'
+            checked && 'translate-x-5',
           )}
         />
       </button>
     </div>
-  )
+  );
 }
 
+// ---------------------------------------------------------------------------
+// LLM Settings Page
+// ---------------------------------------------------------------------------
+
 export default function LLMSettingsPage() {
-  const [defaultModel, setDefaultModel] = useState('gpt-4o')
-  const [temperature, setTemperature] = useState('0.7')
-  const [maxTokens, setMaxTokens] = useState('4096')
-  const [thinkingMode, setThinkingMode] = useState(true)
-  const [contextProtection, setContextProtection] = useState(true)
-  const [rateLimiting, setRateLimiting] = useState(false)
+  const settings = useSettingsStoreV2();
 
   return (
     <div className="p-6 max-w-2xl">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">LLM 模型设置</h1>
+        <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">
+          LLM Settings
+        </h1>
         <p className="text-[13px] text-[var(--muted-foreground)]">
-          配置大语言模型提供商、API 密钥和默认参数
+          Configure LLM provider, API key, and default parameters
         </p>
       </div>
 
       {/* Form */}
       <div className="space-y-4">
-        {/* Default Model */}
+        {/* Provider ID */}
         <div className="space-y-2">
-          <label className="text-[13px] font-medium text-[var(--foreground)]">默认模型</label>
-          <select
-            value={defaultModel}
-            onChange={(e) => setDefaultModel(e.target.value)}
+          <label className="text-[13px] font-medium text-[var(--foreground)]">
+            Provider
+          </label>
+          <input
+            type="text"
+            value={settings.smartlearnProviderId || ''}
+            onChange={(e) =>
+              settings.setSmartlearnModel(e.target.value, settings.smartlearnModelId || '')
+            }
             className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
-          >
-            <option value="gpt-4o">GPT-4o</option>
-            <option value="claude-3.5-sonnet">Claude 3.5 Sonnet</option>
-            <option value="qwen-max">Qwen-Max</option>
-            <option value="deepseek-v2">DeepSeek-V2</option>
-          </select>
+            placeholder="openai, anthropic, google, etc."
+          />
+        </div>
+
+        {/* Model ID */}
+        <div className="space-y-2">
+          <label className="text-[13px] font-medium text-[var(--foreground)]">
+            Default Model
+          </label>
+          <input
+            type="text"
+            value={settings.smartlearnModelId || ''}
+            onChange={(e) =>
+              settings.setSmartlearnModel(
+                settings.smartlearnProviderId || '',
+                e.target.value,
+              )
+            }
+            className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
+            placeholder="gpt-4o, claude-3.5-sonnet, etc."
+          />
+        </div>
+
+        {/* API Key */}
+        <div className="space-y-2">
+          <label className="text-[13px] font-medium text-[var(--foreground)]">
+            API Key
+          </label>
+          <input
+            type="password"
+            value={settings.smartlearnApiKey || ''}
+            onChange={(e) => settings.setSmartlearnApiKey(e.target.value)}
+            className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
+            placeholder="sk-..."
+          />
+          <p className="text-[11px] text-[var(--muted-foreground)]">
+            Stored on the server side only. Never sent to the browser.
+          </p>
+        </div>
+
+        {/* Base URL */}
+        <div className="space-y-2">
+          <label className="text-[13px] font-medium text-[var(--foreground)]">
+            Base URL (optional)
+          </label>
+          <input
+            type="text"
+            value={settings.smartlearnBaseUrl || ''}
+            onChange={(e) => settings.setSmartlearnBaseUrl(e.target.value)}
+            className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
+            placeholder="https://api.openai.com/v1"
+          />
         </div>
 
         {/* Temperature */}
         <div className="space-y-2">
-          <label className="text-[13px] font-medium text-[var(--foreground)]">Temperature</label>
+          <label className="text-[13px] font-medium text-[var(--foreground)]">
+            Temperature
+          </label>
           <input
-            type="text"
-            value={temperature}
-            onChange={(e) => setTemperature(e.target.value)}
+            type="number"
+            value={settings.temperature}
+            onChange={(e) => settings.setTemperature(parseFloat(e.target.value) || 0)}
+            step="0.1"
+            min="0"
+            max="2"
             className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
-            placeholder="0.7"
           />
         </div>
 
         {/* Max Tokens */}
         <div className="space-y-2">
-          <label className="text-[13px] font-medium text-[var(--foreground)]">最大 Token 数</label>
+          <label className="text-[13px] font-medium text-[var(--foreground)]">
+            Max Tokens
+          </label>
           <input
-            type="text"
-            value={maxTokens}
-            onChange={(e) => setMaxTokens(e.target.value)}
+            type="number"
+            value={settings.maxTokens}
+            onChange={(e) => settings.setMaxTokens(parseInt(e.target.value) || 4096)}
             className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
-            placeholder="4096"
           />
         </div>
 
         {/* Toggles */}
         <div className="space-y-3 pt-2">
           <Toggle
-            checked={thinkingMode}
-            onChange={setThinkingMode}
-            label="启用 Thinking 模式"
-            description="在回答前展示思考过程，提升复杂推理任务的准确性"
+            checked={settings.thinkingMode}
+            onChange={() => settings.toggleThinkingMode()}
+            label="Thinking Mode"
+            description="Show reasoning process before the answer, improving accuracy on complex tasks"
           />
           <Toggle
-            checked={contextProtection}
-            onChange={setContextProtection}
-            label="自动上下文窗口保护"
-            description="当上下文接近限制时自动压缩历史消息"
+            checked={settings.autoContextWindow}
+            onChange={() => settings.toggleAutoContextWindow()}
+            label="Auto Context Window Protection"
+            description="Automatically compress history when context approaches the limit"
           />
           <Toggle
-            checked={rateLimiting}
-            onChange={setRateLimiting}
-            label="启用流量控制（RPM 限流）"
-            description="限制每分钟请求数，避免 API 限流错误"
+            checked={settings.rateLimitEnabled}
+            onChange={() => settings.toggleRateLimit()}
+            label="Rate Limiting (RPM throttle)"
+            description="Limit requests per minute to avoid API rate limit errors"
           />
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex gap-3 mt-6">
-        <button className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity">
-          应用更改
-        </button>
-        <button className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors">
-          重置为默认
-        </button>
+      {/* Status */}
+      <div className="mt-6 p-4 rounded-lg bg-[var(--card)] border border-[var(--border)]">
+        <p className="text-[12px] text-[var(--muted-foreground)]">
+          Settings are saved automatically and persisted in the browser. Changes take effect on the next message.
+        </p>
       </div>
     </div>
-  )
+  );
 }

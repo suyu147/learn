@@ -14,6 +14,9 @@ import {
   ChevronRight,
   Library,
   User,
+  LayoutDashboard,
+  NotebookPen,
+  Bot,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/lib/store/ui-store';
@@ -22,10 +25,12 @@ const navGroups = [
   {
     label: 'Workspace',
     items: [
+      { href: '/space', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/chat', label: 'Chat', icon: MessageSquare },
       { href: '/smartlearn', label: 'SmartLearn', icon: GraduationCap },
       { href: '/book', label: 'Book', icon: Library },
       { href: '/co-writer', label: 'Co-Writer', icon: PenLine },
+      { href: '/agents', label: 'Agents', icon: Bot },
     ],
   },
   {
@@ -33,6 +38,7 @@ const navGroups = [
     items: [
       { href: '/knowledge', label: 'Knowledge', icon: Database },
       { href: '/memory', label: 'Memory', icon: Brain },
+      { href: '/notebook', label: 'Notebook', icon: NotebookPen },
     ],
   },
 ];

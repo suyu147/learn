@@ -1,75 +1,173 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { Plus, Upload, Book, FileText, FileCheck, Search, CheckCircle2, Clock } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { useState, useEffect, useCallback } from 'react';
+import {
+  Plus,
+  Upload,
+  Book,
+  FileText,
+  FileCheck,
+  Search,
+  CheckCircle2,
+  Clock,
+  Trash2,
+  Loader2,
+  AlertCircle,
+  X,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useKnowledgeStore, type KnowledgeBase } from '@/lib/store/knowledge-store';
+import { apiGet, apiPost, apiDelete, apiUpload } from '@/lib/api-client';
 
-interface KnowledgeBase {
-  id: string
-  title: string
-  description: string
-  blocks: number
-  status: 'indexed' | 'indexing'
-  icon: React.ComponentType<{ className?: string }>
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface KBDocument {
+  id: string;
+  title: string;
+  filePath: string;
+  chunkCount: number;
+  status: string;
+  createdAt: string;
 }
 
-interface RetrievalResult {
-  id: string
-  score: number
-  snippet: string
-  source: string
+interface KBDetails {
+  knowledgeBase: KnowledgeBase;
+  documents: KBDocument[];
 }
+
+// ---------------------------------------------------------------------------
+// Knowledge Page
+// ---------------------------------------------------------------------------
 
 export default function KnowledgePage() {
-  const [searchQuery, setSearchQuery] = useState('SVD 在推荐系统中的应用')
+  const knowledgeBases = useKnowledgeStore((s) => s.knowledgeBases);
+  const addKB = useKnowledgeStore((s) => s.addKB);
+  const removeKB = useKnowledgeStore((s) => s.removeKB);
+  const updateKB = useKnowledgeStore((s) => s.updateKB);
 
-  const knowledgeBases: KnowledgeBase[] = [
-    {
-      id: '1',
-      title: '线性代数教材',
-      description: '包含矩阵分解、特征值、线性变换等核心概念',
-      blocks: 42,
-      status: 'indexed',
-      icon: Book,
-    },
-    {
-      id: '2',
-      title: 'Python 编程笔记',
-      description: 'Python 基础语法、NumPy、Pandas 等库的使用',
-      blocks: 28,
-      status: 'indexed',
-      icon: FileText,
-    },
-    {
-      id: '3',
-      title: '机器学习论文',
-      description: '推荐系统、协同过滤、矩阵分解相关论文',
-      blocks: 15,
-      status: 'indexing',
-      icon: FileCheck,
-    },
-  ]
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedKB, setSelectedKB] = useState<string | null>(null);
+  const [kbDetails, setKbDetails] = useState<KBDetails | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
-  const retrievalResults: RetrievalResult[] = [
-    {
-      id: '1',
-      score: 0.94,
-      snippet: 'SVD 分解在推荐系统中的核心应用是通过矩阵分解将用户-物品评分矩阵分解为低秩近似，从而发现用户和物品的潜在特征向量...',
-      source: '线性代数教材 · 第 8 章',
-    },
-    {
-      id: '2',
-      score: 0.87,
-      snippet: '协同过滤算法利用 SVD 进行降维处理，保留前 k 个最大奇异值，实现用户偏好和物品特征的隐语义分析...',
-      source: '机器学习论文 · Paper #3',
-    },
-    {
-      id: '3',
-      score: 0.79,
-      snippet: '在 Netflix Prize 竞赛中，基于 SVD 的矩阵分解方法取得了显著效果，成为推荐系统领域的经典基线模型...',
-      source: '机器学习论文 · Paper #7',
-    },
-  ]
+  // Fetch KBs on mount
+  useEffect(() => {
+    fetchKnowledgeBases();
+  }, []);
+
+  const fetchKnowledgeBases = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await apiGet<{ knowledgeBases: KnowledgeBase[] }>(
+        '/api/v1/knowledge',
+      );
+      // Sync to store (replace all)
+      for (const kb of data.knowledgeBases) {
+        // Check if already in store
+        const existing = knowledgeBases.find((k) => k.id === kb.id);
+        if (!existing) {
+          addKB(kb);
+        } else {
+          updateKB(kb.id, kb);
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load knowledge bases');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch KB details
+  const fetchKBDetails = useCallback(async (kbId: string) => {
+    setDetailsLoading(true);
+    try {
+      const data = await apiGet<KBDetails>(`/api/v1/knowledge/${kbId}`);
+      setKbDetails(data);
+    } catch (err) {
+      console.error('Failed to load KB details:', err);
+    } finally {
+      setDetailsLoading(false);
+    }
+  }, []);
+
+  // Create KB
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
+    setCreating(true);
+    try {
+      const data = await apiPost<{ knowledgeBase: KnowledgeBase }>(
+        '/api/v1/knowledge',
+        { name: newName.trim(), description: newDesc.trim() },
+      );
+      addKB(data.knowledgeBase);
+      setNewName('');
+      setNewDesc('');
+      setShowCreateForm(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create knowledge base');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  // Delete KB
+  const handleDelete = async (kbId: string) => {
+    if (!confirm('Delete this knowledge base and all its documents?')) return;
+    try {
+      await apiDelete(`/api/v1/knowledge/${kbId}`);
+      removeKB(kbId);
+      if (selectedKB === kbId) {
+        setSelectedKB(null);
+        setKbDetails(null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete knowledge base');
+    }
+  };
+
+  // Upload document
+  const handleUpload = async (kbId: string, file: File) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      await apiUpload(`/api/v1/knowledge/${kbId}/documents`, formData);
+      // Refresh KB details
+      if (selectedKB === kbId) {
+        await fetchKBDetails(kbId);
+      }
+      // Refresh KB list to update counts
+      await fetchKnowledgeBases();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload document');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Select KB for details
+  const handleSelectKB = (kbId: string) => {
+    setSelectedKB(kbId);
+    fetchKBDetails(kbId);
+  };
+
+  // Get icon based on status
+  const getKBIcon = (kb: KnowledgeBase) => {
+    if (kb.indexStatus === 'ready') return FileCheck;
+    if (kb.indexStatus === 'indexing') return Clock;
+    return Book;
+  };
 
   return (
     <div className="flex h-full bg-[var(--background)]">
@@ -78,112 +176,318 @@ export default function KnowledgePage() {
         {/* Header */}
         <div className="border-b border-[var(--border)] px-6 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-semibold text-[var(--foreground)]">知识库</h1>
-            <button className="px-3 py-1.5 rounded-lg text-[13px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity flex items-center gap-1.5">
+            <h1 className="text-xl font-semibold text-[var(--foreground)]">
+              Knowledge Base
+            </h1>
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="px-3 py-1.5 rounded-lg text-[13px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity flex items-center gap-1.5"
+            >
               <Plus className="h-3.5 w-3.5" />
-              新建知识库
+              New KB
             </button>
           </div>
         </div>
 
-        {/* Upload Zone */}
-        <div className="px-6 py-6">
-          <div className="border-2 border-dashed border-[var(--border)] rounded-xl p-8 text-center hover:border-[var(--primary)] transition-colors cursor-pointer">
-            <Upload className="h-8 w-8 text-[var(--muted-foreground)] mx-auto mb-3" />
-            <p className="text-[14px] font-medium text-[var(--foreground)] mb-1">拖放文件到此处上传</p>
-            <p className="text-[12px] text-[var(--muted-foreground)]">
-              支持 PDF、DOCX、MD、TXT · 单文件最大 50MB
-            </p>
+        {/* Error banner */}
+        {error && (
+          <div className="mx-6 mt-4 flex items-center gap-2 bg-[var(--destructive)]/10 border border-[var(--destructive)]/30 rounded-lg px-4 py-3">
+            <AlertCircle className="h-4 w-4 text-[var(--destructive)] shrink-0" />
+            <p className="text-[13px] text-[var(--destructive)] flex-1">{error}</p>
+            <button onClick={() => setError(null)}>
+              <X className="h-4 w-4 text-[var(--destructive)]" />
+            </button>
           </div>
-        </div>
+        )}
+
+        {/* Create form */}
+        {showCreateForm && (
+          <div className="px-6 py-4">
+            <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 space-y-3">
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
+                placeholder="Knowledge base name"
+                autoFocus
+              />
+              <textarea
+                value={newDesc}
+                onChange={(e) => setNewDesc(e.target.value)}
+                className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)] resize-none"
+                placeholder="Description (optional)"
+                rows={2}
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCreate}
+                  disabled={creating || !newName.trim()}
+                  className="px-3 py-1.5 rounded-lg text-[13px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {creating ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5" />
+                  )}
+                  Create
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCreateForm(false);
+                    setNewName('');
+                    setNewDesc('');
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Upload Zone */}
+        {selectedKB && (
+          <div className="px-6 py-4">
+            <div
+              className="border-2 border-dashed border-[var(--border)] rounded-xl p-6 text-center hover:border-[var(--primary)] transition-colors cursor-pointer relative"
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                  handleUpload(selectedKB, files[0]);
+                }
+              }}
+            >
+              <input
+                type="file"
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                onChange={(e) => {
+                  const files = e.target.files;
+                  if (files && files.length > 0) {
+                    handleUpload(selectedKB, files[0]);
+                  }
+                }}
+              />
+              {uploading ? (
+                <Loader2 className="h-8 w-8 text-[var(--primary)] mx-auto mb-3 animate-spin" />
+              ) : (
+                <Upload className="h-8 w-8 text-[var(--muted-foreground)] mx-auto mb-3" />
+              )}
+              <p className="text-[14px] font-medium text-[var(--foreground)] mb-1">
+                {uploading ? 'Uploading...' : 'Drop files here or click to upload'}
+              </p>
+              <p className="text-[12px] text-[var(--muted-foreground)]">
+                Supports PDF, DOCX, MD, TXT · Max 50MB per file
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Knowledge Base Cards */}
         <div className="px-6 pb-6">
-          <div className="grid grid-cols-1 gap-3">
-            {knowledgeBases.map((kb) => {
-              const Icon = kb.icon
-              return (
-                <div
-                  key={kb.id}
-                  className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 hover:border-[var(--primary)] transition-colors cursor-pointer"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-lg bg-[var(--muted)]">
-                      <Icon className="h-5 w-5 text-[var(--primary)]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <h3 className="text-[14px] font-semibold text-[var(--foreground)]">{kb.title}</h3>
-                        <span
-                          className={cn(
-                            'px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1',
-                            kb.status === 'indexed'
-                              ? 'bg-[var(--success)] text-white'
-                              : 'bg-[var(--warning)] text-white'
-                          )}
-                        >
-                          {kb.status === 'indexed' ? (
-                            <>
-                              <CheckCircle2 className="h-2.5 w-2.5" />
-                              已索引
-                            </>
-                          ) : (
-                            <>
-                              <Clock className="h-2.5 w-2.5" />
-                              索引中
-                            </>
-                          )}
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 text-[var(--primary)] animate-spin" />
+            </div>
+          ) : knowledgeBases.length === 0 ? (
+            <div className="text-center py-12">
+              <Book className="h-10 w-10 text-[var(--muted-foreground)] mx-auto mb-4 opacity-40" />
+              <p className="text-[14px] text-[var(--muted-foreground)]">
+                No knowledge bases yet. Create one to get started.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3">
+              {knowledgeBases.map((kb) => {
+                const Icon = getKBIcon(kb);
+                const isSelected = selectedKB === kb.id;
+                return (
+                  <div
+                    key={kb.id}
+                    onClick={() => handleSelectKB(kb.id)}
+                    className={cn(
+                      'bg-[var(--card)] border rounded-xl p-4 transition-colors cursor-pointer',
+                      isSelected
+                        ? 'border-[var(--primary)]'
+                        : 'border-[var(--border)] hover:border-[var(--primary)]',
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-[var(--muted)]">
+                        <Icon className="h-5 w-5 text-[var(--primary)]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <h3 className="text-[14px] font-semibold text-[var(--foreground)]">
+                            {kb.name}
+                          </h3>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                'px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1',
+                                kb.indexStatus === 'ready'
+                                  ? 'bg-[var(--success)] text-white'
+                                  : kb.indexStatus === 'indexing'
+                                    ? 'bg-[var(--warning)] text-white'
+                                    : kb.indexStatus === 'error'
+                                      ? 'bg-[var(--destructive)] text-white'
+                                      : 'bg-[var(--muted)] text-[var(--muted-foreground)]',
+                              )}
+                            >
+                              {kb.indexStatus === 'ready' ? (
+                                <>
+                                  <CheckCircle2 className="h-2.5 w-2.5" />
+                                  Ready
+                                </>
+                              ) : kb.indexStatus === 'indexing' ? (
+                                <>
+                                  <Clock className="h-2.5 w-2.5" />
+                                  Indexing
+                                </>
+                              ) : (
+                                kb.indexStatus
+                              )}
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(kb.id);
+                              }}
+                              className="p-1 rounded hover:bg-[var(--destructive)]/10 transition-colors"
+                            >
+                              <Trash2 className="h-3.5 w-3.5 text-[var(--muted-foreground)] hover:text-[var(--destructive)]" />
+                            </button>
+                          </div>
+                        </div>
+                        {kb.description && (
+                          <p className="text-[12px] text-[var(--muted-foreground)] mb-2">
+                            {kb.description}
+                          </p>
+                        )}
+                        <span className="text-[11px] text-[var(--muted-foreground)]">
+                          {kb.documentCount} docs · {kb.blockCount} blocks
                         </span>
                       </div>
-                      <p className="text-[12px] text-[var(--muted-foreground)] mb-2">{kb.description}</p>
-                      <span className="text-[11px] text-[var(--muted-foreground)]">{kb.blocks} blocks</span>
                     </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Right Panel - RAG Preview */}
+      {/* Right Panel - KB Details & Documents */}
       <div className="w-96 border-l border-[var(--border)] bg-[var(--card)] overflow-y-auto">
         <div className="p-4 space-y-4">
           <h3 className="text-[12px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
-            RAG 检索预览
+            {selectedKB ? 'Documents' : 'RAG Search Preview'}
           </h3>
 
-          {/* Search Input */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)]" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg pl-9 pr-3 py-2 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
-              placeholder="输入查询内容..."
-            />
-          </div>
-
-          {/* Retrieval Results */}
-          <div className="space-y-3">
-            {retrievalResults.map((result) => (
-              <div
-                key={result.id}
-                className="bg-[var(--background)] rounded-lg p-3 space-y-2 hover:border-[var(--primary)] border border-transparent transition-colors cursor-pointer"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-[var(--primary)]">
-                    相似度：{(result.score * 100).toFixed(0)}%
-                  </span>
-                  <span className="text-[10px] text-[var(--muted-foreground)]">{result.source}</span>
-                </div>
-                <p className="text-[12px] text-[var(--foreground)] leading-relaxed line-clamp-3">{result.snippet}</p>
+          {!selectedKB ? (
+            <>
+              {/* Search Input */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)]" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg pl-9 pr-3 py-2 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
+                  placeholder="Search knowledge bases..."
+                />
               </div>
-            ))}
-          </div>
+
+              <p className="text-[12px] text-[var(--muted-foreground)]">
+                Select a knowledge base to view its documents and indexing details.
+              </p>
+            </>
+          ) : (
+            <>
+              {detailsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 text-[var(--primary)] animate-spin" />
+                </div>
+              ) : kbDetails ? (
+                <div className="space-y-3">
+                  {/* KB Info */}
+                  <div className="bg-[var(--background)] rounded-lg p-3 space-y-2">
+                    <h4 className="text-[13px] font-medium text-[var(--foreground)]">
+                      {kbDetails.knowledgeBase.name}
+                    </h4>
+                    {kbDetails.knowledgeBase.description && (
+                      <p className="text-[11px] text-[var(--muted-foreground)]">
+                        {kbDetails.knowledgeBase.description}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-4 text-[11px] text-[var(--muted-foreground)]">
+                      <span>{kbDetails.documents.length} documents</span>
+                      <span>
+                        {kbDetails.documents.reduce(
+                          (acc, d) => acc + d.chunkCount,
+                          0,
+                        )}{' '}
+                        chunks
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Document list */}
+                  <div className="space-y-2">
+                    {kbDetails.documents.map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="bg-[var(--background)] rounded-lg p-3 flex items-center justify-between"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[12px] font-medium text-[var(--foreground)] truncate">
+                            {doc.title}
+                          </p>
+                          <p className="text-[10px] text-[var(--muted-foreground)]">
+                            {doc.chunkCount} chunks · {doc.status}
+                          </p>
+                        </div>
+                        {doc.status === 'indexed' ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-[var(--success)] shrink-0 ml-2" />
+                        ) : (
+                          <Clock className="h-3.5 w-3.5 text-[var(--warning)] shrink-0 ml-2 animate-pulse" />
+                        )}
+                      </div>
+                    ))}
+
+                    {kbDetails.documents.length === 0 && (
+                      <p className="text-[12px] text-[var(--muted-foreground)] text-center py-4">
+                        No documents yet. Upload files above.
+                      </p>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setSelectedKB(null);
+                      setKbDetails(null);
+                    }}
+                    className="text-[12px] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                  >
+                    ← Back to list
+                  </button>
+                </div>
+              ) : (
+                <p className="text-[12px] text-[var(--muted-foreground)]">
+                  Failed to load document details.
+                </p>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>
-  )
+  );
 }
