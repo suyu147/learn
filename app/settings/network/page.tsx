@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/lib/hooks/use-i18n'
 
 interface ToggleFieldProps {
   label: string
@@ -38,13 +39,14 @@ function ToggleField({ label, description, checked, onChange }: ToggleFieldProps
 export default function NetworkPage() {
   const [proxy, setProxy] = useState(false)
   const [retry, setRetry] = useState(true)
+  const { t } = useI18n()
 
   return (
     <div className="p-6 max-w-2xl">
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">网络设置</h1>
+        <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">{t('settingsNav.networkTitle')}</h1>
         <p className="text-[13px] text-[var(--muted-foreground)]">
-          配置网络连接、代理设置和请求超时参数
+          {t('settingsNav.networkDesc')}
         </p>
       </div>
 
@@ -94,10 +96,10 @@ export default function NetworkPage() {
 
       <div className="flex gap-3 mt-6">
         <button className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity">
-          应用更改
+          {t('settingsNav.applyChanges')}
         </button>
         <button className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors">
-          测试连接
+          {t('settingsNav.testConnection')}
         </button>
       </div>
     </div>

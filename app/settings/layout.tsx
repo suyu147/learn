@@ -4,19 +4,21 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Bot, Cpu, Search, ToggleRight, Brain, Palette, Wifi, Activity } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/lib/hooks/use-i18n'
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { t } = useI18n()
 
   const navItems = [
-    { label: 'LLM 模型', href: '/settings/llm', icon: Bot },
-    { label: '嵌入模型', href: '/settings/embedding', icon: Cpu },
-    { label: '搜索引擎', href: '/settings/models', icon: Search },
-    { label: '工具开关', href: '/settings/tools', icon: ToggleRight },
-    { label: '记忆设置', href: '/settings/memory', icon: Brain },
-    { label: '外观设置', href: '/settings/appearance', icon: Palette },
-    { label: '网络设置', href: '/settings/network', icon: Wifi },
-    { label: '系统状态', href: '/settings/status', icon: Activity },
+    { labelKey: 'settingsNav.llmModels', href: '/settings/llm', icon: Bot },
+    { labelKey: 'settingsNav.embeddingModels', href: '/settings/embedding', icon: Cpu },
+    { labelKey: 'settingsNav.searchEngine', href: '/settings/models', icon: Search },
+    { labelKey: 'settingsNav.toolToggles', href: '/settings/tools', icon: ToggleRight },
+    { labelKey: 'settingsNav.memory', href: '/settings/memory', icon: Brain },
+    { labelKey: 'settingsNav.appearance', href: '/settings/appearance', icon: Palette },
+    { labelKey: 'settingsNav.network', href: '/settings/network', icon: Wifi },
+    { labelKey: 'settingsNav.status', href: '/settings/status', icon: Activity },
   ]
 
   return (
@@ -24,7 +26,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
       {/* Left Navigation */}
       <div className="w-[200px] border-r border-[var(--border)] bg-[var(--card)] flex flex-col">
         <div className="px-4 py-4 border-b border-[var(--border)]">
-          <h2 className="text-[14px] font-semibold text-[var(--foreground)]">设置中心</h2>
+          <h2 className="text-[14px] font-semibold text-[var(--foreground)]">{t('settingsNav.settingsCenter')}</h2>
         </div>
         <nav className="flex-1 py-2">
           {navItems.map((item) => {
@@ -42,7 +44,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                 )}
               >
                 <Icon className="h-4 w-4" />
-                {item.label}
+                {t(item.labelKey)}
               </Link>
             )
           })}

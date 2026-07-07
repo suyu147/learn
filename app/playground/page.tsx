@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { submitTurn, type SSEEnvelope } from '@/lib/api-client'
+import { useI18n } from '@/lib/hooks/use-i18n'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -36,13 +37,13 @@ interface PlaygroundEvent {
 
 type Capability = 'chat' | 'deep_solve' | 'mastery_path' | 'deep_research' | 'visualize' | 'smartlearn'
 
-const CAPABILITIES: { id: Capability; label: string; icon: React.ComponentType<{ className?: string }>; description: string }[] = [
-  { id: 'chat', label: 'Chat', icon: MessageSquare, description: '通用对话' },
-  { id: 'deep_solve', label: 'Solve', icon: Lightbulb, description: '深度解题' },
-  { id: 'mastery_path', label: 'Quiz', icon: HelpCircle, description: '掌握路径' },
-  { id: 'deep_research', label: 'Research', icon: Search, description: '深度研究' },
-  { id: 'visualize', label: 'Visualize', icon: BarChart3, description: '可视化' },
-  { id: 'smartlearn', label: 'SmartLearn', icon: GraduationCap, description: '智能学习' },
+const CAPABILITIES: { id: Capability; label: string; icon: React.ComponentType<{ className?: string }>; descKey: string }[] = [
+  { id: 'chat', label: 'Chat', icon: MessageSquare, descKey: 'playground.capabilityDescriptions.chat' },
+  { id: 'deep_solve', label: 'Solve', icon: Lightbulb, descKey: 'playground.capabilityDescriptions.deepSolve' },
+  { id: 'mastery_path', label: 'Quiz', icon: HelpCircle, descKey: 'playground.capabilityDescriptions.masteryPath' },
+  { id: 'deep_research', label: 'Research', icon: Search, descKey: 'playground.capabilityDescriptions.deepResearch' },
+  { id: 'visualize', label: 'Visualize', icon: BarChart3, descKey: 'playground.capabilityDescriptions.visualize' },
+  { id: 'smartlearn', label: 'SmartLearn', icon: GraduationCap, descKey: 'playground.capabilityDescriptions.smartlearn' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -50,6 +51,7 @@ const CAPABILITIES: { id: Capability; label: string; icon: React.ComponentType<{
 // ---------------------------------------------------------------------------
 
 export default function PlaygroundPage() {
+  const { t, locale } = useI18n()
   const [capability, setCapability] = useState<Capability>('chat')
   const [message, setMessage] = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -111,7 +113,7 @@ export default function PlaygroundPage() {
             const evt: PlaygroundEvent = {
               id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
               type: event.type,
-              timestamp: new Date().toLocaleTimeString('zh-CN'),
+              timestamp: new Date().toLocaleTimeString(locale),
               data: event.data,
             }
 
@@ -145,7 +147,7 @@ export default function PlaygroundPage() {
               {
                 id: `${Date.now()}-err`,
                 type: 'error',
-                timestamp: new Date().toLocaleTimeString('zh-CN'),
+                timestamp: new Date().toLocaleTimeString(locale),
                 data: { message: err.message },
               },
             ])
@@ -190,7 +192,7 @@ export default function PlaygroundPage() {
               <Zap className="h-5 w-5 text-[var(--primary)]" />
               <h1 className="text-lg font-semibold text-[var(--foreground)]">Playground</h1>
               <span className="px-2 py-0.5 text-[11px] font-medium rounded-full bg-[var(--muted)] text-[var(--muted-foreground)]">
-                测试工具
+                {t('playground.testTool')}
               </span>
             </div>
             {streaming && (
@@ -286,10 +288,10 @@ export default function PlaygroundPage() {
               <div className="text-center">
                 <Play className="h-10 w-10 text-[var(--muted-foreground)] mx-auto mb-3 opacity-30" />
                 <p className="text-[14px] font-medium text-[var(--foreground)] mb-1">
-                  选择一个 Capability 并输入消息
+                  {t('playground.selectCapability')}
                 </p>
                 <p className="text-[12px] text-[var(--muted-foreground)]">
-                  Playground 用于测试各 Capability 的流式输出
+                  {t('playground.playgroundDesc')}
                 </p>
               </div>
             </div>
@@ -309,7 +311,7 @@ export default function PlaygroundPage() {
                     runTurn()
                   }
                 }}
-                placeholder="输入测试消息..."
+                placeholder={t('playground.enterMessage')}
                 className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)] resize-none min-h-[44px] max-h-[120px]"
                 rows={1}
               />
@@ -332,7 +334,7 @@ export default function PlaygroundPage() {
             )}
           </div>
           <p className="text-[11px] text-[var(--muted-foreground)] mt-2 text-center">
-            Enter 发送 · Shift+Enter 换行
+            {t('playground.enterHint')}
           </p>
         </div>
       </div>
@@ -367,7 +369,7 @@ export default function PlaygroundPage() {
         <div className="flex-1 overflow-y-auto p-3 space-y-1.5 font-mono text-[11px]">
           {events.length === 0 ? (
             <div className="text-center py-8 text-[var(--muted-foreground)]">
-              暂无事件
+              {t('playground.noEvents')}
             </div>
           ) : (
             events.map((evt) => (

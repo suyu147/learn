@@ -20,6 +20,7 @@ import {
 import { cn } from '@/lib/utils'
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api-client'
 import { useCowriterStore, type CowriterDoc } from '@/lib/store/cowriter-store'
+import { useI18n } from '@/lib/hooks/use-i18n'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -63,6 +64,7 @@ function renderMarkdown(md: string): string {
 
 export default function CoWriterPage() {
   const store = useCowriterStore()
+  const { t, locale } = useI18n()
 
   // Local state
   const [docs, setDocs] = useState<DocSummary[]>([])
@@ -130,7 +132,7 @@ export default function CoWriterPage() {
     try {
       const doc = await apiPost<{ id: string; title: string; content: string; createdAt: string; updatedAt: string }>(
         '/api/v1/co-writer',
-        { title: '未命名文档', content: '# 未命名文档\n\n开始写作...' },
+        { title: t('cowriter.unnamedDocument'), content: `# ${t('cowriter.unnamedDocument')}\n\n${t('cowriter.startWriting')}` },
       )
       store.addDoc({
         id: doc.id,
@@ -153,7 +155,7 @@ export default function CoWriterPage() {
   const deleteDoc = useCallback(
     async (id: string, e: React.MouseEvent) => {
       e.stopPropagation()
-      if (!confirm('确定删除此文档？')) return
+      if (!confirm(t('cowriter.confirmDelete'))) return
       try {
         await apiDelete(`/api/v1/co-writer/${id}`)
         store.removeDoc(id)
@@ -266,11 +268,11 @@ export default function CoWriterPage() {
       {/* Document list sidebar */}
       <div className="w-64 border-r border-[var(--border)] flex flex-col bg-[var(--card)]">
         <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between">
-          <h2 className="text-[13px] font-semibold text-[var(--foreground)]">文档列表</h2>
+          <h2 className="text-[13px] font-semibold text-[var(--foreground)]">{t('cowriter.documentList')}</h2>
           <button
             onClick={createDoc}
             className="p-1.5 rounded-lg hover:bg-[var(--muted)] transition-colors"
-            title="新建文档"
+            title={t('cowriter.newDocument')}
           >
             <Plus className="h-4 w-4 text-[var(--muted-foreground)]" />
           </button>
@@ -284,12 +286,12 @@ export default function CoWriterPage() {
           ) : docs.length === 0 ? (
             <div className="text-center py-8">
               <FileText className="h-8 w-8 text-[var(--muted-foreground)] mx-auto mb-2 opacity-40" />
-              <p className="text-[12px] text-[var(--muted-foreground)]">暂无文档</p>
+              <p className="text-[12px] text-[var(--muted-foreground)]">{t('cowriter.noDocuments')}</p>
               <button
                 onClick={createDoc}
                 className="mt-2 text-[12px] text-[var(--primary)] hover:underline"
               >
-                创建第一个文档
+                {t('cowriter.createFirstDoc')}
               </button>
             </div>
           ) : (
@@ -314,7 +316,7 @@ export default function CoWriterPage() {
                   </div>
                   <div className="text-[10px] text-[var(--muted-foreground)] mt-1 flex items-center gap-1">
                     <Clock className="h-2.5 w-2.5" />
-                    {new Date(doc.updatedAt).toLocaleDateString('zh-CN')}
+                    {new Date(doc.updatedAt).toLocaleDateString(locale)}
                   </div>
                 </div>
                 <button
@@ -343,13 +345,13 @@ export default function CoWriterPage() {
                 <span className="text-[11px] flex items-center gap-1">
                   {saving ? (
                     <span className="text-[var(--muted-foreground)] flex items-center gap-1">
-                      <Loader2 className="h-3 w-3 animate-spin" /> 保存中...
+                      <Loader2 className="h-3 w-3 animate-spin" /> {t('cowriter.saving')}
                     </span>
                   ) : dirty ? (
-                    <span className="text-[var(--warning)]">● 未保存</span>
+                    <span className="text-[var(--warning)]">● {t('cowriter.unsaved')}</span>
                   ) : (
                     <span className="text-[var(--success)] flex items-center gap-1">
-                      <Save className="h-3 w-3" /> 已保存
+                      <Save className="h-3 w-3" /> {t('cowriter.saved')}
                     </span>
                   )}
                 </span>
@@ -366,7 +368,7 @@ export default function CoWriterPage() {
                         ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
                         : 'bg-[var(--card)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]',
                     )}
-                    title="仅编辑器"
+                    title={t('cowriter.editorOnly')}
                   >
                     <PenLine className="h-3 w-3" />
                   </button>
@@ -378,7 +380,7 @@ export default function CoWriterPage() {
                         ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
                         : 'bg-[var(--card)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]',
                     )}
-                    title="分栏视图"
+                    title={t('cowriter.splitView')}
                   >
                     <ArrowDownUp className="h-3 w-3" />
                   </button>
@@ -390,7 +392,7 @@ export default function CoWriterPage() {
                         ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
                         : 'bg-[var(--card)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]',
                     )}
-                    title="仅预览"
+                    title={t('cowriter.previewOnly')}
                   >
                     <Eye className="h-3 w-3" />
                   </button>
@@ -407,7 +409,7 @@ export default function CoWriterPage() {
                   ) : (
                     <RefreshCw className="h-3.5 w-3.5" />
                   )}
-                  改写
+                  {t('cowriter.rewrite')}
                 </button>
                 <button
                   onClick={() => runEditAction('shorten')}
@@ -419,7 +421,7 @@ export default function CoWriterPage() {
                   ) : (
                     <Minimize2 className="h-3.5 w-3.5" />
                   )}
-                  精简
+                  {t('cowriter.shorten')}
                 </button>
                 <button
                   onClick={() => runEditAction('expand')}
@@ -431,7 +433,7 @@ export default function CoWriterPage() {
                   ) : (
                     <BookOpen className="h-3.5 w-3.5" />
                   )}
-                  扩展
+                  {t('cowriter.expand')}
                 </button>
                 <button
                   onClick={() => runEditAction('summarize')}
@@ -443,7 +445,7 @@ export default function CoWriterPage() {
                   ) : (
                     <Sparkles className="h-3.5 w-3.5" />
                   )}
-                  总结
+                  {t('cowriter.summarize')}
                 </button>
               </div>
             </div>
@@ -465,7 +467,7 @@ export default function CoWriterPage() {
                         setEditInstruction('')
                       }
                     }}
-                    placeholder="输入编辑指令（可选），按 Enter 执行..."
+                    placeholder={t('cowriter.editInstructionPlaceholder')}
                     className="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
                     autoFocus
                   />
@@ -475,7 +477,7 @@ export default function CoWriterPage() {
                     }}
                     className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)]"
                   >
-                    执行
+                    {t('cowriter.execute')}
                   </button>
                   <button
                     onClick={() => {
@@ -484,7 +486,7 @@ export default function CoWriterPage() {
                     }}
                     className="px-3 py-1.5 rounded-lg text-[12px] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
                   >
-                    取消
+                    {t('common.cancel')}
                   </button>
                 </div>
               </div>
@@ -503,7 +505,7 @@ export default function CoWriterPage() {
                   <div className="px-4 py-2 border-b border-[var(--border)] bg-[var(--card)] flex items-center gap-2">
                     <PenLine className="h-3.5 w-3.5 text-[var(--muted-foreground)]" />
                     <span className="text-[12px] font-medium text-[var(--muted-foreground)]">
-                      Markdown 源文件
+                      {t('cowriter.markdownSource')}
                     </span>
                   </div>
                   <div className="flex-1 overflow-y-auto">
@@ -511,7 +513,7 @@ export default function CoWriterPage() {
                       value={activeDoc.content}
                       onChange={handleContentChange}
                       className="w-full h-full bg-transparent p-6 font-mono text-[13px] text-[var(--foreground)] leading-relaxed resize-none outline-none"
-                      placeholder="开始写作..."
+                      placeholder={t('cowriter.startWriting')}
                       spellCheck={false}
                     />
                   </div>
@@ -529,7 +531,7 @@ export default function CoWriterPage() {
                   <div className="px-4 py-2 border-b border-[var(--border)] bg-[var(--card)] flex items-center gap-2">
                     <Eye className="h-3.5 w-3.5 text-[var(--muted-foreground)]" />
                     <span className="text-[12px] font-medium text-[var(--muted-foreground)]">
-                      实时预览
+                      {t('cowriter.livePreview')}
                     </span>
                   </div>
                   <div className="flex-1 overflow-y-auto p-6">
@@ -538,7 +540,7 @@ export default function CoWriterPage() {
                         <div className="text-center">
                           <Loader2 className="h-6 w-6 animate-spin text-[var(--primary)] mx-auto mb-3" />
                           <p className="text-[13px] text-[var(--muted-foreground)]">
-                            AI 正在{editAction === 'rewrite' ? '改写' : editAction === 'shorten' ? '精简' : editAction === 'expand' ? '扩展' : '总结'}文本...
+                            {t('cowriter.aiProcessing', { action: editAction ? t(`cowriter.actionNames.${editAction}`) : '' })}
                           </p>
                         </div>
                       </div>
@@ -558,12 +560,12 @@ export default function CoWriterPage() {
             {/* Status bar */}
             <div className="border-t border-[var(--border)] px-6 py-2 flex items-center justify-between bg-[var(--card)]">
               <div className="flex items-center gap-4 text-[11px] text-[var(--muted-foreground)]">
-                <span>字数：{wordCount}</span>
-                <span>行数：{lineCount}</span>
+                <span>{t('cowriter.wordCount', { count: wordCount })}</span>
+                <span>{t('cowriter.lineCount', { count: lineCount })}</span>
               </div>
               <div className="flex items-center gap-4 text-[11px] text-[var(--muted-foreground)]">
                 <span>
-                  最近更新：{new Date(activeDoc.lastEdited || Date.now()).toLocaleString('zh-CN')}
+                  {t('cowriter.lastUpdated', { time: new Date(activeDoc.lastEdited || Date.now()).toLocaleString(locale) })}
                 </span>
               </div>
             </div>
@@ -574,17 +576,17 @@ export default function CoWriterPage() {
             <div className="text-center">
               <FileText className="h-12 w-12 text-[var(--muted-foreground)] mx-auto mb-4 opacity-30" />
               <p className="text-[15px] font-medium text-[var(--foreground)] mb-1">
-                选择一个文档或创建新文档
+                {t('cowriter.selectDocOrCreate')}
               </p>
               <p className="text-[13px] text-[var(--muted-foreground)] mb-4">
-                Co-Writer 支持 AI 辅助写作：改写、精简、扩展、总结
+                {t('cowriter.cowriterDesc')}
               </p>
               <button
                 onClick={createDoc}
                 className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity inline-flex items-center gap-2"
               >
                 <Plus className="h-4 w-4" />
-                新建文档
+                {t('cowriter.newDocument')}
               </button>
             </div>
           </div>

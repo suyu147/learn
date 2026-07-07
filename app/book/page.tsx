@@ -29,6 +29,7 @@ import {
 import { cn } from '@/lib/utils'
 import { apiGet, apiPost, apiDelete } from '@/lib/api-client'
 import { useBookStore } from '@/lib/store/book-store'
+import { useI18n } from '@/lib/hooks/use-i18n'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -112,15 +113,15 @@ const STATUS_COLORS: Record<string, string> = {
   partial: 'text-[var(--warning)]',
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: '草稿',
-  spine_ready: '大纲就绪',
-  compiling: '编译中',
-  ready: '完成',
-  error: '错误',
-  pending: '待编译',
-  generating: '生成中',
-  partial: '部分完成',
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  draft: 'book.status.draft',
+  spine_ready: 'book.status.spineReady',
+  compiling: 'book.status.compiling',
+  ready: 'book.status.ready',
+  error: 'book.status.error',
+  pending: 'book.status.pending',
+  generating: 'book.status.generating',
+  partial: 'book.status.partial',
 }
 
 // ---------------------------------------------------------------------------
@@ -128,6 +129,8 @@ const STATUS_LABELS: Record<string, string> = {
 // ---------------------------------------------------------------------------
 
 export default function BookPage() {
+  const { t } = useI18n()
+  const statusLabel = (s: string) => STATUS_LABEL_KEYS[s] ? t(STATUS_LABEL_KEYS[s]) : s
   const [books, setBooks] = useState<BookSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [activeBook, setActiveBook] = useState<BookDetail | null>(null)
@@ -199,7 +202,7 @@ export default function BookPage() {
   const confirmProposal = useCallback(async () => {
     if (!activeBook) return
     setProcessing(true)
-    setProcessStep('生成大纲中...')
+    setProcessStep(t('book.creatingSpine'))
     try {
       await apiPost('/api/v1/book/confirm-proposal', { bookId: activeBook.book.id })
       await loadBook(activeBook.book.id)
@@ -217,7 +220,7 @@ export default function BookPage() {
   const confirmSpine = useCallback(async () => {
     if (!activeBook) return
     setProcessing(true)
-    setProcessStep('创建页面结构中...')
+    setProcessStep(t('book.creatingPageStructure'))
     try {
       await apiPost('/api/v1/book/confirm-spine', { bookId: activeBook.book.id })
       await loadBook(activeBook.book.id)
@@ -235,7 +238,7 @@ export default function BookPage() {
   const compilePage = useCallback(async (pageId: string) => {
     if (!activeBook) return
     setProcessing(true)
-    setProcessStep('编译页面中...')
+    setProcessStep(t('book.compilingPage'))
     try {
       await apiPost('/api/v1/book/compile-page', {
         bookId: activeBook.book.id,
@@ -256,7 +259,7 @@ export default function BookPage() {
   const compileAll = useCallback(async () => {
     if (!activeBook) return
     setProcessing(true)
-    setProcessStep('编译所有页面中...')
+    setProcessStep(t('book.compilingAll'))
     try {
       await apiPost('/api/v1/book/compile-all', { bookId: activeBook.book.id })
       await loadBook(activeBook.book.id)
@@ -274,7 +277,7 @@ export default function BookPage() {
   const deleteBook = useCallback(
     async (id: string, e: React.MouseEvent) => {
       e.stopPropagation()
-      if (!confirm('确定删除此书？')) return
+      if (!confirm(t('book.confirmDelete'))) return
       try {
         await apiDelete(`/api/v1/book/${id}`)
         if (activeBook?.book.id === id) {
@@ -302,11 +305,11 @@ export default function BookPage() {
       {/* Book list sidebar */}
       <div className="w-72 border-r border-[var(--border)] flex flex-col bg-[var(--card)]">
         <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between">
-          <h2 className="text-[13px] font-semibold text-[var(--foreground)]">我的书籍</h2>
+          <h2 className="text-[13px] font-semibold text-[var(--foreground)]">{t('book.myBooks')}</h2>
           <button
             onClick={() => setShowCreateForm(true)}
             className="p-1.5 rounded-lg hover:bg-[var(--muted)] transition-colors"
-            title="创建新书"
+            title={t('book.createNewBook')}
           >
             <Plus className="h-4 w-4 text-[var(--muted-foreground)]" />
           </button>
@@ -318,7 +321,7 @@ export default function BookPage() {
             <textarea
               value={newIntent}
               onChange={(e) => setNewIntent(e.target.value)}
-              placeholder="描述你想学习的主题..."
+              placeholder={t('book.describeTopic')}
               className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--primary)] resize-none min-h-[60px]"
               rows={2}
               autoFocus
@@ -330,13 +333,13 @@ export default function BookPage() {
                 className="flex-1 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-1.5"
               >
                 {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                {creating ? '创建中...' : 'AI 创建'}
+                {creating ? t('book.creating') : t('book.aiCreate')}
               </button>
               <button
                 onClick={() => { setShowCreateForm(false); setNewIntent('') }}
                 className="px-3 py-1.5 rounded-lg text-[12px] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
               >
-                取消
+                {t('common.cancel')}
               </button>
             </div>
           </div>
@@ -350,12 +353,12 @@ export default function BookPage() {
           ) : books.length === 0 ? (
             <div className="text-center py-8">
               <BookOpen className="h-8 w-8 text-[var(--muted-foreground)] mx-auto mb-2 opacity-40" />
-              <p className="text-[12px] text-[var(--muted-foreground)]">暂无书籍</p>
+              <p className="text-[12px] text-[var(--muted-foreground)]">{t('book.noBooks')}</p>
               <button
                 onClick={() => setShowCreateForm(true)}
                 className="mt-2 text-[12px] text-[var(--primary)] hover:underline"
               >
-                创建第一本书
+                {t('book.createFirstBook')}
               </button>
             </div>
           ) : (
@@ -378,10 +381,10 @@ export default function BookPage() {
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                       <span className={cn('text-[10px] font-medium', STATUS_COLORS[book.status] ?? '')}>
-                        {STATUS_LABELS[book.status] ?? book.status}
+                        {statusLabel(book.status)}
                       </span>
                       <span className="text-[10px] text-[var(--muted-foreground)]">
-                        {book.chapterCount} 章 · {book.pageCount} 页
+                        {t('book.chapterCount', { count: book.chapterCount })} · {t('book.pageCount', { count: book.pageCount })}
                       </span>
                     </div>
                   </div>
@@ -418,7 +421,7 @@ export default function BookPage() {
                     STATUS_COLORS[activeBook.book.status] ?? '',
                     'border-[var(--border)]',
                   )}>
-                    {STATUS_LABELS[activeBook.book.status] ?? activeBook.book.status}
+                    {statusLabel(activeBook.book.status)}
                   </span>
                 </div>
               </div>
@@ -432,7 +435,7 @@ export default function BookPage() {
                     className="px-3 py-1.5 rounded-lg text-[13px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center gap-1.5"
                   >
                     {processing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                    生成大纲
+                    {t('book.generateSpine')}
                   </button>
                 )}
                 {activeBook.book.status === 'spine_ready' && (
@@ -443,7 +446,7 @@ export default function BookPage() {
                       className="px-3 py-1.5 rounded-lg text-[13px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center gap-1.5"
                     >
                       {processing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Layers className="h-3.5 w-3.5" />}
-                      创建页面结构
+                      {t('book.createPageStructure')}
                     </button>
                     <button
                       onClick={compileAll}
@@ -451,7 +454,7 @@ export default function BookPage() {
                       className="px-3 py-1.5 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] disabled:opacity-50 transition-colors flex items-center gap-1.5"
                     >
                       {processing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                      编译全部
+                      {t('book.compileAll')}
                     </button>
                   </>
                 )}
@@ -462,7 +465,7 @@ export default function BookPage() {
                     className="px-3 py-1.5 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] disabled:opacity-50 transition-colors flex items-center gap-1.5"
                   >
                     {processing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                    重新编译未完成页面
+                    {t('book.recompileIncomplete')}
                   </button>
                 )}
                 {processing && processStep && (
@@ -480,7 +483,7 @@ export default function BookPage() {
               {activeBook.book.spine && (
                 <div className="w-56 border-r border-[var(--border)] overflow-y-auto p-3 space-y-1">
                   <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--muted-foreground)] mb-2 px-2">
-                    章节
+                    {t('book.chapters')}
                   </div>
                   {activeBook.pages.map((page) => {
                     const pageStatusColor = STATUS_COLORS[page.status] ?? ''
@@ -520,7 +523,7 @@ export default function BookPage() {
                       </h2>
                       <div className="flex items-center gap-2">
                         <span className={cn('text-[11px] font-medium', STATUS_COLORS[activePage.status] ?? '')}>
-                          {STATUS_LABELS[activePage.status] ?? activePage.status}
+                          {statusLabel(activePage.status)}
                         </span>
                         {(activePage.status === 'pending' || activePage.status === 'error') && (
                           <button
@@ -529,7 +532,7 @@ export default function BookPage() {
                             className="px-3 py-1 rounded-lg text-[12px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center gap-1"
                           >
                             <Play className="h-3 w-3" />
-                            编译此页
+                            {t('book.compilePage')}
                           </button>
                         )}
                       </div>
@@ -539,14 +542,14 @@ export default function BookPage() {
                     {activePage.blocks.length === 0 ? (
                       <div className="text-center py-12 text-[var(--muted-foreground)]">
                         <Layers className="h-8 w-8 mx-auto mb-3 opacity-30" />
-                        <p className="text-[13px]">此页面尚未编译</p>
+                        <p className="text-[13px]">{t('book.pageNotCompiled')}</p>
                         <button
                           onClick={() => compilePage(activePage.id)}
                           disabled={processing}
                           className="mt-3 px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 disabled:opacity-50 transition-opacity inline-flex items-center gap-1.5"
                         >
                           <Play className="h-3.5 w-3.5" />
-                          开始编译
+                          {t('book.startCompile')}
                         </button>
                       </div>
                     ) : (
@@ -623,7 +626,7 @@ export default function BookPage() {
                   </div>
                 ) : (
                   <div className="flex items-center justify-center h-full text-[var(--muted-foreground)]">
-                    <p className="text-[13px]">选择一个章节查看内容</p>
+                    <p className="text-[13px]">{t('book.selectChapter')}</p>
                   </div>
                 )}
               </div>
@@ -635,17 +638,17 @@ export default function BookPage() {
             <div className="text-center">
               <BookOpen className="h-12 w-12 text-[var(--muted-foreground)] mx-auto mb-4 opacity-30" />
               <p className="text-[15px] font-medium text-[var(--foreground)] mb-1">
-                选择一本书或创建新书
+                {t('book.selectBookOrCreate')}
               </p>
               <p className="text-[13px] text-[var(--muted-foreground)] mb-4">
-                Book Engine 使用 AI 自动生成结构化交互式教材
+                {t('book.bookEngineDesc')}
               </p>
               <button
                 onClick={() => setShowCreateForm(true)}
                 className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity inline-flex items-center gap-2"
               >
                 <Plus className="h-4 w-4" />
-                创建新书
+                {t('book.createBook')}
               </button>
             </div>
           </div>

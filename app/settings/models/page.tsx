@@ -1,14 +1,17 @@
 'use client'
 
 import { FileText, BookOpen, Globe } from 'lucide-react'
+import { useI18n } from '@/lib/hooks/use-i18n'
 
 export default function ModelsPage() {
+  const { t } = useI18n()
+
   return (
     <div className="p-6 max-w-2xl">
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">模型目录</h1>
+        <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">{t('settingsNav.modelsTitle')}</h1>
         <p className="text-[13px] text-[var(--muted-foreground)]">
-          浏览和管理可用的模型目录，配置搜索引擎和外部数据源
+          {t('settingsNav.modelsDesc')}
         </p>
       </div>
 
@@ -82,10 +85,10 @@ export default function ModelsPage() {
 
       <div className="flex gap-3 mt-6">
         <button className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity">
-          保存配置
+          {t('settingsNav.saveConfig')}
         </button>
         <button className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors">
-          重置
+          {t('settingsNav.reset')}
         </button>
       </div>
     </div>

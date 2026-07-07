@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/lib/hooks/use-i18n'
 
 interface ToggleFieldProps {
   label: string
@@ -39,13 +40,14 @@ export default function MemorySettingsPage() {
   const [autoIntegrate, setAutoIntegrate] = useState(true)
   const [crossSession, setCrossSession] = useState(true)
   const [forgetCurve, setForgetCurve] = useState(false)
+  const { t } = useI18n()
 
   return (
     <div className="p-6 max-w-2xl">
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">记忆设置</h1>
+        <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">{t('settingsNav.memoryTitle')}</h1>
         <p className="text-[13px] text-[var(--muted-foreground)]">
-          配置记忆系统的行为，包括自动整合、遗忘曲线和存储策略
+          {t('settingsNav.memoryDesc')}
         </p>
       </div>
 
@@ -101,10 +103,10 @@ export default function MemorySettingsPage() {
 
       <div className="flex gap-3 mt-6">
         <button className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity">
-          应用更改
+          {t('settingsNav.applyChanges')}
         </button>
         <button className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--destructive)] text-white hover:opacity-90 transition-opacity">
-          清空所有记忆
+          {t('settingsNav.clearAll')}
         </button>
       </div>
     </div>
