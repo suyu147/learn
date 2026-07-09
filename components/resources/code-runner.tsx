@@ -60,7 +60,7 @@ export function CodeRunner({ content, title }: { content: string; title: string 
     setErrorMessage('');
 
     try {
-      const response = await fetch('/api/code/execute', {
+      const response = await fetch('/api/v1/code/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, language, stdin }),

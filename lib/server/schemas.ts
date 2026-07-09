@@ -156,3 +156,135 @@ export const KnowledgeCreateSchema = z.object({
 export const HistoryQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional().default(50),
 });
+
+// ---------------------------------------------------------------------------
+// Sessions
+// ---------------------------------------------------------------------------
+
+export const SessionCreateSchema = z.object({
+  title: z.string().optional(),
+  capability: z.string().optional(),
+  preferences: z.record(z.unknown()).optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+export const SessionUpdateSchema = z.object({
+  title: z.string().min(1, 'title is required'),
+});
+
+// ---------------------------------------------------------------------------
+// Memory
+// ---------------------------------------------------------------------------
+
+export const MemoryReadSchema = z.object({
+  userId: z.string().optional(),
+  surface: z.string().optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+});
+
+export const MemoryWriteSchema = z.object({
+  userId: z.string().optional(),
+  surface: z.string().optional(),
+  slot: z.string().optional(),
+  content: z.string().min(1, 'content is required'),
+  event: z.record(z.unknown()).optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Notebook
+// ---------------------------------------------------------------------------
+
+export const NotebookCreateSchema = z.object({
+  name: z.string().min(1, 'name is required'),
+  description: z.string().optional(),
+});
+
+export const NotebookUpdateSchema = z.object({
+  name: z.string().optional(),
+  description: z.string().optional(),
+});
+
+export const NoteCreateSchema = z.object({
+  title: z.string().optional(),
+  content: z.string().min(1, 'content is required'),
+  tags: z.array(z.string()).optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Persona
+// ---------------------------------------------------------------------------
+
+export const PersonaCreateSchema = z.object({
+  name: z.string().min(1, 'name is required'),
+  description: z.string().min(1, 'description is required'),
+  systemPrompt: z.string().min(1, 'systemPrompt is required'),
+  tags: z.array(z.string()).optional(),
+});
+
+export const PersonaUpdateSchema = z.object({
+  name: z.string().optional(),
+  description: z.string().optional(),
+  systemPrompt: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Code execution
+// ---------------------------------------------------------------------------
+
+export const CodeExecuteSchema = z.object({
+  code: z.string().min(1, 'code is required'),
+  language: z.string().optional().default('python'),
+  version: z.string().optional(),
+  timeout: z.number().int().min(1).max(60).optional(),
+  stdin: z.string().optional(),
+  args: z.array(z.string()).optional(),
+});
+
+// ---------------------------------------------------------------------------
+// MCP
+// ---------------------------------------------------------------------------
+
+export const MCPServerCreateSchema = z.object({
+  name: z.string().min(1, 'name is required'),
+  command: z.string().min(1, 'command is required'),
+  args: z.array(z.string()).optional(),
+  env: z.record(z.string()).optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
+
+export const SettingsUpdateSchema = z.object({
+  provider: z.string().optional(),
+  model: z.string().optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  maxTokens: z.number().int().min(1).optional(),
+  theme: z.string().optional(),
+  language: z.string().optional(),
+}).refine(
+  (data) => Object.keys(data).length > 0,
+  { message: 'at least one setting field is required' },
+);
+
+// ---------------------------------------------------------------------------
+// Verify model
+// ---------------------------------------------------------------------------
+
+export const VerifyModelSchema = z.object({
+  provider: z.string().min(1, 'provider is required'),
+  model: z.string().min(1, 'model is required'),
+  apiKey: z.string().optional(),
+  baseUrl: z.string().optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Profile
+// ---------------------------------------------------------------------------
+
+export const ProfileUpdateSchema = z.object({
+  userId: z.string().optional(),
+  dimensions: z.record(z.unknown()).optional(),
+  preferences: z.record(z.unknown()).optional(),
+});

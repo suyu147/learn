@@ -29,7 +29,7 @@ export interface RegisterSimpleToolsOptions {
  * - reason     (LLM-backed)
  * - web_fetch  (no LLM needed)
  * - ask_user   (no LLM needed)
- * - web_search (placeholder in Phase 2a)
+ * - web_search (Tavily + Brave + DuckDuckGo with fallback)
  */
 export function registerSimpleTools(
   registry: ToolRegistry,

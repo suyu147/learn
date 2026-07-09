@@ -12,18 +12,25 @@ model User {
   name      String
   email     String?  @unique
   avatar    String?
+  nickname  String?
+  bio       String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  profiles       LearningProfile[]
-  resources      Resource[]
-  learningPaths  LearningPath[]
-  chatSessions   ChatSession[]
-  quizResults    QuizResult[]
-  dtSessions     DtSession[]
-  dtMessages     DtMessage[]
-  dtApiKeys      DtApiKey[]
-  knowledgeBases DtKnowledgeBase[]
+  profiles        LearningProfile[]
+  resources       Resource[]
+  learningPaths   LearningPath[]
+  chatSessions    ChatSession[]
+  quizResults     QuizResult[]
+  dtSessions      DtSession[]
+  dtMessages      DtMessage[]
+  dtApiKeys       DtApiKey[]
+  knowledgeBases  DtKnowledgeBase[]
+  settings        UserSettings?
+  memoryEntries   MemoryEntry[]
+  books           Book[]
+  cowriterDocs    CowriterDocument[]
+  agentActivities AgentActivity[]
 }
 
 model LearningProfile {
@@ -352,10 +359,10 @@ model DtDocumentChunk {
   id         String   @id @default(cuid())
   documentId String   @map("document_id")
   content    String
-  /// Stores embedding vector as JSON array [0.1, 0.2, ...].
-  /// When pgvector is available, change to: Unsupported("vector(1536)")?
-  /// and migrate data with: UPDATE dt_document_chunks SET embedding = (metadata->>'embedding')::vector
-  embedding  Json?
+  /// Native pgvector column: vector(1536) for OpenAI text-embedding-3-small.
+  /// Requires CREATE EXTENSION vector; — see prisma/migrations.
+  /// Use $executeRaw / $queryRaw for reads and writes (cast with ::vector).
+  embedding  Unsupported("vector(1536)")?
   chunkIndex Int      @map("chunk_index")
   metadata   Json?    // { page, source, title, charCount }
   createdAt  DateTime @default(now()) @map("created_at")
@@ -364,4 +371,144 @@ model DtDocumentChunk {
 
   @@index([documentId])
   @@map("dt_document_chunks")
+}
+
+// =============================================================================
+// Phase 7 — Store persistence models
+// =============================================================================
+
+/// Server-side user settings (synced from Zustand stores)
+model UserSettings {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+
+  // Core LLM settings
+  provider         String?  // default LLM provider
+  model            String?  // default model ID
+  temperature      Float    @default(0.7)
+  maxTokens        Int      @default(4096) @map("max_tokens")
+  thinkingMode     Boolean  @default(false) @map("thinking_mode")
+
+  // UI preferences
+  theme            String   @default("system")
+  language         String   @default("zh")
+
+  // SmartLearn-specific
+  smartlearnProviderId  String?  @map("smartlearn_provider_id")
+  smartlearnModelId     String?  @map("smartlearn_model_id")
+  smartlearnBaseUrl     String?  @map("smartlearn_base_url")
+  generatePptImages     Boolean  @default(false) @map("generate_ppt_images")
+  maxTurns              Int      @default(40) @map("max_turns")
+  maxResourceConcurrency Int     @default(3) @map("max_resource_concurrency")
+
+  // Audio settings
+  ttsProviderId    String?  @map("tts_provider_id")
+  ttsVoice         String?  @map("tts_voice")
+  ttsSpeed         Float    @default(1.0) @map("tts_speed")
+  ttsProvidersConfig Json?  @map("tts_providers_config")
+  asrProviderId    String?  @map("asr_provider_id")
+  asrLanguage      String?  @map("asr_language")
+  asrProvidersConfig Json?  @map("asr_providers_config")
+
+  // Agent settings
+  selectedAgentIds  String[] @default([]) @map("selected_agent_ids")
+  disabledAgentIds  String[] @default([]) @map("disabled_agent_ids")
+
+  // Context window
+  autoContextWindow       Boolean @default(true) @map("auto_context_window")
+  contextWindowThreshold  Float   @default(0.75) @map("context_window_threshold")
+  rateLimitEnabled        Boolean @default(true) @map("rate_limit_enabled")
+
+  // Extra (for future fields)
+  extra        Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+  @@map("user_settings")
+}
+
+/// Memory entries (L1 trace, L2 summary, L3 synthesis)
+model MemoryEntry {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  layer     String   // 'L1' | 'L2' | 'L3'
+  surface   String?  // 'chat' | 'notebook' | 'quiz' | 'kb' | 'book' | 'cowriter'
+  slot      String?  // For L3: 'recent' | 'profile' | 'scope' | 'preferences'
+  kind      String?  // For L1: event kind
+  content   String   // Text content (L2/L3) or JSON string (L1)
+  payload   Json?    // L1 trace payload
+  tags      String[] @default([])
+  sessionId String?  @map("session_id")
+  turnId    String?  @map("turn_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, layer])
+  @@index([userId, layer, surface])
+  @@map("memory_entries")
+}
+
+/// Book compilation records
+model Book {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  title         String
+  subtitle      String?
+  pageCount     Int      @default(0) @map("page_count")
+  status        String   @default("draft") // draft | compiling | compiled | error
+  coverGradient String?  @map("cover_gradient")
+  spine         Json?    // Book spine structure
+  pages         Json?    // All page data
+  metadata      Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, status])
+  @@map("books")
+}
+
+/// Co-writer documents
+model CowriterDocument {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  title      String
+  content    String   @default("")
+  version    Int      @default(1)
+  status     String   @default("saved") // saved | editing | ai-generating
+  lastEdited DateTime @default(now()) @map("last_edited")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, status])
+  @@map("cowriter_documents")
+}
+
+/// Agent activity log
+model AgentActivity {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  sessionId    String?  @map("session_id")
+  agentId      String   @map("agent_id")
+  agentName    String   @map("agent_name")
+  status       String   // running | completed | failed
+  resourceType String?  @map("resource_type")
+  metadata     Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sessionId])
+  @@map("agent_activities")
 }

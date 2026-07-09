@@ -18,9 +18,11 @@ import {
   NotebookPen,
   Bot,
   Zap,
+  LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/lib/store/ui-store';
+import { useAuthStore } from '@/lib/store/auth-store';
 
 const navGroups = [
   {
@@ -54,6 +56,9 @@ export function Sidebar() {
   const pathname = usePathname();
   const collapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggle = useUIStore((s) => s.toggleSidebar);
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+  const mode = useAuthStore((s) => s.mode);
 
   return (
     <aside
@@ -177,12 +182,25 @@ export function Sidebar() {
         {!collapsed && (
           <div className="mt-2 flex items-center gap-2.5 px-2.5">
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/20 text-xs font-semibold text-primary-foreground">
-              陈
+              {(user?.username ?? 'G').charAt(0).toUpperCase()}
             </div>
-            <div className="min-w-0">
-              <div className="text-[12px] font-medium text-white/90 truncate">陈思远</div>
-              <div className="text-[11px] text-white/60">学习者 · 大三</div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[12px] font-medium text-white/90 truncate">
+                {user?.username ?? 'Guest'}
+              </div>
+              <div className="text-[11px] text-white/60">
+                {user?.role === 'admin' ? '管理员' : '用户'}
+              </div>
             </div>
+            {mode === 'multi' && (
+              <button
+                onClick={logout}
+                className="shrink-0 rounded-md p-1 text-white/40 hover:text-white/80 hover:bg-sidebar-accent/50 transition-colors"
+                title="退出登录"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         )}
       </div>

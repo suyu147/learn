@@ -2,9 +2,8 @@ import type { Metadata } from 'next';
 import { Plus_Jakarta_Sans, Lora, JetBrains_Mono } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from '@/components/ui/sonner';
-import { Sidebar } from '@/components/sidebar';
 import { ThemeScript } from '@/components/theme-script';
-import { Providers } from '@/components/providers';
+import { Providers, AppShell } from '@/components/providers';
 import './globals.css';
 
 const fontSans = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-sans' });
@@ -30,10 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           disableTransitionOnChange
         >
           <Providers>
-            <div className="flex h-screen">
-              <Sidebar />
-              <main className="flex-1 overflow-hidden">{children}</main>
-            </div>
+            <AppShell>{children}</AppShell>
           </Providers>
           <Toaster />
         </ThemeProvider>

@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import { useI18n } from '@/lib/hooks/use-i18n';
+import { useAuthStore } from '@/lib/store/auth-store';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -17,6 +18,8 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const register = useAuthStore((s) => s.register);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,24 +41,10 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/v1/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        setError(data.error ?? 'Registration failed');
-        return;
-      }
-
-      // Store token
-      document.cookie = `auth_token=${data.data.token}; path=/; max-age=${7 * 24 * 60 * 60}; samesite=lax`;
+      await register(username, password);
       router.push('/chat');
-    } catch {
-      setError('Network error. Please try again.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
       setLoading(false);
     }

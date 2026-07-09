@@ -5,20 +5,21 @@
  * - CRUD operations on knowledge bases
  * - Document upload and processing
  * - Chunking and embedding pipeline
- * - pgvector storage via raw SQL
+ * - pgvector native vector storage via $executeRaw with ::vector cast
  *
- * Phase 2b: pgvector-based KB with progress tracking.
+ * Embeddings are stored as vector(1536) using pgvector extension.
+ * See prisma/migrations/20260708_pgvector_embeddings/migration.sql.
  */
 
 import { prisma } from '@/lib/db/client';
 import { createLogger } from '@/lib/logger';
 import { createHash } from 'crypto';
 import { readFile } from 'fs/promises';
+import { Prisma } from '@prisma/client';
 import { ParsingServiceImpl } from './parsing';
 import { ChunkerService } from './chunker';
 import type { EmbeddingServiceImpl } from './embedding';
-
-import { Prisma } from '@prisma/client';
+import { toVectorString } from './pgvector';
 
 const log = createLogger('KnowledgeService');
 
@@ -288,17 +289,27 @@ export class KnowledgeServiceImpl {
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
         const vector = embedResult.embeddings[i];
+        const chunkId = generateChunkId();
 
+        // Create the chunk row via Prisma (embedding set to null since it's Unsupported type)
         await prisma.dtDocumentChunk.create({
           data: {
-            id: generateChunkId(),
+            id: chunkId,
             documentId: docId,
             content: chunk.content,
-            embedding: asJson(vector),
             chunkIndex: chunk.index,
             metadata: asJson(chunk.metadata),
           },
         });
+
+        // Set the embedding via raw SQL with ::vector cast
+        if (vector && vector.length > 0) {
+          await prisma.$executeRawUnsafe(
+            `UPDATE dt_document_chunks SET embedding = $1::vector WHERE id = $2`,
+            toVectorString(vector),
+            chunkId,
+          );
+        }
       }
 
       // Step 5: Update counts

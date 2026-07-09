@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import { useI18n } from '@/lib/hooks/use-i18n';
+import { useAuthStore } from '@/lib/store/auth-store';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -17,30 +18,18 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const login = useAuthStore((s) => s.login);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      const response = await fetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        setError(data.error ?? 'Login failed');
-        return;
-      }
-
-      // Store token
-      document.cookie = `auth_token=${data.data.token}; path=/; max-age=${7 * 24 * 60 * 60}; samesite=lax`;
+      await login(username, password);
       router.push('/chat');
-    } catch {
-      setError('Network error. Please try again.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
       setLoading(false);
     }

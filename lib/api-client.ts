@@ -3,7 +3,10 @@
  *
  * Shared fetch utilities for calling /api/v1/* endpoints.
  * Provides JSON request wrapper and SSE stream parser.
+ * Automatically injects Authorization header from the auth token store.
  */
+
+import { getApiToken } from '@/lib/auth-token';
 
 // ---------------------------------------------------------------------------
 // JSON API
@@ -34,12 +37,20 @@ export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  // Build auth-aware headers
+  const authHeaders: Record<string, string> = {};
+  const token = getApiToken();
+  if (token) {
+    authHeaders['Authorization'] = `Bearer ${token}`;
+  }
+
   const res = await fetch(path, {
     headers: {
       'Content-Type': 'application/json',
       ...(options.body instanceof FormData
         ? { 'Content-Type': '' } // let browser set multipart boundary
         : {}),
+      ...authHeaders,
       ...options.headers,
     },
     ...options,
@@ -221,9 +232,15 @@ export async function submitTurn(
   },
   options: SSEStreamOptions,
 ): Promise<void> {
+  const token = getApiToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const res = await fetch('/api/v1/turns', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
     signal: options.signal,
   });

@@ -31,9 +31,9 @@ export interface LLMCallFn {
   }): Promise<string>;
 }
 
-/** Default no-op implementation that returns a placeholder message. */
-const PLACEHOLDER_LLM_CALL: LLMCallFn = async ({ prompt }) => {
-  return `[Brainstorm placeholder] No LLM backend configured. Received topic: "${prompt}"`;
+/** Default no-op implementation that returns an error when no LLM backend is configured. */
+const PLACEHOLDER_LLM_CALL: LLMCallFn = async () => {
+  throw new Error('No LLM backend configured. Please configure an AI provider (OpenAI, Anthropic, etc.) in Settings > LLM to use brainstorming.');
 };
 
 // ---------------------------------------------------------------------------

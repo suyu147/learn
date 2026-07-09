@@ -2,18 +2,17 @@
  * RAGService — Knowledge base vector retrieval
  *
  * Performs semantic search across knowledge base documents using
- * cosine similarity computed in TypeScript. Embeddings are stored
- * as JSON arrays in the database.
+ * pgvector's <=> cosine distance operator for efficient ranking.
+ * Embeddings are stored as native vector(1536) columns.
  *
- * Phase 2b: JSON-based vector storage + JS cosine similarity.
- * When pgvector is available, the vectorSearch method can be
- * replaced with raw SQL using the <=> operator for better performance.
- * BM25 hybrid retrieval deferred to Phase 5.
+ * BM25 hybrid retrieval is handled by HybridSearchService (Phase 5).
  */
 
 import { prisma } from '@/lib/db/client';
 import { createLogger } from '@/lib/logger';
+import { Prisma } from '@prisma/client';
 import type { EmbeddingServiceImpl } from './embedding';
+import { toVectorString } from './pgvector';
 
 const log = createLogger('RAGService');
 
@@ -66,8 +65,19 @@ const DEFAULT_TOP_K = 5;
 const DEFAULT_MIN_SCORE = 0.3;
 const DEFAULT_MAX_CONTEXT_LENGTH = 8000;
 
-// Fetch more candidates than needed for better reranking
-const CANDIDATE_MULTIPLIER = 3;
+// ---------------------------------------------------------------------------
+// Raw SQL result row from pgvector query
+// ---------------------------------------------------------------------------
+
+interface VectorSearchRow {
+  id: string;
+  document_id: string;
+  content: string;
+  chunk_index: number;
+  metadata: Prisma.JsonValue;
+  score: number;
+  title: string;
+}
 
 // ---------------------------------------------------------------------------
 // RAGService
@@ -103,28 +113,24 @@ export class RAGServiceImpl {
     // 1. Embed the query
     const queryEmbedding = await this.embeddingService.embedOne(query);
 
-    // 2. Fetch candidate chunks and compute cosine similarity in JS
-    const candidateLimit = topK * CANDIDATE_MULTIPLIER;
-    const candidates = await this.vectorSearch(queryEmbedding, kbIds, candidateLimit);
+    // 2. Use pgvector <=> for database-side cosine distance ranking
+    const results = await this.vectorSearch(queryEmbedding, kbIds, topK);
 
     // 3. Filter by minimum score
-    const filtered = candidates.filter((c) => c.score >= minScore);
+    const filtered = results.filter((c) => c.score >= minScore);
 
     if (filtered.length === 0) {
       log.info(`No results above threshold ${minScore} for query: "${query.slice(0, 50)}..."`);
       return { query, context: '', sources: [] };
     }
 
-    // 4. Take top K
-    const results = filtered.slice(0, topK);
-
-    // 5. Build context string
-    const context = this.buildContext(results, maxContextLength);
+    // 4. Build context string
+    const context = this.buildContext(filtered, maxContextLength);
 
     return {
       query,
       context,
-      sources: results,
+      sources: filtered,
     };
   }
 
@@ -147,15 +153,14 @@ export class RAGServiceImpl {
   }
 
   // -------------------------------------------------------------------------
-  // Vector Search (TypeScript cosine similarity)
+  // Vector Search (pgvector native)
   // -------------------------------------------------------------------------
 
   /**
-   * Fetch chunks from the database and rank by cosine similarity.
-   * Embeddings are stored as JSON arrays; similarity is computed in JS.
+   * Search chunks using pgvector's <=> cosine distance operator.
+   * The database handles ranking, avoiding the need to load all vectors into memory.
    *
-   * When pgvector is available, replace this method with:
-   *   SELECT ... ORDER BY c.embedding <=> $1::vector LIMIT $N
+   * Score = 1 - cosine_distance  (converts distance to similarity: higher = better)
    */
   private async vectorSearch(
     queryVector: number[],
@@ -163,51 +168,41 @@ export class RAGServiceImpl {
     limit: number,
   ): Promise<RAGSource[]> {
     try {
-      // 1. Find all ready documents in the specified KBs
-      const documents = await prisma.dtDocument.findMany({
-        where: { kbId: { in: kbIds }, status: 'ready' },
-        select: { id: true, title: true },
-      });
+      const vectorStr = toVectorString(queryVector);
 
-      if (documents.length === 0) {
-        return [];
-      }
+      // Use $queryRawUnsafe for pgvector operations.
+      // <=> returns cosine distance (0 = identical, 2 = opposite).
+      // We convert to similarity: score = 1 - distance.
+      const rows = await prisma.$queryRawUnsafe<VectorSearchRow[]>(
+        `SELECT
+           c.id,
+           c.document_id,
+           c.content,
+           c.chunk_index,
+           c.metadata,
+           (1 - (c.embedding <=> $1::vector)) AS score,
+           d.title
+         FROM dt_document_chunks c
+         JOIN dt_documents d ON d.id = c.document_id
+         WHERE d.kb_id = ANY($2::text[])
+           AND d.status = 'ready'
+           AND c.embedding IS NOT NULL
+         ORDER BY c.embedding <=> $1::vector
+         LIMIT $3`,
+        vectorStr,
+        kbIds,
+        limit,
+      );
 
-      const docMap = new Map(documents.map((d) => [d.id, d.title]));
-      const docIds = documents.map((d) => d.id);
-
-      // 2. Fetch chunks with embeddings from these documents
-      const chunks = await prisma.dtDocumentChunk.findMany({
-        where: { documentId: { in: docIds } },
-        take: limit * 5,
-      });
-
-      // 3. Compute cosine similarity for each chunk with a valid embedding
-      const scored: RAGSource[] = [];
-
-      for (const chunk of chunks) {
-        if (!chunk.embedding) continue;
-
-        const chunkVector = chunk.embedding as unknown as number[];
-        if (!Array.isArray(chunkVector) || chunkVector.length === 0) continue;
-
-        const score = cosineSimilarity(queryVector, chunkVector);
-        const docTitle = docMap.get(chunk.documentId) ?? 'Unknown';
-
-        scored.push({
-          chunkId: chunk.id,
-          documentId: chunk.documentId,
-          documentTitle: docTitle,
-          content: chunk.content,
-          score,
-          chunkIndex: chunk.chunkIndex,
-          metadata: (chunk.metadata as Record<string, unknown>) ?? {},
-        });
-      }
-
-      // 4. Sort by score descending and take top N
-      scored.sort((a, b) => b.score - a.score);
-      return scored.slice(0, limit);
+      return rows.map((row) => ({
+        chunkId: row.id,
+        documentId: row.document_id,
+        documentTitle: row.title,
+        content: row.content,
+        score: row.score,
+        chunkIndex: row.chunk_index,
+        metadata: (row.metadata as Record<string, unknown>) ?? {},
+      }));
     } catch (err) {
       log.error('Vector search failed:', err);
       throw new RAGError(`Vector search failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -248,14 +243,15 @@ export class RAGServiceImpl {
 }
 
 // ---------------------------------------------------------------------------
-// Cosine Similarity
+// Cosine Similarity (fallback for non-pgvector environments)
 // ---------------------------------------------------------------------------
 
 /**
- * Compute cosine similarity between two vectors.
+ * Compute cosine similarity between two vectors in JavaScript.
+ * Used as fallback when pgvector is not available.
  * Returns a value between -1 and 1 (higher = more similar).
  */
-function cosineSimilarity(a: number[], b: number[]): number {
+export function cosineSimilarity(a: number[], b: number[]): number {
   const len = Math.min(a.length, b.length);
   let dotProduct = 0;
   let normA = 0;

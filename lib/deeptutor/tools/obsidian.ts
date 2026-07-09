@@ -102,6 +102,37 @@ async function readMarkdownFiles(vaultRoot: string, dir: string = ''): Promise<A
   return results;
 }
 
+/**
+ * Non-recursive variant: reads only markdown files in the immediate directory.
+ */
+async function readMarkdownFilesFlat(vaultRoot: string, dir: string = ''): Promise<Array<{ path: string; content: string }>> {
+  const targetDir = dir ? safeVaultPath(vaultRoot, dir) : vaultRoot;
+  const results: Array<{ path: string; content: string }> = [];
+
+  try {
+    const entries = await fs.readdir(targetDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+
+      if (entry.isFile() && entry.name.endsWith('.md')) {
+        const fullPath = path.join(targetDir, entry.name);
+        const relativePath = path.relative(vaultRoot, fullPath);
+        try {
+          const content = await fs.readFile(fullPath, 'utf-8');
+          results.push({ path: relativePath, content });
+        } catch {
+          // Skip unreadable files
+        }
+      }
+    }
+  } catch (err) {
+    log.error(`Failed to read directory ${targetDir}:`, err);
+  }
+
+  return results;
+}
+
 function extractFrontmatter(content: string): { properties: Record<string, unknown>; body: string } {
   const fmRegex = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/;
   const match = content.match(fmRegex);
@@ -323,7 +354,7 @@ export class ObsidianListTool extends BaseTool {
 
       const files = recursive
         ? await readMarkdownFiles(vaultRoot, folder)
-        : await readMarkdownFiles(vaultRoot, folder); // same for now, always recursive
+        : await readMarkdownFilesFlat(vaultRoot, folder);
 
       if (files.length === 0) {
         return createToolResult({ content: `No notes found${folder ? ` in folder "${folder}"` : ' in vault'}.` });

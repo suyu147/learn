@@ -55,10 +55,10 @@ export default function MemoryPage() {
     },
   ];
 
-  // Fetch memories on mount (API is stub — use store as primary source)
+  // Fetch memories on mount
   useEffect(() => {
-    // Memory API is stub (TODO). Using Zustand store as primary source.
-    // When the API is implemented, replace this with:
+    // Using Zustand store as primary source until API is implemented.
+    // When the API is ready, replace with:
     // const data = await apiGet<{ entries: MemoryEntry[] }>('/api/v1/memory');
     setLoading(false);
   }, []);
@@ -72,8 +72,9 @@ export default function MemoryPage() {
     try {
       await apiPost('/api/v1/memory/consolidate');
       consolidate();
-    } catch {
-      // API stub may fail — just trigger local consolidation
+    } catch (err) {
+      // API may not be implemented yet — fall back to local consolidation
+      console.warn('Memory consolidation API unavailable, using local fallback:', err);
       consolidate();
     } finally {
       setConsolidating(false);

@@ -3,6 +3,10 @@ import { persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import type { LearningProfile, ProfileDimensions, ConversationMessage } from '@/lib/types/profile';
 import { DEFAULT_DIMENSIONS } from '@/lib/types/profile';
+import { fetchProfile, saveProfile } from '@/lib/api/learning-profile-api';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('LearningProfileStore');
 
 interface LearningProfileState {
   profile: LearningProfile | null;
@@ -11,6 +15,7 @@ interface LearningProfileState {
   profileHistory: Array<{ version: number; dimensions: ProfileDimensions; updatedAt: string }>;
   isChatOpen: boolean;
   isGenerating: boolean;
+  synced: boolean;
   setProfile: (profile: LearningProfile | null) => void;
   restoreArchivedProfile: (profileId: string) => LearningProfile | null;
   updateDimensions: (dimensions: Partial<ProfileDimensions>) => void;
@@ -24,6 +29,10 @@ interface LearningProfileState {
   /** 删除全部归档画像 */
   clearAllArchivedProfiles: () => void;
   reset: () => void;
+  /** Fetch profile from server and update local state */
+  syncFromServer: (userId: string) => Promise<void>;
+  /** Push local profile to server */
+  syncToServer: (userId: string) => Promise<void>;
 }
 
 export const useLearningProfileStore = create<LearningProfileState>()(
@@ -34,6 +43,7 @@ export const useLearningProfileStore = create<LearningProfileState>()(
       profileHistory: [],
       isChatOpen: false,
       isGenerating: false,
+      synced: false,
 
       setProfile: (profile) => {
         console.log('Setting profile:', profile);
@@ -114,7 +124,7 @@ export const useLearningProfileStore = create<LearningProfileState>()(
 
         // 数据库写入（仅客户端，静默失败不影响本地使用）
         if (typeof window !== 'undefined') {
-          fetch('/api/profile', {
+          fetch('/api/v1/profile', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ dimensions: mergedDimensions }),
@@ -181,6 +191,48 @@ export const useLearningProfileStore = create<LearningProfileState>()(
       },
 
       reset: () => set({ profile: null, profileHistory: [], isChatOpen: false, isGenerating: false }),
+
+      syncFromServer: async (userId: string) => {
+        if (get().synced) return;
+        try {
+          const serverDimensions = await fetchProfile(userId);
+          if (serverDimensions) {
+            set((state) => {
+              // Only apply server data if no local profile exists yet
+              if (!state.profile) {
+                state.profile = {
+                  id: crypto.randomUUID(),
+                  userId,
+                  version: 1,
+                  dimensions: serverDimensions,
+                  updatedAt: new Date().toISOString(),
+                  conversationHistory: [],
+                };
+              }
+              state.synced = true;
+            });
+          } else {
+            set((state) => {
+              state.synced = true;
+            });
+          }
+        } catch (err) {
+          log.error('syncFromServer failed:', err);
+          set((state) => {
+            state.synced = true;
+          });
+        }
+      },
+
+      syncToServer: async (userId: string) => {
+        const { profile } = get();
+        if (!profile) return;
+        try {
+          await saveProfile(userId, profile.dimensions);
+        } catch (err) {
+          log.error('syncToServer failed:', err);
+        }
+      },
     })),
     { name: 'learning-profile-storage', partialize: (state) => ({ profile: state.profile, archivedProfiles: state.archivedProfiles, profileHistory: state.profileHistory }) },
   ),

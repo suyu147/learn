@@ -56,14 +56,15 @@ export default function NotebookPage() {
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchNotebooks = async () => {
     setLoading(true);
     try {
       const data = await apiGet<{ notebooks: Notebook[] }>('/api/v1/notebook');
       setNotebooks(data.notebooks ?? []);
-    } catch {
-      // API stub — use empty state
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载笔记本失败');
       setNotebooks([]);
     } finally {
       setLoading(false);
@@ -83,7 +84,8 @@ export default function NotebookPage() {
         `/api/v1/notebook/${notebookId}`,
       );
       setNotes(data.notes ?? []);
-    } catch {
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载笔记列表失败');
       setNotes([]);
     } finally {
       setNotesLoading(false);
@@ -103,8 +105,8 @@ export default function NotebookPage() {
       setNewTitle('');
       setNewDesc('');
       setShowCreateForm(false);
-    } catch {
-      // stub
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '创建笔记本失败');
     } finally {
       setCreating(false);
     }
@@ -121,8 +123,8 @@ export default function NotebookPage() {
         setNotes([]);
         setSelectedNote(null);
       }
-    } catch {
-      // stub
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '删除笔记本失败');
     }
   };
 
@@ -153,8 +155,8 @@ export default function NotebookPage() {
         prev ? { ...prev, title: editTitle, content: editContent } : null,
       );
       setEditing(false);
-    } catch {
-      // stub
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '保存笔记失败');
     }
   };
 
@@ -167,6 +169,19 @@ export default function NotebookPage() {
 
   return (
     <div className="flex h-full bg-[var(--background)]">
+      {/* Error Banner */}
+      {error && (
+        <div className="fixed top-4 right-4 z-50 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg px-4 py-2.5 flex items-center gap-2 shadow-sm">
+          <span className="text-[12px] text-red-700 dark:text-red-300">{error}</span>
+          <button
+            onClick={() => setError(null)}
+            className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900 transition-colors"
+          >
+            <X className="h-3.5 w-3.5 text-red-500" />
+          </button>
+        </div>
+      )}
+
       {/* Left Panel — Notebook List */}
       <div className="w-72 border-r border-[var(--border)] bg-[var(--card)] flex flex-col">
         {/* Header */}

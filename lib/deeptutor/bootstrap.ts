@@ -411,6 +411,7 @@ function bootstrap(): {
     voiceProvider: (process.env.DT_VOICE_PROVIDER as 'openai' | 'elevenlabs' | 'edge' | 'none') ?? 'none',
     apiKeys: {
       openai: process.env.OPENAI_API_KEY ?? '',
+      runwayml: process.env.RUNWAYML_API_SECRET ?? '',
     },
     outputDir: process.env.DT_MEDIA_OUTPUT_DIR ?? 'data/media',
   });

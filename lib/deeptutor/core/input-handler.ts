@@ -4,7 +4,7 @@
  * Manages the Map<turnId, PromiseResolver> pattern for ask_user:
  * 1. SSE handler sends WAIT_FOR_INPUT event
  * 2. SSE handler awaits a Promise (stored in the Map)
- * 3. POST /api/v1/input handler resolves the Promise with user's reply
+ * 3. POST /api/v1/turns/[turnId]/input handler resolves the Promise with user's reply
  * 4. SSE handler continues with the reply
  *
  * Includes 60s timeout with graceful degradation.

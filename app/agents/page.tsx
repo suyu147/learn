@@ -154,8 +154,9 @@ export default function AgentsPage() {
         }
         setAgents(merged);
       }
-    } catch {
-      // API stub — use built-in catalog
+    } catch (err) {
+      // API not available — fall back to built-in catalog
+      console.warn('Agents API unavailable, using built-in catalog:', err);
     } finally {
       setLoading(false);
     }

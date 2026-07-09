@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { LearningPath, LearningPathNode, PathNodeStatus } from '@/lib/types/learning-path';
 import { useSessionsStore } from './sessions';
+import { fetchLearningPaths, saveLearningPath } from '@/lib/api/learning-path-api';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('LearningPathStore');
 
 function getNodeDependencies(path: LearningPath, node: LearningPathNode) {
   if (node.prerequisites.length > 0) {
@@ -61,6 +65,7 @@ interface LearningPathState {
   storedPaths: StoredPathData;
   path: LearningPath | null;
   isPlanning: boolean;
+  synced: boolean;
 
   setPath: (path: LearningPath | null) => void;
   updateNodeStatus: (nodeId: string, status: PathNodeStatus) => void;
@@ -70,6 +75,10 @@ interface LearningPathState {
   getPathForSession: (sessionId: string) => LearningPath | null;
   /** 彻底删除指定会话的路径数据 */
   deleteSessionData: (sessionId: string) => void;
+  /** Fetch paths from server and merge with local state */
+  syncFromServer: (userId: string) => Promise<void>;
+  /** Push local paths to server */
+  syncToServer: (userId: string) => Promise<void>;
 }
 
 export const useLearningPathStore = create<LearningPathState>()(
@@ -78,6 +87,7 @@ export const useLearningPathStore = create<LearningPathState>()(
       storedPaths: {},
       path: null,
       isPlanning: false,
+      synced: false,
 
       setPath: (newPath) => {
         const sessionId = useSessionsStore.getState().currentSessionId;
@@ -135,6 +145,41 @@ export const useLearningPathStore = create<LearningPathState>()(
           const { [sessionId]: _, ...rest } = state.storedPaths;
           return { storedPaths: rest, path: state.path, isPlanning: state.isPlanning };
         });
+      },
+
+      syncFromServer: async (userId: string) => {
+        if (get().synced) return;
+        try {
+          const serverPaths = await fetchLearningPaths(userId);
+          if (serverPaths.length > 0) {
+            set((state) => {
+              const merged = { ...state.storedPaths };
+              for (const serverPath of serverPaths) {
+                // Server data supplements local; do not overwrite existing local paths
+                if (!merged[serverPath.id]) {
+                  merged[serverPath.id] = serverPath;
+                }
+              }
+              return { storedPaths: merged, synced: true };
+            });
+          } else {
+            set({ synced: true });
+          }
+        } catch (err) {
+          log.error('syncFromServer failed:', err);
+          set({ synced: true });
+        }
+      },
+
+      syncToServer: async (userId: string) => {
+        const { storedPaths } = get();
+        try {
+          for (const path of Object.values(storedPaths)) {
+            await saveLearningPath(userId, path);
+          }
+        } catch (err) {
+          log.error('syncToServer failed:', err);
+        }
       },
     }),
     {

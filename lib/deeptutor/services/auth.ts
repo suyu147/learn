@@ -71,7 +71,7 @@ const SALT_LEN = 32;
 // ---------------------------------------------------------------------------
 
 export function getAuthMode(): AuthMode {
-  const raw = (process.env.DT_AUTH_MODE ?? 'disabled').toLowerCase();
+  const raw = (process.env.AUTH_MODE ?? 'disabled').toLowerCase();
   if (raw === 'single' || raw === 'multi') return raw;
   return 'disabled';
 }
@@ -81,7 +81,7 @@ export function getAuthMode(): AuthMode {
 // ---------------------------------------------------------------------------
 
 function getJwtSecret(): Uint8Array {
-  const secret = process.env.DT_AUTH_SECRET ?? 'deeptutor-dev-secret-change-in-production';
+  const secret = process.env.JWT_SECRET ?? 'deeptutor-dev-secret-change-in-production';
   return new TextEncoder().encode(secret);
 }
 

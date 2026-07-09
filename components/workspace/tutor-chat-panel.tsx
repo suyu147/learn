@@ -123,7 +123,7 @@ export function TutorChatPanel({ selectedResource = null }: Props) {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/learn', {
+      const response = await fetch('/api/v1/smartlearn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

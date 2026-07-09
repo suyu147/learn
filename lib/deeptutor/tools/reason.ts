@@ -31,8 +31,8 @@ Guidelines:
 // Default no-op LLM call
 // ---------------------------------------------------------------------------
 
-const PLACEHOLDER_LLM_CALL: LLMCallFn = async ({ prompt }) => {
-  return `[Reason placeholder] No LLM backend configured. Received query: "${prompt}"`;
+const PLACEHOLDER_LLM_CALL: LLMCallFn = async () => {
+  throw new Error('No LLM backend configured. Please configure an AI provider (OpenAI, Anthropic, etc.) in Settings > LLM to use reasoning.');
 };
 
 // ---------------------------------------------------------------------------

@@ -4,8 +4,8 @@
  * Registry-based generator pattern. Each generator produces a
  * block payload given params and context.
  *
- * Implemented generators: TEXT, SECTION, CALLOUT, CODE, CONCEPT_GRAPH, USER_NOTE
- * Stub generators: QUIZ, FIGURE, INTERACTIVE, ANIMATION, TIMELINE, FLASH_CARDS, DEEP_DIVE
+ * Implemented generators: TEXT, SECTION, CALLOUT, CODE, QUIZ, CONCEPT_GRAPH, USER_NOTE,
+ *   FIGURE, INTERACTIVE, ANIMATION, TIMELINE, FLASH_CARDS, DEEP_DIVE
  */
 
 import { callLLM } from '@/lib/ai/llm';
@@ -361,22 +361,294 @@ Language: ${langLabel}. Difficulty: ${difficulty}.`;
 }
 
 // ---------------------------------------------------------------------------
-// Stub generators for complex block types
+// FigureGenerator — LLM-powered diagram/figure generation
 // ---------------------------------------------------------------------------
 
-class StubGenerator implements BlockGenerator {
-  readonly type: BlockType;
-  private message: string;
+class FigureGenerator implements BlockGenerator {
+  readonly type: BlockType = 'figure';
+  private llm: LLMHelper;
 
-  constructor(type: BlockType) {
-    this.type = type;
-    this.message = `${type} block — advanced generator not yet implemented`;
+  constructor(config?: { providerId?: string; modelId?: string; apiKey?: string; baseUrl?: string }) {
+    this.llm = new LLMHelper(config);
   }
 
-  async generate(): Promise<{ payload: Record<string, unknown>; metadata: Record<string, unknown> }> {
+  async generate(
+    params: Record<string, unknown>,
+    ctx: BlockGeneratorContext,
+  ): Promise<{ payload: Record<string, unknown>; metadata: Record<string, unknown> }> {
+    const focus = (params.focus as string) || 'Conceptual diagram';
+    const variant = (params.variant as string) || 'diagram';
+    const langLabel = ctx.language === 'zh' ? 'Chinese' : 'English';
+
+    const system = `You are an educational diagram designer. Generate a visual figure for a textbook chapter.
+Supported render types: "mermaid" (flowcharts, sequence, state diagrams), "svg" (custom illustrations), "chartjs" (data charts).
+Output ONLY a JSON object:
+{
+  "render_type": "mermaid" | "svg" | "chartjs",
+  "code": "...",
+  "description": "Brief description of what the figure shows"
+}
+For mermaid: output valid Mermaid syntax (graph TD, sequenceDiagram, etc.).
+For svg: output valid SVG markup with viewBox, text labels, and clean styling.
+For chartjs: output a Chart.js config object { type, data, options }.
+Choose the render_type best suited for the content. Language: ${langLabel}.`;
+
+    const prompt = `Chapter: ${ctx.chapter.title}\nVariant: ${variant}\nFocus: ${focus}\n\nGenerate the figure:`;
+    const result = await this.llm.json(system, prompt, 'figure-block');
+
+    const renderType = (result.render_type as string) || 'mermaid';
+    const code = (result.code as string) || '';
+    const description = (result.description as string) || focus;
+
     return {
-      payload: { content: this.message, status: 'stub' },
-      metadata: { stub: true },
+      payload: { render_type: renderType, code, description },
+      metadata: { variant },
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// InteractiveGenerator — LLM-powered interactive HTML widget
+// ---------------------------------------------------------------------------
+
+class InteractiveGenerator implements BlockGenerator {
+  readonly type: BlockType = 'interactive';
+  private llm: LLMHelper;
+
+  constructor(config?: { providerId?: string; modelId?: string; apiKey?: string; baseUrl?: string }) {
+    this.llm = new LLMHelper(config);
+  }
+
+  async generate(
+    params: Record<string, unknown>,
+    ctx: BlockGeneratorContext,
+  ): Promise<{ payload: Record<string, unknown>; metadata: Record<string, unknown> }> {
+    const focus = (params.focus as string) || 'Interactive demonstration';
+    const interaction = (params.interaction as string) || 'interactive';
+    const langLabel = ctx.language === 'zh' ? 'Chinese' : 'English';
+
+    const system = `You are an educational interactive designer. Create a self-contained HTML widget for a textbook.
+The HTML must be a single, complete document with inline CSS and JS (no external dependencies).
+It should be educational, interactive, and visually clean.
+Output ONLY a JSON object:
+{
+  "code": "<full HTML document string>",
+  "description": "Brief description of the interaction"
+}
+The HTML should include: responsive layout, user interaction (buttons, sliders, inputs, drag-drop, etc.),
+visual feedback, and educational value. All text in ${langLabel}.`;
+
+    const prompt = `Chapter: ${ctx.chapter.title}\nInteraction type: ${interaction}\nFocus: ${focus}\n\nGenerate the interactive widget:`;
+    const result = await this.llm.json(system, prompt, 'interactive-block');
+
+    const code = (result.code as string) || '';
+    const description = (result.description as string) || focus;
+
+    return {
+      payload: { render_type: 'html', code, description },
+      metadata: { interaction },
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// AnimationGenerator — LLM-powered CSS/JS animation
+// ---------------------------------------------------------------------------
+
+class AnimationGenerator implements BlockGenerator {
+  readonly type: BlockType = 'animation';
+  private llm: LLMHelper;
+
+  constructor(config?: { providerId?: string; modelId?: string; apiKey?: string; baseUrl?: string }) {
+    this.llm = new LLMHelper(config);
+  }
+
+  async generate(
+    params: Record<string, unknown>,
+    ctx: BlockGeneratorContext,
+  ): Promise<{ payload: Record<string, unknown>; metadata: Record<string, unknown> }> {
+    const focus = (params.focus as string) || 'Concept animation';
+    const styleHint = (params.styleHint as string) || '';
+    const langLabel = ctx.language === 'zh' ? 'Chinese' : 'English';
+
+    const system = `You are an educational animation designer. Create a self-contained HTML+CSS+JS animation for a textbook concept.
+The output must be a single HTML document with inline CSS animations and/or JS animations (no external libraries).
+Output ONLY a JSON object:
+{
+  "code": "<full HTML document string with animations>",
+  "description": "Brief description of what the animation shows",
+  "key_points": ["point 1", "point 2"]
+}
+Use CSS @keyframes, transitions, or requestAnimationFrame for smooth animations.
+The animation should clearly illustrate the educational concept. All text in ${langLabel}.${styleHint ? `\nStyle hint: ${styleHint}` : ''}`;
+
+    const prompt = `Chapter: ${ctx.chapter.title}\nFocus: ${focus}\n\nGenerate the animation:`;
+    const result = await this.llm.json(system, prompt, 'animation-block');
+
+    const code = (result.code as string) || '';
+    const description = (result.description as string) || focus;
+    const keyPoints = (result.key_points as string[]) || [];
+
+    return {
+      payload: { render_type: 'html', code, description, key_points: keyPoints },
+      metadata: { focus },
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// TimelineGenerator — JSON-based timeline events
+// ---------------------------------------------------------------------------
+
+class TimelineGenerator implements BlockGenerator {
+  readonly type: BlockType = 'timeline';
+  private llm: LLMHelper;
+
+  constructor(config?: { providerId?: string; modelId?: string; apiKey?: string; baseUrl?: string }) {
+    this.llm = new LLMHelper(config);
+  }
+
+  async generate(
+    params: Record<string, unknown>,
+    ctx: BlockGeneratorContext,
+  ): Promise<{ payload: Record<string, unknown>; metadata: Record<string, unknown> }> {
+    const focus = (params.focus as string) || '';
+    const langLabel = ctx.language === 'zh' ? 'Chinese' : 'English';
+
+    const system = `You are a timeline designer for educational content. Create a chronological timeline of key events.
+Output ONLY a JSON object:
+{
+  "events": [
+    { "date": "year or date string", "title": "event title", "description": "brief description" }
+  ]
+}
+Include 4-8 events in chronological order. Keep date strings short (max 80 chars),
+titles concise (max 160 chars), descriptions brief (max 300 chars).
+Language: ${langLabel}.`;
+
+    const prompt = `Chapter: ${ctx.chapter.title}${focus ? `\nFocus: ${focus}` : ''}\n\nGenerate the timeline:`;
+    const result = await this.llm.json(system, prompt, 'timeline-block');
+
+    let events = (result.events as Array<Record<string, unknown>>) || [];
+    events = events.slice(0, 8).map((e) => ({
+      date: String(e.date ?? '').slice(0, 80),
+      title: String(e.title ?? '').slice(0, 160),
+      description: String(e.description ?? '').slice(0, 600),
+    }));
+
+    if (events.length === 0) {
+      events = [{ date: '—', title: 'No timeline events generated', description: '' }];
+    }
+
+    return {
+      payload: { events },
+      metadata: { eventCount: events.length },
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// FlashCardsGenerator — JSON-based flashcard set
+// ---------------------------------------------------------------------------
+
+class FlashCardsGenerator implements BlockGenerator {
+  readonly type: BlockType = 'flash_cards';
+  private llm: LLMHelper;
+
+  constructor(config?: { providerId?: string; modelId?: string; apiKey?: string; baseUrl?: string }) {
+    this.llm = new LLMHelper(config);
+  }
+
+  async generate(
+    params: Record<string, unknown>,
+    ctx: BlockGeneratorContext,
+  ): Promise<{ payload: Record<string, unknown>; metadata: Record<string, unknown> }> {
+    const count = Math.min(Math.max(Number(params.count ?? 5), 3), 8);
+    const focus = (params.focus as string) || '';
+    const langLabel = ctx.language === 'zh' ? 'Chinese' : 'English';
+
+    const system = `You are an educational flashcard designer. Create a set of study flashcards.
+Output ONLY a JSON object:
+{
+  "cards": [
+    { "front": "question or term (concise)", "back": "answer or explanation (detailed)", "hint": "optional hint" }
+  ]
+}
+Create exactly ${count} cards. Front should be a question or term (max 300 chars).
+Back should be the answer (max 600 chars). Hint is optional (max 200 chars).
+Cards should cover different aspects of the topic and test understanding, not just memorization.
+Language: ${langLabel}.`;
+
+    const prompt = `Chapter: ${ctx.chapter.title}${focus ? `\nFocus: ${focus}` : ''}\n\nGenerate ${count} flashcards:`;
+    const result = await this.llm.json(system, prompt, 'flashcards-block');
+
+    let cards = (result.cards as Array<Record<string, unknown>>) || [];
+    cards = cards
+      .filter((c) => c.front && c.back)
+      .slice(0, count)
+      .map((c) => ({
+        front: String(c.front ?? '').slice(0, 300),
+        back: String(c.back ?? '').slice(0, 600),
+        hint: String(c.hint ?? '').slice(0, 200),
+      }));
+
+    if (cards.length === 0) {
+      cards = [{ front: 'No flashcards generated', back: 'Try regenerating', hint: '' }];
+    }
+
+    return {
+      payload: { cards },
+      metadata: { cardCount: cards.length },
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DeepDiveGenerator — Suggests further exploration topics
+// ---------------------------------------------------------------------------
+
+class DeepDiveGenerator implements BlockGenerator {
+  readonly type: BlockType = 'deep_dive';
+  private llm: LLMHelper;
+
+  constructor(config?: { providerId?: string; modelId?: string; apiKey?: string; baseUrl?: string }) {
+    this.llm = new LLMHelper(config);
+  }
+
+  async generate(
+    params: Record<string, unknown>,
+    ctx: BlockGeneratorContext,
+  ): Promise<{ payload: Record<string, unknown>; metadata: Record<string, unknown> }> {
+    const focus = (params.focus as string) || '';
+    const langLabel = ctx.language === 'zh' ? 'Chinese' : 'English';
+
+    const system = `You are an educational content curator. Suggest topics for deeper exploration beyond the current chapter.
+Output ONLY a JSON object:
+{
+  "suggestions": [
+    { "topic": "suggested topic title", "rationale": "why this topic is worth exploring" }
+  ]
+}
+Suggest 3-5 topics that build on the current chapter content. Each topic should be
+a natural next step for a curious learner. Keep topics concise (max 160 chars) and
+rationale brief (max 300 chars). Language: ${langLabel}.`;
+
+    const prompt = `Chapter: ${ctx.chapter.title}${focus ? `\nFocus: ${focus}` : ''}\n\nSuggest deep-dive topics:`;
+    const result = await this.llm.json(system, prompt, 'deepdive-block');
+
+    let suggestions = (result.suggestions as Array<Record<string, unknown>>) || [];
+    suggestions = suggestions.slice(0, 5).map((s) => ({
+      topic: String(s.topic ?? '').slice(0, 160),
+      rationale: String(s.rationale ?? '').slice(0, 300),
+    }));
+
+    if (suggestions.length === 0) {
+      suggestions = [{ topic: 'No suggestions generated', rationale: 'Try regenerating' }];
+    }
+
+    return {
+      payload: { suggestions },
+      metadata: { suggestionCount: suggestions.length },
     };
   }
 }
@@ -407,13 +679,13 @@ export class BlockGeneratorRegistry {
     this.register(new ConceptGraphGenerator());
     this.register(new UserNoteGenerator());
 
-    // Stub generators for complex types
-    this.register(new StubGenerator('figure'));
-    this.register(new StubGenerator('interactive'));
-    this.register(new StubGenerator('animation'));
-    this.register(new StubGenerator('timeline'));
-    this.register(new StubGenerator('flash_cards'));
-    this.register(new StubGenerator('deep_dive'));
+    // LLM-powered generators for complex types
+    this.register(new FigureGenerator(config));
+    this.register(new InteractiveGenerator(config));
+    this.register(new AnimationGenerator(config));
+    this.register(new TimelineGenerator(config));
+    this.register(new FlashCardsGenerator(config));
+    this.register(new DeepDiveGenerator(config));
   }
 
   register(gen: BlockGenerator): void {
