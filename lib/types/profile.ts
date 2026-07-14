@@ -32,7 +32,7 @@ export interface Interests {
 
 export interface LearningPace {
   speed: 'slow' | 'moderate' | 'fast';
-  depthPreference: 'broad' | 'deep';
+  depthPreference: string;
 }
 
 export interface ErrorPatterns {
@@ -85,17 +85,17 @@ export const DEFAULT_DIMENSIONS: ProfileDimensions = {
     errorPatterns: [],
   },
   timePreference: {
-    preferredDuration: 30,
-    preferredTimeSlot: 'evening',
+    preferredDuration: 0,
+    preferredTimeSlot: '',
     frequency: 'daily',
   },
   interests: {
     domains: [],
-    preferredFormats: ['document'],
+    preferredFormats: [],
   },
   learningPace: {
     speed: 'moderate',
-    depthPreference: 'broad',
+    depthPreference: '',
   },
   errorPatterns: {
     commonMistakes: [],

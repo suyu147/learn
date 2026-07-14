@@ -20,11 +20,14 @@ import {
   StopCircle,
   X,
   Sparkles,
+  RefreshCw,
+  Upload,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useChatStore } from '@/lib/store/chat-store';
 import { useSessionStore } from '@/lib/store/session-store';
 import { useSettingsStoreV2 } from '@/lib/store/settings-store';
+import { useSettingsStore } from '@/lib/store/settings';
 import { useKnowledgeStore } from '@/lib/store/knowledge-store';
 import { useTurnStream, type ToolCallInfo } from '@/lib/hooks/use-turn-stream';
 
@@ -65,7 +68,15 @@ export default function ChatPage() {
   const setActiveSession = useSessionStore((s) => s.setActiveSession);
 
   const settings = useSettingsStoreV2();
+  const v1Settings = useSettingsStore();
   const knowledgeBases = useKnowledgeStore((s) => s.knowledgeBases);
+
+  // Resolve effective provider/model/apiKey: smartlearn* fields take priority,
+  // then fall back to v1 settings store values
+  const effectiveProviderId = settings.smartlearnProviderId || v1Settings.providerId || undefined;
+  const effectiveModelId = settings.smartlearnModelId || v1Settings.modelId || undefined;
+  const effectiveApiKey = settings.smartlearnApiKey || v1Settings.apiKey || undefined;
+  const effectiveBaseUrl = settings.smartlearnBaseUrl || v1Settings.baseUrl || undefined;
 
   // Turn stream
   const stream = useTurnStream();
@@ -78,6 +89,7 @@ export default function ChatPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const userInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -124,10 +136,10 @@ export default function ChatPage() {
       capability: cap?.capabilityName,
       knowledgeBases: selectedKBs.length > 0 ? selectedKBs : undefined,
       language: settings.language,
-      providerId: settings.smartlearnProviderId || undefined,
-      modelId: settings.smartlearnModelId || undefined,
-      apiKey: settings.smartlearnApiKey || undefined,
-      baseUrl: settings.smartlearnBaseUrl || undefined,
+      providerId: effectiveProviderId,
+      modelId: effectiveModelId,
+      apiKey: effectiveApiKey,
+      baseUrl: effectiveBaseUrl,
       conversationHistory: history,
     });
   }, [
@@ -137,8 +149,136 @@ export default function ChatPage() {
     activeCapability,
     activeSessionId,
     selectedKBs,
-    settings,
+    settings.language,
+    effectiveProviderId,
+    effectiveModelId,
+    effectiveApiKey,
+    effectiveBaseUrl,
   ]);
+
+  // Handle regenerate
+  const handleRegenerate = useCallback(
+    async (assistantMsgId: string) => {
+      if (stream.isStreaming) return;
+
+      // Find the assistant message and the preceding user message
+      const allMsgs = messages;
+      const assistantIdx = allMsgs.findIndex((m) => m.id === assistantMsgId);
+      if (assistantIdx < 0) return;
+
+      let userMsgContent = '';
+      for (let i = assistantIdx - 1; i >= 0; i--) {
+        if (allMsgs[i].role === 'user') {
+          userMsgContent = allMsgs[i].content;
+          break;
+        }
+      }
+      if (!userMsgContent) return;
+
+      // Build conversation history from messages BEFORE the user message
+      const history = allMsgs.slice(0, assistantIdx - 1).slice(-20).map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const cap = capabilities.find((c) => c.id === activeCapability);
+
+      await stream.regenerate(assistantMsgId, {
+        sessionId: activeSessionId ?? `session-${Date.now()}`,
+        message: userMsgContent,
+        capability: cap?.capabilityName,
+        knowledgeBases: selectedKBs.length > 0 ? selectedKBs : undefined,
+        language: settings.language,
+        providerId: effectiveProviderId,
+        modelId: effectiveModelId,
+        apiKey: effectiveApiKey,
+        baseUrl: effectiveBaseUrl,
+        conversationHistory: history,
+      });
+    },
+    [stream, messages, activeCapability, activeSessionId, selectedKBs, settings.language, effectiveProviderId, effectiveModelId, effectiveApiKey, effectiveBaseUrl],
+  );
+
+  // Import dialog state
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importPreview, setImportPreview] = useState<{
+    conversations: Array<{ title: string; messageCount: number; format: string }>;
+  } | null>(null);
+  const [importError, setImportError] = useState('');
+
+  const handleImportFile = useCallback(async (file: File) => {
+    setImportLoading(true);
+    setImportError('');
+    setImportPreview(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const token = (await import('@/lib/auth-token')).getApiToken();
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch('/api/v1/chat/import', {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({ error: 'Import failed' }));
+        throw new Error(errBody.error ?? `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setImportPreview(data.data ?? data);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Import failed');
+    } finally {
+      setImportLoading(false);
+    }
+  }, []);
+
+  const handleImportText = useCallback(async () => {
+    if (!importText.trim()) return;
+    setImportLoading(true);
+    setImportError('');
+    setImportPreview(null);
+    try {
+      const token = (await import('@/lib/auth-token')).getApiToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch('/api/v1/chat/import', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ content: importText }),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({ error: 'Import failed' }));
+        throw new Error(errBody.error ?? `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setImportPreview(data.data ?? data);
+
+      // Load imported conversations into the session store
+      const conversations = data.data?.conversations ?? data.conversations ?? [];
+      for (const conv of conversations) {
+        addSession({
+          id: conv.id ?? `imported-${Date.now()}`,
+          title: conv.title ?? 'Imported Chat',
+          mode: 'chat',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: 'active' as const,
+        });
+      }
+      setImportOpen(false);
+      setImportText('');
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Import failed');
+    } finally {
+      setImportLoading(false);
+    }
+  }, [importText, addSession]);
 
   // Handle key press
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -185,6 +325,13 @@ export default function ChatPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setImportOpen(true)}
+              className="p-2 rounded-lg hover:bg-[var(--muted)] transition-colors"
+              title="Import chat history"
+            >
+              <Upload className="h-[18px] w-[18px] text-[var(--muted-foreground)]" />
+            </button>
             <button className="p-2 rounded-lg hover:bg-[var(--muted)] transition-colors">
               <Search className="h-[18px] w-[18px] text-[var(--muted-foreground)]" />
             </button>
@@ -288,12 +435,23 @@ export default function ChatPage() {
                       {msg.content}
                     </div>
                   </div>
-                  <p className="text-[11px] text-[var(--muted-foreground)]">
-                    {new Date(msg.timestamp).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </p>
+                  <div className="flex items-center gap-3">
+                    <p className="text-[11px] text-[var(--muted-foreground)]">
+                      {new Date(msg.timestamp).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                    {!stream.isStreaming && (
+                      <button
+                        onClick={() => handleRegenerate(msg.id)}
+                        className="p-1 rounded hover:bg-[var(--muted)] transition-colors group"
+                        title="Regenerate response"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5 text-[var(--muted-foreground)] group-hover:text-[var(--foreground)]" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -404,6 +562,7 @@ export default function ChatPage() {
                 </p>
                 <div className="flex gap-2">
                   <input
+                    ref={userInputRef}
                     type="text"
                     className="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--primary)]"
                     placeholder="Your answer..."
@@ -415,8 +574,8 @@ export default function ChatPage() {
                     }}
                   />
                   <button
-                    onClick={(e) => {
-                      const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                    onClick={() => {
+                      const input = userInputRef.current;
                       if (input?.value?.trim()) {
                         stream.submitInput(input.value.trim());
                         input.value = '';
@@ -688,6 +847,114 @@ export default function ChatPage() {
           )}
         </div>
       </div>
+
+      {/* Import Dialog */}
+      {importOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-[16px] font-semibold text-[var(--foreground)]">
+                Import Chat History
+              </h2>
+              <button
+                onClick={() => {
+                  setImportOpen(false);
+                  setImportText('');
+                  setImportPreview(null);
+                  setImportError('');
+                }}
+                className="p-1 rounded-lg hover:bg-[var(--muted)] transition-colors"
+              >
+                <X className="h-4 w-4 text-[var(--muted-foreground)]" />
+              </button>
+            </div>
+
+            <p className="text-[13px] text-[var(--muted-foreground)] mb-4">
+              Import conversations from ChatGPT, Claude, or other platforms. Upload an exported file or paste the text directly.
+            </p>
+
+            {/* File upload */}
+            <div className="mb-4">
+              <label className="block text-[12px] font-medium text-[var(--foreground)] mb-1.5">
+                Upload file
+              </label>
+              <input
+                type="file"
+                accept=".json,.jsonl,.txt,.csv"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImportFile(file);
+                }}
+                className="block w-full text-[13px] text-[var(--foreground)] file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[12px] file:font-medium file:bg-[var(--primary)] file:text-[var(--primary-foreground)] hover:file:opacity-90"
+              />
+            </div>
+
+            {/* Text paste */}
+            <div className="mb-4">
+              <label className="block text-[12px] font-medium text-[var(--foreground)] mb-1.5">
+                Or paste chat text
+              </label>
+              <textarea
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                placeholder="Paste exported chat history here..."
+                rows={4}
+                className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--primary)] resize-none"
+              />
+            </div>
+
+            {/* Preview */}
+            {importPreview && (
+              <div className="mb-4 p-3 bg-[var(--background)] border border-[var(--border)] rounded-lg">
+                <p className="text-[12px] font-medium text-[var(--foreground)] mb-1">
+                  Preview
+                </p>
+                {importPreview.conversations?.map((conv, i) => (
+                  <div key={i} className="text-[12px] text-[var(--muted-foreground)]">
+                    {conv.title} — {conv.messageCount} messages ({conv.format})
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Error */}
+            {importError && (
+              <div className="mb-4 p-3 bg-[var(--destructive)]/10 border border-[var(--destructive)]/30 rounded-lg">
+                <p className="text-[12px] text-[var(--destructive)]">{importError}</p>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setImportOpen(false);
+                  setImportText('');
+                  setImportPreview(null);
+                  setImportError('');
+                }}
+                className="px-4 py-2 rounded-lg text-[13px] font-medium text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleImportText}
+                disabled={!importText.trim() || importLoading}
+                className={cn(
+                  'px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity',
+                  (!importText.trim() || importLoading) && 'opacity-50 cursor-not-allowed',
+                )}
+              >
+                {importLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  'Import'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

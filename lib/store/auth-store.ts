@@ -9,7 +9,23 @@
  */
 
 import { create } from 'zustand';
-import { setApiToken } from '@/lib/auth-token';
+import { setApiToken, getApiToken } from '@/lib/auth-token';
+import { clearAllUserData } from './clear-user-data';
+
+/**
+ * Decode JWT payload in the browser (no verification — middleware already
+ * verified it). Returns null if the token is malformed.
+ */
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1]));
+    return payload as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -28,6 +44,8 @@ interface AuthState {
   token: string | null;
   mode: AuthMode | null;
   isInitialized: boolean;
+  /** Whether the user has completed the onboarding profile builder */
+  hasProfile: boolean;
 
   /** Login with credentials (multi mode). Also works for disabled mode (empty creds). */
   login: (username: string, password: string) => Promise<void>;
@@ -37,6 +55,9 @@ interface AuthState {
 
   /** Clear auth state and token. */
   logout: () => void;
+
+  /** Update hasProfile state (called by onboarding page after completion). */
+  setHasProfile: (hasProfile: boolean) => void;
 
   /**
    * Initialize auth state on app startup.
@@ -56,6 +77,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   mode: null,
   isInitialized: false,
+  hasProfile: false,
 
   login: async (username, password) => {
     const res = await fetch('/api/v1/auth/login', {
@@ -99,7 +121,12 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     setApiToken(null);
-    set({ token: null, user: null });
+    clearAllUserData();
+    set({ token: null, user: null, hasProfile: false });
+  },
+
+  setHasProfile: (hasProfile) => {
+    set({ hasProfile });
   },
 
   initAuth: async () => {
@@ -117,19 +144,62 @@ export const useAuthStore = create<AuthState>((set) => ({
           mode: AuthMode;
           user: AuthUser | null;
           token?: string;
+          hasProfile?: boolean;
         };
       };
 
       // In disabled/single mode, the status endpoint returns a pre-issued
       // token so the frontend can immediately use it for API calls.
-      if (data.token) {
-        setApiToken(data.token);
+      // In multi mode, the status endpoint does NOT return a token (the
+      // request is sent without Authorization), so we must restore the
+      // token from localStorage (set during login) and decode the user.
+      let resolvedToken = data.token ?? null;
+      let resolvedUser = data.user ?? null;
+      let resolvedHasProfile = data.hasProfile ?? false;
+
+      if (!resolvedToken) {
+        // Multi mode: try to recover token from localStorage
+        const stored = getApiToken();
+        if (stored) {
+          const payload = decodeJwtPayload(stored);
+          if (payload?.userId) {
+            resolvedToken = stored;
+            resolvedUser = {
+              id: payload.userId as string,
+              username: (payload.username as string) ?? '',
+              role: (payload.role as 'admin' | 'user') ?? 'user',
+            };
+            // Warm the in-memory cache so subsequent calls are fast
+            setApiToken(stored);
+
+            // Verify profile status for this user
+            try {
+              const statusRes = await fetch('/api/v1/auth/status', {
+                headers: { Authorization: `Bearer ${stored}` },
+              });
+              if (statusRes.ok) {
+                const statusData = (await statusRes.json()) as {
+                  data: { hasProfile?: boolean };
+                };
+                resolvedHasProfile = statusData.data?.hasProfile ?? false;
+              }
+            } catch {
+              // Non-critical — hasProfile defaults to false
+            }
+          } else {
+            // Malformed token in localStorage — clear it
+            setApiToken(null);
+          }
+        }
+      } else {
+        setApiToken(resolvedToken);
       }
 
       set({
         mode: data.mode,
-        user: data.user,
-        token: data.token ?? null,
+        user: resolvedUser,
+        token: resolvedToken,
+        hasProfile: resolvedHasProfile,
         isInitialized: true,
       });
     } catch {

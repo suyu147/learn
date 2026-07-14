@@ -12,6 +12,12 @@ function buildFeedback(state: LearningStateType): PriorNodeFeedback[] {
   return state.resourceFeedback.filter((item) => item.nodeId !== currentNodeId);
 }
 
+import { initializeLearningTopics } from '../persistence';
+
+function getUserId(config: { configurable?: { userId?: string } }): string {
+  return config.configurable?.userId ?? 'anonymous';
+}
+
 function applyOverrides(selectedTypes: ResourceType[] | undefined, decision: ReturnType<typeof decideNodeResourcePlan>) {
   if (!selectedTypes) return decision;
   const selectedSet = new Set(selectedTypes);
@@ -40,11 +46,12 @@ function applyOverrides(selectedTypes: ResourceType[] | undefined, decision: Ret
 
 export async function planResourcesNode(
   state: LearningStateType,
-  config: { configurable?: { writer?: (event: LearnEvent) => void } },
+  config: { configurable?: { writer?: (event: LearnEvent) => void; userId?: string } },
 ) {
   const write = getWriter(config);
   const node = state.currentNode;
   if (!node) return { phase: 'resource_plan' };
+  await initializeLearningTopics(getUserId(config), node.knowledgePoints);
   write({ type: 'phase_start', phase: 'resource_plan' });
 
   try {

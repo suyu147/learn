@@ -216,6 +216,113 @@ export class MemoryServiceImpl {
   }
 
   // -------------------------------------------------------------------------
+  // Consolidation — L1→L2 rollup + L2→L3 synthesis
+  // -------------------------------------------------------------------------
+
+  /**
+   * Consolidate memory for a user after a capability completes.
+   * 1. Roll up recent L1 traces into L2 surface summary
+   * 2. Merge L2 summaries into L3/recent slot
+   *
+   * Called by EventBus subscriber on CAPABILITY_COMPLETE.
+   */
+  async consolidate(userId: string, surface: Surface): Promise<void> {
+    try {
+      // Step 1: L1 → L2 rollup
+      await this.rollupL1ToL2(userId, surface);
+
+      // Step 2: L2 → L3 synthesis
+      await this.synthesizeL3Recent(userId);
+
+      log.info(`Memory consolidated for user ${userId}, surface: ${surface}`);
+    } catch (err) {
+      log.warn(`Memory consolidation failed for ${userId}/${surface}:`, err);
+    }
+  }
+
+  /**
+   * Roll up L1 traces into L2 surface summary.
+   * Extracts key events from L1 and appends a summary to L2.
+   */
+  private async rollupL1ToL2(userId: string, surface: Surface): Promise<void> {
+    const events = await this.readTrace(userId, surface, 50);
+    if (events.length === 0) return;
+
+    // Only rollup if there are new events since last consolidation
+    const existingL2 = await this.readL2(userId, surface);
+    const lastConsolidation = this.extractLastConsolidationTs(existingL2);
+    const newEvents = events.filter((e) => new Date(e.ts).getTime() > lastConsolidation);
+
+    if (newEvents.length < 3) return; // Not enough new events to warrant rollup
+
+    // Build summary from new events
+    const summaryLines: string[] = [];
+    const ts = new Date().toISOString();
+    summaryLines.push(`## Consolidation ${ts}\n`);
+
+    for (const event of newEvents.slice(-20)) {
+      const kind = event.kind || 'event';
+      const payload = event.payload;
+      const summary = payload.summary as string || payload.message as string || JSON.stringify(payload).slice(0, 120);
+      summaryLines.push(`- [${kind}] ${summary}`);
+    }
+
+    // Append to L2
+    const newContent = existingL2.trim()
+      ? existingL2.trim() + '\n\n' + summaryLines.join('\n')
+      : `# ${surface.charAt(0).toUpperCase() + surface.slice(1)} Memory\n\n` + summaryLines.join('\n');
+
+    // Cap L2 at 4000 chars (keep last portion)
+    const capped = newContent.length > 4000
+      ? newContent.slice(newContent.length - 4000)
+      : newContent;
+
+    await this.writeL2(userId, surface, capped);
+  }
+
+  /**
+   * Synthesize L2 surface summaries into L3/recent slot.
+   */
+  private async synthesizeL3Recent(userId: string): Promise<void> {
+    const surfaces: Surface[] = ['chat', 'notebook', 'quiz', 'kb', 'book', 'cowriter'];
+    const sections: string[] = [];
+
+    for (const surface of surfaces) {
+      const content = await this.readL2(userId, surface);
+      if (content.trim()) {
+        // Take last 800 chars of each L2 as the "recent" summary
+        const recent = content.length > 800 ? content.slice(-800) : content;
+        sections.push(`### ${surface.charAt(0).toUpperCase() + surface.slice(1)}\n\n${recent.trim()}`);
+      }
+    }
+
+    if (sections.length === 0) return;
+
+    const ts = new Date().toISOString();
+    const header = `# Recent Memory (updated ${ts})\n`;
+    let combined = header + '\n' + sections.join('\n\n---\n\n');
+
+    // Cap L3/recent at 4000 chars
+    if (combined.length > 4000) {
+      combined = combined.slice(0, 4000) + '\n\n[... truncated]';
+    }
+
+    await this.writeL3(userId, 'recent', combined);
+  }
+
+  /**
+   * Extract the timestamp of the last consolidation from L2 content.
+   */
+  private extractLastConsolidationTs(l2Content: string): number {
+    const match = l2Content.match(/## Consolidation (.+?)$/m);
+    if (match) {
+      const ts = new Date(match[1]).getTime();
+      if (!isNaN(ts)) return ts;
+    }
+    return 0;
+  }
+
+  // -------------------------------------------------------------------------
   // Overview
   // -------------------------------------------------------------------------
 

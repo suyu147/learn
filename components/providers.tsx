@@ -35,8 +35,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const mode = useAuthStore((s) => s.mode);
   const user = useAuthStore((s) => s.user);
   const isInitialized = useAuthStore((s) => s.isInitialized);
+  const hasProfile = useAuthStore((s) => s.hasProfile);
 
   const isAuthPage = pathname.startsWith('/auth/');
+  const isOnboardingPage = pathname.startsWith('/onboarding');
+
+  // --- Compute redirect target (pure, no side-effects during render) ---
+  let redirectTo: string | null = null;
+  if (isInitialized) {
+    if (mode === 'multi' && !user && !isAuthPage) {
+      redirectTo = '/auth/login';
+    } else if (mode === 'multi' && user && isAuthPage) {
+      redirectTo = hasProfile ? '/chat' : '/onboarding';
+    } else if (mode === 'multi' && user && !hasProfile && !isOnboardingPage && !isAuthPage) {
+      // Authenticated but profile not complete → redirect to onboarding
+      redirectTo = '/onboarding';
+    } else if (user && hasProfile && isOnboardingPage) {
+      // Profile complete but still on onboarding page → redirect to chat
+      redirectTo = '/chat';
+    }
+  }
+
+  // --- Perform redirect outside the render phase ---
+  useEffect(() => {
+    if (redirectTo) {
+      router.replace(redirectTo);
+    }
+  }, [redirectTo, router]);
 
   // --- Loading state: auth not yet discovered ---
   if (!isInitialized) {
@@ -50,20 +75,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // --- Auth guard: multi mode requires login ---
-  if (mode === 'multi' && !user && !isAuthPage) {
-    router.replace('/auth/login');
+  // --- Auth guard: show nothing while redirect is in-flight ---
+  if (redirectTo) {
     return null;
   }
 
-  // --- Auth guard: already logged in on auth page → go to chat ---
-  if (mode === 'multi' && user && isAuthPage) {
-    router.replace('/chat');
-    return null;
-  }
-
-  // --- Auth pages: render without Sidebar ---
-  if (isAuthPage) {
+  // --- Auth pages and onboarding page: render without Sidebar ---
+  if (isAuthPage || isOnboardingPage) {
     return <>{children}</>;
   }
 

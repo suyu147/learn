@@ -10,6 +10,8 @@ import { createLogger } from '@/lib/logger';
 import { validatedBody, errorToMessage, isValidationError, isSyntaxError } from '@/lib/server/validate';
 import { SmartLearnEvaluateSchema } from '@/lib/server/schemas';
 
+import { authenticate } from '@/lib/deeptutor/services/auth';
+
 const log = createLogger('api:smartlearn:evaluate');
 
 interface EvaluateRequest {
@@ -27,6 +29,10 @@ export async function POST(req: NextRequest) {
   try {
     const validated = await validatedBody(SmartLearnEvaluateSchema, req);
     const body = validated as unknown as EvaluateRequest;
+
+    const userId = await (async () => {
+      try { return (await authenticate(req)).id; } catch { return 'anonymous'; }
+    })();
 
     const sessionId = body.sessionId ?? `eval_${Date.now()}`;
     const turnId = `turn_eval_${Date.now()}`;
@@ -81,6 +87,7 @@ export async function POST(req: NextRequest) {
               writer: learnEventWriter,
               sessionId,
               turnId,
+              userId,
             },
           });
 

@@ -4,6 +4,7 @@ import { ThemeProvider } from 'next-themes';
 import { Toaster } from '@/components/ui/sonner';
 import { ThemeScript } from '@/components/theme-script';
 import { Providers, AppShell } from '@/components/providers';
+import { ErrorBoundary } from '@/components/error-boundary';
 import './globals.css';
 
 const fontSans = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-sans' });
@@ -29,7 +30,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           disableTransitionOnChange
         >
           <Providers>
-            <AppShell>{children}</AppShell>
+            <AppShell>
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
+            </AppShell>
           </Providers>
           <Toaster />
         </ThemeProvider>

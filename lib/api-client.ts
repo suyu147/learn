@@ -44,16 +44,19 @@ export async function apiFetch<T>(
     authHeaders['Authorization'] = `Bearer ${token}`;
   }
 
+  // Separate headers from rest of options to avoid header overwrite
+  const { headers: optionHeaders, ...restOptions } = options;
+
   const res = await fetch(path, {
+    ...restOptions,
     headers: {
       'Content-Type': 'application/json',
-      ...(options.body instanceof FormData
+      ...(restOptions.body instanceof FormData
         ? { 'Content-Type': '' } // let browser set multipart boundary
         : {}),
       ...authHeaders,
-      ...options.headers,
+      ...optionHeaders,
     },
-    ...options,
   });
 
   if (!res.ok) {

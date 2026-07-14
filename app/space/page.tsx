@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import {
   MessageSquare,
   GraduationCap,
@@ -10,7 +9,6 @@ import {
   Clock,
   TrendingUp,
   Zap,
-  Loader2,
   Plus,
   ArrowRight,
 } from 'lucide-react';
@@ -30,8 +28,6 @@ export default function SpacePage() {
   const knowledgeBases = useKnowledgeStore((s) => s.knowledgeBases);
   const memoryEntries = useMemoryStore((s) => s.entries);
   const chatMessages = useChatStore((s) => s.messages);
-
-  const [loading, setLoading] = useState(false);
 
   // Compute stats
   const totalSessions = sessions.length;
@@ -169,11 +165,7 @@ export default function SpacePage() {
             </Link>
           </div>
 
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 text-[var(--primary)] animate-spin" />
-            </div>
-          ) : recentSessions.length === 0 ? (
+          {recentSessions.length === 0 ? (
             <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-8 text-center">
               <Clock className="h-10 w-10 text-[var(--muted-foreground)] mx-auto mb-4 opacity-40" />
               <p className="text-[14px] text-[var(--foreground)] font-medium mb-1">

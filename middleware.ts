@@ -29,12 +29,15 @@ type AuthMode = 'disabled' | 'single' | 'multi';
 // Config
 // ---------------------------------------------------------------------------
 
-const DEFAULT_JWT_SECRET = 'deeptutor-dev-secret-change-in-production';
-
 function getSecret(): Uint8Array {
-  return new TextEncoder().encode(
-    process.env.JWT_SECRET ?? DEFAULT_JWT_SECRET,
-  );
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_SECRET env var is required in production');
+    }
+    return new TextEncoder().encode('dev-only-fallback-secret-not-for-production');
+  }
+  return new TextEncoder().encode(secret);
 }
 
 function getMode(): AuthMode {

@@ -58,21 +58,21 @@ export default function NotebookPage() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchNotebooks = async () => {
-    setLoading(true);
-    try {
-      const data = await apiGet<{ notebooks: Notebook[] }>('/api/v1/notebook');
-      setNotebooks(data.notebooks ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '加载笔记本失败');
-      setNotebooks([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Fetch notebooks on mount
   useEffect(() => {
+    const fetchNotebooks = async () => {
+      setLoading(true);
+      try {
+        const data = await apiGet<{ notebooks: Notebook[] }>('/api/v1/notebook');
+        setNotebooks(data.notebooks ?? []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '加载笔记本失败');
+        setNotebooks([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchNotebooks();
   }, []);
 

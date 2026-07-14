@@ -13,6 +13,7 @@ import { createLogger } from '@/lib/logger';
 import { Prisma } from '@prisma/client';
 import type { EmbeddingServiceImpl } from './embedding';
 import { toVectorString } from './pgvector';
+import { RerankerServiceImpl, type RerankCandidate } from './reranker';
 
 const log = createLogger('RAGService');
 
@@ -85,9 +86,11 @@ interface VectorSearchRow {
 
 export class RAGServiceImpl {
   private embeddingService: EmbeddingServiceImpl;
+  private reranker: RerankerServiceImpl | null;
 
-  constructor(embeddingService: EmbeddingServiceImpl) {
+  constructor(embeddingService: EmbeddingServiceImpl, reranker?: RerankerServiceImpl) {
     this.embeddingService = embeddingService;
+    this.reranker = reranker ?? null;
   }
 
   /**
@@ -105,6 +108,7 @@ export class RAGServiceImpl {
     const topK = options.topK ?? DEFAULT_TOP_K;
     const minScore = options.minScore ?? DEFAULT_MIN_SCORE;
     const maxContextLength = options.maxContextLength ?? DEFAULT_MAX_CONTEXT_LENGTH;
+    const shouldRerank = options.rerank !== false && this.reranker !== null;
 
     if (kbIds.length === 0) {
       return { query, context: '', sources: [] };
@@ -113,18 +117,46 @@ export class RAGServiceImpl {
     // 1. Embed the query
     const queryEmbedding = await this.embeddingService.embedOne(query);
 
-    // 2. Use pgvector <=> for database-side cosine distance ranking
-    const results = await this.vectorSearch(queryEmbedding, kbIds, topK);
+    // 2. Retrieve candidates from pgvector
+    //    When reranking, fetch extra candidates (3x) for better rerank quality
+    const retrievalLimit = shouldRerank ? topK * 3 : topK;
+    const results = await this.vectorSearch(queryEmbedding, kbIds, retrievalLimit);
 
     // 3. Filter by minimum score
-    const filtered = results.filter((c) => c.score >= minScore);
+    let filtered = results.filter((c) => c.score >= minScore);
 
     if (filtered.length === 0) {
       log.info(`No results above threshold ${minScore} for query: "${query.slice(0, 50)}..."`);
       return { query, context: '', sources: [] };
     }
 
-    // 4. Build context string
+    // 4. Apply reranking if enabled
+    if (shouldRerank && filtered.length > 1) {
+      const candidates: RerankCandidate[] = filtered.map((r) => ({
+        chunkId: r.chunkId,
+        content: r.content,
+        score: r.score,
+        metadata: r.metadata,
+      }));
+
+      const reranked = this.reranker!.rerank(query, candidates, topK);
+
+      // Map reranked results back to RAGSource format
+      filtered = reranked.map((r) => {
+        const original = filtered.find((f) => f.chunkId === r.chunkId)!;
+        return {
+          ...original,
+          score: r.combinedScore, // Use combined score for ranking
+        };
+      });
+
+      log.debug(`Reranked ${candidates.length} → ${filtered.length} results`);
+    } else {
+      // No reranking — just trim to topK
+      filtered = filtered.slice(0, topK);
+    }
+
+    // 5. Build context string
     const context = this.buildContext(filtered, maxContextLength);
 
     return {

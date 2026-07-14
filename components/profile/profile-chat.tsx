@@ -1,11 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { Send, Loader2, Bot, User, CheckCircle2, Plus } from 'lucide-react';
+import { Send, Loader2, Bot, User, CheckCircle2, Plus, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,17 +16,31 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useLearningProfileStore } from '@/lib/store/learning-profile';
 import { useSettingsStore } from '@/lib/store/settings';
-import { isProfileComplete } from '@/lib/utils/profile-utils';
-import type { ConversationMessage } from '@/lib/types/profile';
+import { isProfileComplete, calculateProfileCompleteness } from '@/lib/utils/profile-utils';
+import { PROFILE_DIMENSION_LABELS } from '@/lib/types/profile';
+import { getApiToken } from '@/lib/auth-token';
+import type { ConversationMessage, ProfileDimensions } from '@/lib/types/profile';
 
-export function ProfileChat() {
-  const router = useRouter();
+interface ProfileChatProps {
+  /** 'embedded' = existing embed mode (default), 'onboarding' = fullscreen onboarding */
+  mode?: 'embedded' | 'onboarding';
+  /** Called when profile is complete (only used in onboarding mode) */
+  onComplete?: () => void;
+  /** Called when dimensions are updated */
+  onDimensionsUpdate?: (dimensions: ProfileDimensions, completeness: number) => void;
+}
+
+export function ProfileChat({ mode = 'embedded', onComplete, onDimensionsUpdate }: ProfileChatProps) {
+  const isOnboarding = mode === 'onboarding';
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [profileComplete, setProfileComplete] = useState(false);
   const [newChatOpen, setNewChatOpen] = useState(false);
+  const [dimensionNotice, setDimensionNotice] = useState<{ labels: string[]; completeness: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onCompleteCalledRef = useRef(false);
   const { providerId, modelId, apiKey, baseUrl } = useSettingsStore();
   const { profile, addConversationMessage, updateDimensions, archiveCurrentProfile, reset } =
     useLearningProfileStore();
@@ -40,15 +52,16 @@ export function ProfileChat() {
     timestamp: Date.now(),
   }), []);
 
-  // 画像完成后自动跳转
+  // 画像完成后：onboarding模式触发onComplete回调（仅一次），显示完成横幅但不锁定输入
   useEffect(() => {
-    if (profileComplete) {
-      const timer = setTimeout(() => {
-        router.push('/workspace');
-      }, 2500);
-      return () => clearTimeout(timer);
+    if (profileComplete && !onCompleteCalledRef.current) {
+      onCompleteCalledRef.current = true;
+      if (isOnboarding) {
+        onComplete?.();
+      }
+      // 不再自动跳转，用户可继续补充画像或手动点击"开始学习"
     }
-  }, [profileComplete, profile?.id, router]);
+  }, [profileComplete, isOnboarding, onComplete]);
 
   useEffect(() => {
     if (messages.length === 0) {
@@ -61,6 +74,12 @@ export function ProfileChat() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  useEffect(() => {
+    return () => {
+      if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    };
+  }, []);
 
   const handleNewChat = () => {
     // 归档当前画像（如果有）
@@ -91,9 +110,14 @@ export function ProfileChat() {
     setIsLoading(true);
 
     try {
+      const token = getApiToken();
+      const reqHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        reqHeaders['Authorization'] = `Bearer ${token}`;
+      }
       const response = await fetch('/api/profile/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: reqHeaders,
         body: JSON.stringify({
           message: userMessage.content,
           profile: profile,
@@ -118,38 +142,101 @@ export function ProfileChat() {
       setMessages((prev) => [...prev, assistantMessage]);
 
       if (reader) {
+        // SSE buffer: events may span multiple chunks, so we must
+        // accumulate text and split on double-newline boundaries.
+        let sseBuffer = '';
+
+        const processSSEEvents = (data: Record<string, unknown>) => {
+          if (data.type === 'content') {
+            // Accumulate all content events (including stage='tutor')
+            // The tutor_response is mapped to content events with stage='tutor'
+            assistantContent += (data.content as string) ?? '';
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantMessage.id
+                  ? { ...m, content: assistantContent }
+                  : m,
+              ),
+            );
+          } else if (data.type === 'result') {
+            // Handle profile_update events from the learning graph.
+            // The event-mapper maps LearnEvent profile_update → StreamEvent
+            // with type='result', stage='update_profile', and
+            // metadata.learnEventType='profile_update'.
+            const meta = (data.metadata ?? {}) as Record<string, unknown>;
+            const isProfileUpdate =
+              meta.learnEventType === 'profile_update' ||
+              data.stage === 'update_profile';
+
+            console.log('[profile-chat SSE] result event:', {
+              stage: data.stage,
+              learnEventType: meta.learnEventType,
+              isProfileUpdate,
+              hasDimensions: !!meta.dimensions,
+              dimensionsKeys: meta.dimensions ? Object.keys(meta.dimensions as object) : [],
+            });
+
+            if (isProfileUpdate && meta.dimensions) {
+              const dims = meta.dimensions as ProfileDimensions;
+              const completeness = calculateProfileCompleteness(dims);
+              console.log('[profile-chat SSE] Updating dimensions. Completeness:', completeness, '%');
+              updateDimensions(dims);
+
+              // Build notification with updated dimension labels
+              const updatedKeys = Object.keys(dims).filter(
+                (k) => k in PROFILE_DIMENSION_LABELS,
+              ) as (keyof typeof PROFILE_DIMENSION_LABELS)[];
+              const labels = updatedKeys.map((k) => PROFILE_DIMENSION_LABELS[k]);
+
+              setDimensionNotice({ labels, completeness });
+              if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+              noticeTimerRef.current = setTimeout(() => setDimensionNotice(null), 4000);
+
+              onDimensionsUpdate?.(dims, completeness);
+
+              // 检查画像是否完整
+              if (isProfileComplete(dims)) {
+                console.log('[profile-chat SSE] Profile complete! Setting profileComplete=true');
+                setProfileComplete(true);
+              }
+            }
+          }
+        };
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n');
+          sseBuffer += decoder.decode(value, { stream: true });
 
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
+          // Split on double-newline (SSE event boundary).
+          // Each event is: "data: {...}\n\n"
+          const parts = sseBuffer.split('\n\n');
+          // The last part may be incomplete; keep it in the buffer.
+          sseBuffer = parts.pop() ?? '';
+
+          for (const part of parts) {
+            for (const line of part.split('\n')) {
+              if (!line.startsWith('data: ')) continue;
               try {
                 const data = JSON.parse(line.slice(6));
-
-                if (data.type === 'text_delta') {
-                  assistantContent += data.text;
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantMessage.id
-                        ? { ...m, content: assistantContent }
-                        : m,
-                    ),
-                  );
-                } else if (data.type === 'profile_update') {
-                  console.log('Received profile update:', data.dimensions);
-                  updateDimensions(data.dimensions);
-                  // 检查画像是否完整
-                  if (isProfileComplete(data.dimensions)) {
-                    setProfileComplete(true);
-                  }
-                }
+                processSSEEvents(data);
               } catch {
-                // skip non-JSON lines
+                // skip malformed JSON
               }
+            }
+          }
+        }
+
+        // Process any remaining data in the buffer
+        if (sseBuffer.trim()) {
+          for (const line of sseBuffer.split('\n')) {
+            if (!line.startsWith('data: ')) continue;
+            try {
+              const data = JSON.parse(line.slice(6));
+              processSSEEvents(data);
+            } catch {
+              // skip malformed JSON
             }
           }
         }
@@ -159,8 +246,7 @@ export function ProfileChat() {
         ...assistantMessage,
         content: assistantContent,
       });
-    } catch (error) {
-      console.error('Chat error:', error);
+    } catch (_error) {
       setMessages((prev) => [
         ...prev,
         {
@@ -183,11 +269,12 @@ export function ProfileChat() {
   };
 
   return (
-    <div className="flex h-[500px] flex-col rounded-lg border">
+    <div className={`flex flex-col rounded-lg border ${isOnboarding ? 'min-h-0 flex-1' : 'h-[500px]'}`}>
       <div className="flex items-center gap-2 border-b px-4 py-3">
         <Bot className="h-5 w-5 text-violet-500" />
         <span className="font-medium">画像构建助手</span>
         <div className="ml-auto">
+          {!isOnboarding && (
           <Button
             variant="ghost"
             size="sm"
@@ -197,10 +284,11 @@ export function ProfileChat() {
           >
             <Plus className="h-4 w-4" />
           </Button>
+          )}
         </div>
       </div>
 
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+      <div className="flex-1 overflow-y-auto p-4" ref={scrollRef}>
         <div className="space-y-4">
           {messages.map((message) => (
             <div
@@ -244,15 +332,27 @@ export function ProfileChat() {
             </div>
           )}
         </div>
-      </ScrollArea>
+      </div>
+
+      {/* Dimension update notification */}
+      {dimensionNotice && (
+        <div className="mx-3 mb-2 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 transition-all dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300">
+          <TrendingUp className="h-4 w-4 shrink-0" />
+          <div>
+            <span className="font-medium">画像已更新：</span>
+            {dimensionNotice.labels.join('、')}
+            <span className="ml-2 font-semibold">({dimensionNotice.completeness}%)</span>
+          </div>
+        </div>
+      )}
 
       <div className="border-t p-3">
-        {profileComplete && (
+        {profileComplete && !isOnboarding && (
           <div className="mb-3 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300">
             <CheckCircle2 className="h-5 w-5 shrink-0" />
             <div>
-              <p className="font-medium">画像构建完成!</p>
-              <p>即将跳转到学习工作台...</p>
+              <p className="font-medium">画像构建基本完成!</p>
+              <p>你可以继续补充，或前往学习工作台开始学习。</p>
             </div>
           </div>
         )}
@@ -261,14 +361,13 @@ export function ProfileChat() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="输入消息..."
+            placeholder={profileComplete ? '画像已基本完成，继续补充或点击开始学习...' : '输入消息...'}
             className="min-h-[40px] max-h-[120px] resize-none"
             rows={1}
-            disabled={profileComplete}
           />
           <Button
             onClick={handleSend}
-            disabled={!input.trim() || isLoading || profileComplete}
+            disabled={!input.trim() || isLoading}
             size="icon"
             className="shrink-0"
           >

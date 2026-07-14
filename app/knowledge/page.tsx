@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useKnowledgeStore, type KnowledgeBase } from '@/lib/store/knowledge-store';
-import { apiGet, apiPost, apiDelete, apiUpload } from '@/lib/api-client';
+import { apiGet, apiDelete, apiUpload } from '@/lib/api-client';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,9 +43,7 @@ interface KBDetails {
 
 export default function KnowledgePage() {
   const knowledgeBases = useKnowledgeStore((s) => s.knowledgeBases);
-  const addKB = useKnowledgeStore((s) => s.addKB);
   const removeKB = useKnowledgeStore((s) => s.removeKB);
-  const updateKB = useKnowledgeStore((s) => s.updateKB);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,34 +57,26 @@ export default function KnowledgePage() {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  const fetchKnowledgeBases = async () => {
+  const fetchKnowledgeBases = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const data = await apiGet<{ knowledgeBases: KnowledgeBase[] }>(
         '/api/v1/knowledge',
       );
-      // Sync to store (replace all)
-      for (const kb of data.knowledgeBases) {
-        // Check if already in store
-        const existing = knowledgeBases.find((k) => k.id === kb.id);
-        if (!existing) {
-          addKB(kb);
-        } else {
-          updateKB(kb.id, kb);
-        }
-      }
+      // Replace all KBs in store at once to avoid stale comparisons
+      useKnowledgeStore.setState({ knowledgeBases: data.knowledgeBases });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load knowledge bases');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Fetch KBs on mount
   useEffect(() => {
     fetchKnowledgeBases();
-  }, []);
+  }, [fetchKnowledgeBases]);
 
   // Fetch KB details
   const fetchKBDetails = useCallback(async (kbId: string) => {
@@ -94,8 +84,7 @@ export default function KnowledgePage() {
     try {
       const data = await apiGet<KBDetails>(`/api/v1/knowledge/${kbId}`);
       setKbDetails(data);
-    } catch (err) {
-      console.error('Failed to load KB details:', err);
+    } catch {
     } finally {
       setDetailsLoading(false);
     }
@@ -106,11 +95,7 @@ export default function KnowledgePage() {
     if (!newName.trim()) return;
     setCreating(true);
     try {
-      const data = await apiPost<{ knowledgeBase: KnowledgeBase }>(
-        '/api/v1/knowledge',
-        { name: newName.trim(), description: newDesc.trim() },
-      );
-      addKB(data.knowledgeBase);
+      await useKnowledgeStore.getState().createKBOnServer(newName.trim(), newDesc.trim());
       setNewName('');
       setNewDesc('');
       setShowCreateForm(false);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Activity, CheckCircle2, AlertCircle, Database, Cpu, RefreshCw, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { apiGet } from '@/lib/api-client';
@@ -31,7 +31,7 @@ export default function StatusPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchHealth = async () => {
+  const fetchHealth = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -42,11 +42,11 @@ export default function StatusPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchHealth();
-  }, []);
+  }, [fetchHealth]);
 
   const services: ServiceStatus[] = [
     {

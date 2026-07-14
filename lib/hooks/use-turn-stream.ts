@@ -55,6 +55,21 @@ const INITIAL_STATE: StreamState = {
   waitForInput: null,
 };
 
+/** Shared params for submitTurn */
+interface TurnParams {
+  sessionId: string;
+  message: string;
+  capability?: string;
+  enabledTools?: string[];
+  knowledgeBases?: string[];
+  language?: string;
+  providerId?: string;
+  modelId?: string;
+  apiKey?: string;
+  baseUrl?: string;
+  conversationHistory?: Record<string, unknown>[];
+}
+
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
@@ -65,6 +80,7 @@ export function useTurnStream() {
   const contentBufferRef = useRef('');
 
   const addMessage = useChatStore((s) => s.addMessage);
+  const removeMessage = useChatStore((s) => s.removeMessage);
   const setStreaming = useChatStore((s) => s.setStreaming);
 
   /**
@@ -156,6 +172,7 @@ export function useTurnStream() {
               role: 'assistant',
               content,
               timestamp: new Date().toISOString(),
+              turnId: event.turnId || undefined,
             });
             contentBufferRef.current = '';
           }
@@ -197,22 +214,11 @@ export function useTurnStream() {
   );
 
   /**
-   * Send a message and consume the SSE stream.
+   * Internal: start the SSE stream for given turn params.
+   * Does NOT add a user message — callers handle that.
    */
-  const send = useCallback(
-    async (params: {
-      sessionId: string;
-      message: string;
-      capability?: string;
-      enabledTools?: string[];
-      knowledgeBases?: string[];
-      language?: string;
-      providerId?: string;
-      modelId?: string;
-      apiKey?: string;
-      baseUrl?: string;
-      conversationHistory?: Record<string, unknown>[];
-    }) => {
+  const _startStream = useCallback(
+    async (params: TurnParams) => {
       // Abort previous stream if any
       abortRef.current?.abort();
       const controller = new AbortController();
@@ -220,20 +226,8 @@ export function useTurnStream() {
 
       // Reset state
       contentBufferRef.current = '';
-      setState({
-        ...INITIAL_STATE,
-        isStreaming: true,
-      });
+      setState({ ...INITIAL_STATE, isStreaming: true });
       setStreaming(true);
-
-      // Add user message to store
-      const userMsgId = `msg-${Date.now()}-user`;
-      addMessage({
-        id: userMsgId,
-        role: 'user',
-        content: params.message,
-        timestamp: new Date().toISOString(),
-      });
 
       try {
         await submitTurn(params, {
@@ -253,7 +247,41 @@ export function useTurnStream() {
         setStreaming(false);
       }
     },
-    [addMessage, setStreaming, handleEvent],
+    [handleEvent, setStreaming],
+  );
+
+  /**
+   * Send a message and consume the SSE stream.
+   */
+  const send = useCallback(
+    async (params: TurnParams) => {
+      // Add user message to store
+      const userMsgId = `msg-${Date.now()}-user`;
+      addMessage({
+        id: userMsgId,
+        role: 'user',
+        content: params.message,
+        timestamp: new Date().toISOString(),
+      });
+
+      await _startStream(params);
+    },
+    [addMessage, _startStream],
+  );
+
+  /**
+   * Regenerate: remove the assistant message and re-execute the same turn.
+   * The caller must pass the assistant message ID and the original user message content.
+   */
+  const regenerate = useCallback(
+    async (assistantMessageId: string, params: TurnParams) => {
+      // Remove the old assistant message from the store
+      removeMessage(assistantMessageId);
+
+      // Re-execute the stream (does NOT add a new user message)
+      await _startStream(params);
+    },
+    [removeMessage, _startStream],
   );
 
   /**
@@ -264,7 +292,11 @@ export function useTurnStream() {
       if (!state.waitForInput) return;
       const turnId = state.waitForInput.turnId;
       setState((s) => ({ ...s, waitForInput: null }));
-      await submitTurnInput(turnId, input);
+      try {
+        await submitTurnInput(turnId, input);
+      } catch {
+        // Turn may have already completed/expired — non-critical
+      }
     },
     [state.waitForInput],
   );
@@ -288,6 +320,7 @@ export function useTurnStream() {
   return {
     ...state,
     send,
+    regenerate,
     submitInput,
     cancel,
     getStreamingContent,

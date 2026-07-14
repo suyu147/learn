@@ -167,10 +167,29 @@ export class DeepQuestionCapability extends LoopCapability {
 
   private async resolveModel(context: UnifiedContext): Promise<import('ai').LanguageModel> {
     const { getModel } = await import('@/lib/ai/providers');
-    const providerId = (context.metadata.providerId as string) ?? 'openai';
-    const modelId = (context.metadata.modelId as string) ?? 'gpt-4o';
-    const apiKey = (context.metadata.apiKey as string) ?? '';
-    const baseUrl = context.metadata.baseUrl as string | undefined;
+    const overrides = context.configOverrides ?? {};
+    const meta = context.metadata ?? {};
+    const providerId =
+      (overrides.providerId as string) ||
+      (meta.providerId as string) ||
+      process.env.AI_PROVIDER ||
+      'openai';
+    const modelId =
+      (overrides.modelId as string) ||
+      (meta.modelId as string) ||
+      process.env.AI_MODEL ||
+      'gpt-4o';
+    const apiKey =
+      (overrides.apiKey as string) ||
+      (meta.apiKey as string) ||
+      process.env.AI_API_KEY ||
+      process.env.OPENAI_API_KEY ||
+      '';
+    const baseUrl =
+      (overrides.baseUrl as string) ||
+      (meta.baseUrl as string) ||
+      process.env.AI_BASE_URL ||
+      undefined;
     const { model } = getModel({ providerId: providerId as ProviderId, modelId, apiKey, baseUrl });
     return model;
   }

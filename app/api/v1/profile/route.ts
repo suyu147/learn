@@ -1,107 +1,48 @@
-/**
- * GET  /api/v1/profile — Get user's learning profile
- * POST /api/v1/profile — Update user's learning profile
- */
+import { NextRequest, NextResponse } from 'next/server';
 
-import { NextRequest } from 'next/server';
-import { createLogger } from '@/lib/logger';
-import { getLearningService } from '@/lib/deeptutor/bootstrap';
-import { readFile, writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
+import { getLearnerProfileService } from '@/lib/deeptutor/services/learner-profile';
+import { ProfileUpdateSchema } from '@/lib/server/schemas';
 
-const log = createLogger('ProfileRoute');
+const learnerProfileService = getLearnerProfileService();
 
-function getUserId(req: NextRequest): string {
-  return req.headers.get('x-user-id') ?? 'anonymous';
+function getUserId(request: NextRequest): string {
+  return request.headers.get('x-user-id') ?? 'anonymous';
 }
 
-function apiError(err: unknown, fallbackStatus: number = 500) {
-  const message = err instanceof Error ? err.message : 'Unknown error';
-  log.error('error', err);
-  return new Response(JSON.stringify({ error: message }), {
-    status: fallbackStatus,
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
-
-export async function GET(req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const userId = getUserId(req);
-    const svc = getLearningService();
+    const userId = getUserId(request);
+    const snapshot = await learnerProfileService.getLearnerSnapshot(userId);
 
-    const [skillMap, weakTopics, strongTopics, schedule] = await Promise.all([
-      svc.getSkillMap(userId),
-      svc.getWeakTopics(userId),
-      svc.getStrongTopics(userId),
-      svc.getSchedule(userId),
-    ]);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        data: {
-          userId,
-          skillMap,
-          weakTopics,
-          strongTopics,
-          schedule,
-          generatedAt: new Date().toISOString(),
-        },
-      }),
-      { headers: { 'Content-Type': 'application/json' } },
-    );
-  } catch (err) {
-    log.error('GET /api/v1/profile failed:', err);
-    return apiError(err);
+    return NextResponse.json({
+      profile: snapshot.profile,
+      skillMap: snapshot.analytics.skillMap,
+      weakTopics: snapshot.analytics.weakTopics,
+      strongTopics: snapshot.analytics.strongTopics,
+      schedule: snapshot.analytics.schedule,
+      weakPoints: snapshot.weakPoints,
+      errors: snapshot.errors,
+      recentSessions: snapshot.recentSessions,
+    });
+  } catch (error) {
+    console.error('Failed to fetch profile snapshot:', error);
+    return NextResponse.json({ error: 'Failed to fetch profile snapshot' }, { status: 500 });
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const userId = getUserId(req);
-    const { validatedBody } = await import('@/lib/server/validate');
-    const { ProfileUpdateSchema } = await import('@/lib/server/schemas');
-    const body = await validatedBody(ProfileUpdateSchema, req);
-
-    // File-based profile store (no Prisma learningProfile model required)
-    const profileDir = join(process.cwd(), 'data', 'learning', userId);
-    await mkdir(profileDir, { recursive: true });
-    const profilePath = join(profileDir, 'profile.json');
-
-    let existing: Record<string, unknown> = {};
-    try {
-      const raw = await readFile(profilePath, 'utf-8');
-      existing = JSON.parse(raw);
-    } catch {
-      // no existing profile — start fresh
-    }
-
-    const currentDims = (existing.dimensions as Record<string, unknown>) ?? {};
-    const mergedDims = { ...currentDims, ...(body.dimensions ?? {}) };
-    const currentPrefs = (existing.preferences as Record<string, unknown>) ?? {};
-    const mergedPrefs = { ...currentPrefs, ...(body.preferences ?? {}) };
-
-    const profile = {
+    const userId = getUserId(request);
+    const parsed = ProfileUpdateSchema.parse(await request.json());
+    const dimensions = parsed.dimensions ?? {};
+    const profile = await learnerProfileService.replaceProfileDimensions(
       userId,
-      dimensions: mergedDims,
-      preferences: mergedPrefs,
-      version: ((existing.version as number) ?? 0) + 1,
-      updatedAt: new Date().toISOString(),
-    };
-
-    await writeFile(profilePath, JSON.stringify(profile, null, 2), 'utf-8');
-
-    return new Response(JSON.stringify({ success: true, data: profile }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (err) {
-    if (err instanceof Error && err.name === 'ValidationError') {
-      return new Response(JSON.stringify({ error: err.message }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-    log.error('POST /api/v1/profile failed:', err);
-    return apiError(err);
+      dimensions,
+      'legacy_profile_api',
+    );
+    return NextResponse.json({ profile });
+  } catch (error) {
+    console.error('Failed to save profile snapshot:', error);
+    return NextResponse.json({ error: 'Failed to save profile snapshot' }, { status: 400 });
   }
 }

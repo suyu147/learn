@@ -19,10 +19,12 @@ import { RAGTool, setRAGToolContext } from '@/lib/deeptutor/tools/rag';
 import { ReadSourceTool } from '@/lib/deeptutor/tools/read-source';
 import { createEmbeddingService } from '@/lib/deeptutor/services/embedding';
 import { RAGServiceImpl } from '@/lib/deeptutor/services/rag';
+import { RerankerServiceImpl } from '@/lib/deeptutor/services/reranker';
 import { KBSeedService } from '@/lib/deeptutor/services/kb-seed';
 // Phase 2c — Sandbox + Memory + Notebook + Deferred loader
 import { SandboxServiceImpl } from '@/lib/deeptutor/services/sandbox';
 import { MemoryServiceImpl } from '@/lib/deeptutor/services/memory';
+import { registerMemorySubscriber } from '@/lib/deeptutor/services/memory-subscriber';
 import { NotebookServiceImpl } from '@/lib/deeptutor/services/notebook';
 import { CodeExecutionTool, setSandboxToolContext } from '@/lib/deeptutor/tools/code-execution';
 import { ReadMemoryTool, setReadMemoryContext } from '@/lib/deeptutor/tools/read-memory';
@@ -113,6 +115,9 @@ let _bookEngine: BookEngine | null = null;
 // Phase 5 services
 let _chatImportService: ChatImportService | null = null;
 
+/** Guard: prevents re-entry during bootstrap (defense-in-depth for future async refactor) */
+let _bootstrapping = false;
+
 /** Create an LLM call function for tools (brainstorm, reason) */
 function createToolLLMCall() {
   return async (params: {
@@ -180,7 +185,7 @@ function bootstrap(): {
   chatImportService: ChatImportService;
   builtInSkills: ReturnType<typeof getBuiltInSkills>;
 } {
-  if (_orchestrator) {
+  if (_bootstrapping && _orchestrator) {
     return {
       toolRegistry: _toolRegistry!,
       capabilityRegistry: _capabilityRegistry!,
@@ -206,6 +211,7 @@ function bootstrap(): {
   }
 
   log.info('Bootstrapping DeepTutor services...');
+  _bootstrapping = true;
 
   // -----------------------------------------------------------------------
   // 1. Create tool registry and register simple tools
@@ -219,7 +225,8 @@ function bootstrap(): {
   // 1b. Phase 2b — RAG + read_source + KB seed
   // -----------------------------------------------------------------------
   const embeddingService = createEmbeddingService();
-  const ragService = new RAGServiceImpl(embeddingService);
+  const rerankerService = new RerankerServiceImpl();
+  const ragService = new RAGServiceImpl(embeddingService, rerankerService);
   const kbSeedService = new KBSeedService(ragService);
 
   setRAGToolContext(ragService, 'anonymous');
@@ -237,6 +244,9 @@ function bootstrap(): {
   const sandboxService = new SandboxServiceImpl();
   const memoryService = new MemoryServiceImpl();
   const notebookService = new NotebookServiceImpl();
+
+  // Register memory consolidation subscriber (CAPABILITY_COMPLETE → consolidate)
+  registerMemorySubscriber(memoryService);
 
   // Set tool contexts (user defaults to 'anonymous' — overridden per-turn by agent loop)
   const defaultUserId = 'anonymous';
@@ -367,6 +377,17 @@ function bootstrap(): {
     }
   }
 
+  // Register MCP tools into the ToolRegistry so they're available in agent loops
+  if (mcpService.listServers().length > 0) {
+    // Fire-and-forget: connectAll is async but bootstrap() is sync.
+    // MCP tools will register themselves once connections complete.
+    mcpService.connectAll(toolRegistry).then(() => {
+      log.info(`Connected ${mcpService.listServers().length} MCP server(s) and registered tools`);
+    }).catch((err: unknown) => {
+      log.warn('Failed to connect MCP servers (non-fatal):', err);
+    });
+  }
+
   // -----------------------------------------------------------------------
   // 5. Phase 4a — Co-Writer
   // -----------------------------------------------------------------------
@@ -406,7 +427,7 @@ function bootstrap(): {
   // 8. Phase 5 — Media Tools
   // -----------------------------------------------------------------------
   setMediaToolContext({
-    imageProvider: (process.env.DT_IMAGE_PROVIDER as 'openai' | 'stability' | 'siliconflow' | 'none') ?? 'none',
+    imageProvider: (process.env.IMAGE_GEN_PROVIDER as 'openai' | 'siliconflow' | 'doubao' | 'tongyi' | 'none') ?? 'none',
     videoProvider: (process.env.DT_VIDEO_PROVIDER as 'runwayml' | 'pika' | 'none') ?? 'none',
     voiceProvider: (process.env.DT_VOICE_PROVIDER as 'openai' | 'elevenlabs' | 'edge' | 'none') ?? 'none',
     apiKeys: {

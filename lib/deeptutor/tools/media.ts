@@ -35,7 +35,7 @@ const log = createLogger('MediaTools');
 
 export interface MediaServiceConfig {
   /** Image generation provider */
-  imageProvider: 'openai' | 'stability' | 'siliconflow' | 'none';
+  imageProvider: 'openai' | 'stability' | 'siliconflow' | 'doubao' | 'tongyi' | 'none';
   /** Video generation provider */
   videoProvider: 'runwayml' | 'pika' | 'none';
   /** Voice/TTS provider */

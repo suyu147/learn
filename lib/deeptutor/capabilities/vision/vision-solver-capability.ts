@@ -72,9 +72,11 @@ export class VisionSolverCapability extends PipelineCapability {
     const userQuery = context.userMessage;
     const imageBase64 = context.metadata.imageBase64 as string | undefined;
     const imageUrl = context.metadata.imageUrl as string | undefined;
-    const providerId = (context.metadata.providerId as ProviderId) ?? process.env.DT_DEFAULT_PROVIDER as ProviderId;
-    const modelId = (context.metadata.modelId as string) ?? process.env.DT_DEFAULT_MODEL ?? '';
-    const apiKey = context.metadata.apiKey as string | undefined;
+    const overrides = context.configOverrides ?? {};
+    const meta = context.metadata ?? {};
+    const providerId = (overrides.providerId as ProviderId) || (meta.providerId as ProviderId) || (process.env.DT_DEFAULT_PROVIDER as ProviderId) || (process.env.AI_PROVIDER as ProviderId);
+    const modelId = (overrides.modelId as string) || (meta.modelId as string) || process.env.DT_DEFAULT_MODEL || process.env.AI_MODEL || '';
+    const apiKey = (overrides.apiKey as string) || (meta.apiKey as string) || process.env.DT_DEFAULT_API_KEY || process.env.AI_API_KEY || undefined;
 
     if (!imageBase64 && !imageUrl) {
       bus.emitError('No image provided. Attach an image to use the vision solver.', 'vision_solver');

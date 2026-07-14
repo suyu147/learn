@@ -15,6 +15,7 @@ import {
   CheckSquare,
   Loader2,
   AlertCircle,
+  X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLearningPathStore } from '@/lib/store/learning-path'
@@ -22,12 +23,15 @@ import { useResourcesStore } from '@/lib/store/resources'
 import { useLearningProfileStore } from '@/lib/store/learning-profile'
 import { useSessionsStore } from '@/lib/store/sessions'
 import { consumeSSEStream, apiGet, apiPost } from '@/lib/api-client'
+import { getApiToken } from '@/lib/auth-token'
 import { useI18n } from '@/lib/hooks/use-i18n'
 import type { LearningPathNode } from '@/lib/types/learning-path'
 import type { Resource, ResourceType } from '@/lib/types/resource'
 import { RESOURCE_TYPE_LABELS } from '@/lib/types/resource'
 import type { ProfileDimensions } from '@/lib/types/profile'
 import { PROFILE_DIMENSION_LABELS } from '@/lib/types/profile'
+import { ResourceViewer } from '@/components/workspace/resource-viewer'
+import { useResourceDecisionsStore } from '@/lib/store/resource-decisions'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -117,6 +121,7 @@ export default function SmartLearnPage() {
 
   // -- Local state --
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [selectedResource, setSelectedResource] = useState<Resource | null>(null)
   const [isProfileLoading, setIsProfileLoading] = useState(true)
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -126,6 +131,50 @@ export default function SmartLearnPage() {
   const [profileError, setProfileError] = useState<string | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
+
+  // -- Resource decisions store --
+  const recordResourceClick = useResourceDecisionsStore((s) => s.recordResourceClick)
+  const recordResourceView = useResourceDecisionsStore((s) => s.recordResourceView)
+  const recordQuizResult = useResourceDecisionsStore((s) => s.recordQuizResult)
+
+  /** Open a resource in the viewer and record the click for feedback */
+  const handleResourceClick = useCallback(
+    (resource: Resource, nodeId: string) => {
+      setSelectedResource(resource)
+      if (currentSessionId) {
+        recordResourceClick(currentSessionId, nodeId, resource.type)
+      }
+    },
+    [currentSessionId, recordResourceClick],
+  )
+
+  /** Track how long the user viewed a resource (dwell time) */
+  const handleResourceView = useCallback(
+    (nodeId: string, type: ResourceType, dwellMs: number) => {
+      if (currentSessionId) {
+        recordResourceView(currentSessionId, nodeId, type, dwellMs)
+      }
+    },
+    [currentSessionId, recordResourceView],
+  )
+
+  /** Close the resource viewer */
+  const handleCloseResource = useCallback(() => {
+    setSelectedResource(null)
+  }, [])
+
+  /** Build headers for SSE fetch calls — includes auth token when available */
+  const sseHeaders = (): Record<string, string> => {
+    const token = getApiToken()
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    }
+  }
+
+  // -- Refs for stale-closure prevention in SSE callbacks --
+  const pathRef = useRef(path)
+  useEffect(() => { pathRef.current = path }, [path])
 
   // -- Derived data --
   const nodes = path?.nodes ?? []
@@ -140,7 +189,17 @@ export default function SmartLearnPage() {
     ? resources.filter((r) =>
         activeNode.resources?.some((ref) => ref.resourceId === r.id),
       )
-    : resources
+    : []
+
+  /** Handle quiz completion — feed result back into the decision engine */
+  const handleQuizResult = useCallback(
+    (resource: Resource, result: { score: number; completed: boolean }) => {
+      if (currentSessionId && activeNode) {
+        recordQuizResult(currentSessionId, activeNode.id, result.score, result.completed)
+      }
+    },
+    [currentSessionId, activeNode, recordQuizResult],
+  )
 
   const displayDimensions = profile
     ? computeDimensionScores(profile.dimensions)
@@ -166,19 +225,21 @@ export default function SmartLearnPage() {
       setProfileError(null)
       try {
         const data = await apiGet<{
-          userId: string
-          dimensions: ProfileDimensions
-          version: number
-          isNew?: boolean
-          id?: string
+          profile: {
+            id: string | null
+            userId: string
+            version: number
+            dimensions: ProfileDimensions
+            isNew?: boolean
+          }
         }>(`/api/v1/smartlearn/profile?userId=${USER_ID}`)
 
         if (!cancelled) {
           setProfile({
-            id: data.id ?? 'remote',
-            userId: data.userId,
-            version: data.version ?? 0,
-            dimensions: data.dimensions,
+            id: data.profile.id ?? 'remote',
+            userId: data.profile.userId,
+            version: data.profile.version ?? 0,
+            dimensions: data.profile.dimensions,
             updatedAt: new Date().toISOString(),
             conversationHistory: [],
           })
@@ -187,7 +248,6 @@ export default function SmartLearnPage() {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : 'Failed to fetch profile'
           setProfileError(message)
-          console.error('[SmartLearn] Profile fetch error:', err)
         }
       } finally {
         if (!cancelled) setIsProfileLoading(false)
@@ -229,13 +289,14 @@ export default function SmartLearnPage() {
           if (learnEventType === 'node_ready' && meta.node) {
             // A new learning node was generated — add to path
             const node = meta.node as LearningPathNode
-            if (path) {
-              const exists = path.nodes.some((n) => n.id === node.id)
+            const currentPath = pathRef.current
+            if (currentPath) {
+              const exists = currentPath.nodes.some((n) => n.id === node.id)
               if (!exists) {
                 setPath({
-                  ...path,
-                  nodes: [...path.nodes, node],
-                  edges: path.edges,
+                  ...currentPath,
+                  nodes: [...currentPath.nodes, node],
+                  edges: currentPath.edges,
                   updatedAt: new Date().toISOString(),
                 })
               }
@@ -296,14 +357,14 @@ export default function SmartLearnPage() {
           break
       }
     },
-    [path, setPath, addResource, updateDimensions],
+    [setPath, addResource, updateDimensions],
   )
 
   // =========================================================================
   // Start learning (SSE stream to /api/v1/smartlearn)
   // =========================================================================
 
-  const handleStartLearning = useCallback(async () => {
+  const handleStartLearning = async () => {
     setError(null)
     setStreamingText('')
 
@@ -335,7 +396,7 @@ export default function SmartLearnPage() {
 
       const res = await fetch('/api/v1/smartlearn', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: sseHeaders(),
         body: JSON.stringify({
           action: 'start',
           sessionId,
@@ -380,16 +441,7 @@ export default function SmartLearnPage() {
       setPlanning(false)
       abortRef.current = null
     }
-  }, [
-    profile,
-    currentSessionId,
-    currentSession,
-    nodes,
-    activeNode,
-    createSession,
-    setPlanning,
-    processSSEEvent,
-  ])
+  }
 
   // =========================================================================
   // Quiz evaluation
@@ -418,7 +470,7 @@ export default function SmartLearnPage() {
 
         const res = await fetch('/api/v1/smartlearn/evaluate', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: sseHeaders(),
           body: JSON.stringify({
             sessionId: currentSessionId,
             quizResults,
@@ -491,7 +543,7 @@ export default function SmartLearnPage() {
 
       const res = await fetch('/api/v1/smartlearn/resources', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: sseHeaders(),
         body: JSON.stringify({
           sessionId: currentSessionId,
           profile: profile.dimensions,
@@ -546,16 +598,17 @@ export default function SmartLearnPage() {
     async (dimensions: Partial<ProfileDimensions>) => {
       try {
         const data = await apiPost<{
-          id: string
-          userId: string
-          version: number
-          dimensions: ProfileDimensions
+          profile: {
+            id: string | null
+            userId: string
+            version: number
+            dimensions: ProfileDimensions
+          }
         }>('/api/v1/smartlearn/profile', {
           userId: USER_ID,
           dimensions,
         })
-        // Update local store with server response
-        updateDimensions(data.dimensions)
+        updateDimensions(data.profile.dimensions)
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to update profile'
         setError(message)
@@ -586,6 +639,7 @@ export default function SmartLearnPage() {
     setCurrentPhase('')
     setAgentStatus('')
     setSelectedNodeId(null)
+    setSelectedResource(null)
 
     // Delete session if exists
     if (currentSessionId) {
@@ -832,6 +886,7 @@ export default function SmartLearnPage() {
                   return (
                     <button
                       key={resource.id}
+                      onClick={() => handleResourceClick(resource, activeNode!.id)}
                       className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 text-left hover:border-[var(--primary)] transition-colors group"
                     >
                       <div className="flex items-start gap-3">
@@ -988,6 +1043,43 @@ export default function SmartLearnPage() {
           )}
         </div>
       </div>
+
+      {/* Resource Viewer Modal Overlay */}
+      {selectedResource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={handleCloseResource}
+          />
+          {/* Modal content */}
+          <div className="relative z-10 h-[90vh] w-[90vw] max-w-5xl rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl flex flex-col overflow-hidden">
+            {/* Modal header with close button */}
+            <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-2">
+              <span className="text-[13px] font-medium text-[var(--muted-foreground)]">
+                {RESOURCE_TYPE_LABELS[selectedResource.type]} · {selectedResource.title}
+              </span>
+              <button
+                onClick={handleCloseResource}
+                className="rounded-lg p-1.5 text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {/* Viewer content */}
+            <div className="flex-1 overflow-hidden">
+              <ResourceViewer
+                resource={selectedResource}
+                sessionId={currentSessionId}
+                nodeId={activeNode?.id ?? selectedNodeId}
+                onQuizResult={handleQuizResult}
+                onResourceView={handleResourceView}
+                onRegenerate={undefined}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

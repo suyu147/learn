@@ -16,9 +16,13 @@ function getWriter(config: { configurable?: { writer?: (event: LearnEvent) => vo
   return config.configurable?.writer ?? (() => undefined);
 }
 
+function getUserId(config: { configurable?: { userId?: string } }): string {
+  return config.configurable?.userId ?? 'anonymous';
+}
+
 export async function generateResourcesNode(
   state: LearningStateType,
-  config: { configurable?: { writer?: (event: LearnEvent) => void } },
+  config: { configurable?: { writer?: (event: LearnEvent) => void; userId?: string } },
 ) {
   const write = getWriter(config);
   const node = state.currentNode;
@@ -40,7 +44,7 @@ export async function generateResourcesNode(
           try {
             const generated = await generateResource(type, node.knowledgePoints, state.profile, state.aiConfig);
             const resource: Resource = {
-              id: crypto.randomUUID(), userId: 'current', type: type as ResourceType, title: generated.title, content: generated.content,
+              id: crypto.randomUUID(), userId: getUserId(config), type: type as ResourceType, title: generated.title, content: generated.content,
               sourceAgent: type, status: 'ready', createdAt: new Date().toISOString(), metadata: { knowledgePoints: node.knowledgePoints, profileUsed: true, ...generated.metadata },
             };
             write({ type: 'resource_delta', resource });
@@ -49,7 +53,7 @@ export async function generateResourcesNode(
           } catch (_err) {
             write({ type: 'agent_status', agentId: type, agentName: AGENT_NAMES[type] || type, status: 'failed', resourceType: type as ResourceType });
             const fallbackResource: Resource = {
-              id: crypto.randomUUID(), userId: 'current', type: type as ResourceType, title: `${node.knowledgePoints.join('、')} - ${type}（生成失败）`,
+              id: crypto.randomUUID(), userId: getUserId(config), type: type as ResourceType, title: `${node.knowledgePoints.join('、')} - ${type}（生成失败）`,
               content: '资源生成失败，请重试', sourceAgent: type, status: 'failed',
               createdAt: new Date().toISOString(), metadata: { knowledgePoints: node.knowledgePoints, error: true },
             };
@@ -73,7 +77,7 @@ export async function generateResourcesNode(
 
     const path = {
       id: state.sessionId,
-      userId: 'current',
+      userId: getUserId(config),
       goal: state.goal,
       nodes: [...state.completedNodes, { ...node, resources: generatedResources.map((resource) => ({ resourceId: resource.id, type: resource.type, title: resource.title })) }],
       edges: state.completedNodes.length > 0 ? [{ from: state.completedNodes[state.completedNodes.length - 1].id, to: node.id }] : [],

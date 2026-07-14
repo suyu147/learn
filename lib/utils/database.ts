@@ -14,15 +14,18 @@ export const db = {
       return prisma.stageOutline.findUnique({ where: { stageId } }) as Promise<{
         stageId: string;
         outlines: unknown[];
-        createdAt: number;
-        updatedAt: number;
+        createdAt: Date;
+        updatedAt: Date;
       } | undefined>;
     },
-    put: async (record: { stageId: string; outlines: unknown[]; createdAt: number; updatedAt: number }) => {
+    put: async (record: { stageId: string; outlines: unknown[]; createdAt: Date; updatedAt: Date }) => {
       return prisma.stageOutline.upsert({
         where: { stageId: record.stageId },
-        update: { outlines: JSON.parse(JSON.stringify(record.outlines)), updatedAt: record.updatedAt },
-        create: record as Parameters<typeof prisma.stageOutline.create>[0]['data'],
+        update: { outlines: JSON.parse(JSON.stringify(record.outlines)) },
+        create: {
+          stageId: record.stageId,
+          outlines: JSON.parse(JSON.stringify(record.outlines)),
+        },
       });
     },
   },

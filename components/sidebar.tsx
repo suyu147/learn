@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   MessageSquare,
   GraduationCap,
@@ -23,6 +23,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/lib/store/ui-store';
 import { useAuthStore } from '@/lib/store/auth-store';
+import { useSessionsStore } from '@/lib/store/sessions';
 
 const navGroups = [
   {
@@ -54,11 +55,13 @@ const bottomItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const collapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggle = useUIStore((s) => s.toggleSidebar);
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const mode = useAuthStore((s) => s.mode);
+  const sessions = useSessionsStore((s) => s.sessions);
 
   return (
     <aside
@@ -139,23 +142,44 @@ export function Sidebar() {
       </nav>
 
       {/* Recents section */}
-      {!collapsed && (
-        <div className="border-t border-sidebar-border px-3 py-3">
-          <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-white/55 mb-2">
-            Recent
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <div className="flex items-center gap-2 rounded-md px-2 py-1.5 text-[12.5px] text-white/70 hover:bg-sidebar-accent/50 hover:text-white cursor-pointer transition-colors">
-              <span className="h-1.5 w-1.5 rounded-full bg-success shrink-0" />
-              <span className="truncate">线性代数 - 矩阵分解</span>
+      {!collapsed && (() => {
+        const recentSessions = [...sessions]
+          .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+          .slice(0, 5);
+        const dotColor: Record<string, string> = {
+          active: 'bg-success',
+          paused: 'bg-warning',
+          completed: 'bg-white/30',
+        };
+        return (
+          <div className="border-t border-sidebar-border px-3 py-3">
+            <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-white/55 mb-2">
+              Recent
             </div>
-            <div className="flex items-center gap-2 rounded-md px-2 py-1.5 text-[12.5px] text-white/70 hover:bg-sidebar-accent/50 hover:text-white cursor-pointer transition-colors">
-              <span className="h-1.5 w-1.5 rounded-full bg-warning shrink-0" />
-              <span className="truncate">Python 数据结构复习</span>
+            <div className="flex flex-col gap-0.5">
+              {recentSessions.length === 0 ? (
+                <div className="px-2 py-1.5 text-[12.5px] text-white/40">
+                  No recent sessions
+                </div>
+              ) : (
+                recentSessions.map((session) => (
+                  <button
+                    key={session.id}
+                    onClick={() => {
+                      useSessionsStore.getState().switchSession(session.id);
+                      router.push('/chat');
+                    }}
+                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-[12.5px] text-white/70 hover:bg-sidebar-accent/50 hover:text-white cursor-pointer transition-colors text-left w-full"
+                  >
+                    <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', dotColor[session.status] ?? 'bg-white/30')} />
+                    <span className="truncate">{session.title}</span>
+                  </button>
+                ))
+              )}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Footer */}
       <div className="border-t border-sidebar-border px-3 py-3">

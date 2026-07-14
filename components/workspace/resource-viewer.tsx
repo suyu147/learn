@@ -35,9 +35,10 @@ interface Props {
   nodeId?: string | null;
   onQuizResult?: (resource: Resource, result: QuizResultPayload) => void;
   onResourceView?: (nodeId: string, type: ResourceType, dwellMs: number) => void;
+  onRegenerate?: (resource: Resource) => void;
 }
 
-export function ResourceViewer({ resource, sessionId, nodeId, onQuizResult, onResourceView }: Props) {
+export function ResourceViewer({ resource, sessionId, nodeId, onQuizResult, onResourceView, onRegenerate }: Props) {
   const startedAtRef = useRef<number | null>(null);
   const previousResourceRef = useRef<Resource | null>(null);
 
@@ -98,8 +99,10 @@ export function ResourceViewer({ resource, sessionId, nodeId, onQuizResult, onRe
           <span className="flex-1">此资源生成失败，内容可能不完整。</span>
           <button
             type="button"
-            className="inline-flex items-center gap-1 rounded-md border border-red-300 bg-white px-2.5 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-100"
-            title="重新生成（暂未实现）"
+            onClick={() => onRegenerate?.(resource)}
+            disabled={!onRegenerate}
+            className="inline-flex items-center gap-1 rounded-md border border-red-300 bg-white px-2.5 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={onRegenerate ? '重新生成此资源' : '重新生成（暂未实现）'}
           >
             <RefreshCw className="h-3 w-3" />
             重试

@@ -1048,10 +1048,15 @@ export function getModel(config: ModelConfig): ModelWithInfo {
 
   // Resolve base URL: explicit > provider default > SDK default
   const provider = getProviderConfig(config.providerId);
-  const effectiveBaseUrl = normalizeMiniMaxAnthropicBaseUrl(
+  let effectiveBaseUrl = normalizeMiniMaxAnthropicBaseUrl(
     config.providerId,
     config.baseUrl || provider?.defaultBaseUrl || undefined,
   );
+
+  // Auto-append /v1 for OpenAI-compatible providers if missing
+  if (effectiveBaseUrl && providerType === 'openai' && !effectiveBaseUrl.endsWith('/v1')) {
+    effectiveBaseUrl = effectiveBaseUrl + '/v1';
+  }
 
   let model: LanguageModel;
 

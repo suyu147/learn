@@ -119,11 +119,25 @@ export async function getSession(sessionId: string): Promise<SessionRecord | nul
   });
 }
 
+/** Ensure a user exists; auto-create if missing (for middleware-injected userIds). */
+async function ensureUser(userId: string): Promise<void> {
+  const existing = await prisma.user.findUnique({ where: { id: userId } });
+  if (existing) return;
+
+  await prisma.user.create({
+    data: { id: userId, name: userId },
+  });
+  log.debug(`Auto-created user: ${userId}`);
+}
+
 /** Ensure a session exists; create if it doesn't. Returns the session. */
 export async function ensureSession(
   sessionId: string,
   userId: string,
 ): Promise<SessionRecord> {
+  // Ensure the user exists first (FK constraint: DtSession.userId → User.id)
+  await ensureUser(userId);
+
   const existing = await prisma.dtSession.findUnique({ where: { id: sessionId } });
   if (existing) return existing;
 

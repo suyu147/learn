@@ -7,6 +7,8 @@
 import { useState } from 'react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useAuthStore } from '@/lib/store/auth-store';
+import { useLearningProfileStore } from '@/lib/store/learning-profile';
+import { useChatStore } from '@/lib/store/chat-store';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -20,6 +22,9 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
 
   const register = useAuthStore((s) => s.register);
+  const setHasProfile = useAuthStore((s) => s.setHasProfile);
+  const resetLearningProfile = useLearningProfileStore((s) => s.resetForNewUser);
+  const resetChat = useChatStore((s) => s.resetForNewUser);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +47,12 @@ export default function RegisterPage() {
 
     try {
       await register(username, password);
-      router.push('/chat');
+      // Reset all user-specific stores for the new user
+      resetLearningProfile();
+      resetChat();
+      // New users always need onboarding
+      setHasProfile(false);
+      router.push('/onboarding');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {

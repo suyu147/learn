@@ -170,8 +170,8 @@ export default function BookPage() {
       if (detail.pages.length > 0) {
         setActivePageId(detail.pages[0].id)
       }
-    } catch (err) {
-      console.error('Failed to load book:', err)
+    } catch {
+      // error handled by UI state
     }
   }, [])
 
@@ -189,8 +189,7 @@ export default function BookPage() {
       setShowCreateForm(false)
       await fetchBooks()
       await loadBook(book.id)
-    } catch (err) {
-      console.error('Failed to create book:', err)
+    } catch {
     } finally {
       setCreating(false)
     }
@@ -206,8 +205,7 @@ export default function BookPage() {
     try {
       await apiPost('/api/v1/book/confirm-proposal', { bookId: activeBook.book.id })
       await loadBook(activeBook.book.id)
-    } catch (err) {
-      console.error('Failed to confirm proposal:', err)
+    } catch {
     } finally {
       setProcessing(false)
       setProcessStep('')
@@ -224,8 +222,7 @@ export default function BookPage() {
     try {
       await apiPost('/api/v1/book/confirm-spine', { bookId: activeBook.book.id })
       await loadBook(activeBook.book.id)
-    } catch (err) {
-      console.error('Failed to confirm spine:', err)
+    } catch {
     } finally {
       setProcessing(false)
       setProcessStep('')
@@ -245,8 +242,7 @@ export default function BookPage() {
         pageId,
       })
       await loadBook(activeBook.book.id)
-    } catch (err) {
-      console.error('Failed to compile page:', err)
+    } catch {
     } finally {
       setProcessing(false)
       setProcessStep('')
@@ -263,8 +259,7 @@ export default function BookPage() {
     try {
       await apiPost('/api/v1/book/compile-all', { bookId: activeBook.book.id })
       await loadBook(activeBook.book.id)
-    } catch (err) {
-      console.error('Failed to compile all:', err)
+    } catch {
     } finally {
       setProcessing(false)
       setProcessStep('')
@@ -285,8 +280,7 @@ export default function BookPage() {
           setActivePageId(null)
         }
         await fetchBooks()
-      } catch (err) {
-        console.error('Failed to delete book:', err)
+      } catch {
       }
     },
     [activeBook, fetchBooks],
@@ -363,11 +357,14 @@ export default function BookPage() {
             </div>
           ) : (
             books.map((book) => (
-              <button
+              <div
                 key={book.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => loadBook(book.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); loadBook(book.id); } }}
                 className={cn(
-                  'w-full text-left px-3 py-2.5 rounded-lg transition-colors group',
+                  'w-full text-left px-3 py-2.5 rounded-lg transition-colors group cursor-pointer',
                   activeBook?.book.id === book.id
                     ? 'bg-[var(--primary)]/10 border border-[var(--primary)]/20'
                     : 'hover:bg-[var(--muted)]',
@@ -389,13 +386,13 @@ export default function BookPage() {
                     </div>
                   </div>
                   <button
-                    onClick={(e) => deleteBook(book.id, e)}
+                    onClick={(e) => { e.stopPropagation(); deleteBook(book.id, e); }}
                     className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[var(--destructive)]/10 transition-all"
                   >
                     <Trash2 className="h-3 w-3 text-[var(--destructive)]" />
                   </button>
                 </div>
-              </button>
+              </div>
             ))
           )}
         </div>

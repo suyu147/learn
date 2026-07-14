@@ -81,9 +81,11 @@ export class MathAnimatorCapability extends PipelineCapability {
   async executeStages(context: UnifiedContext, stream: StreamBus): Promise<void> {
     const bus = stream as StreamBusImpl;
     const userInput = context.userMessage;
-    const providerId = (context.metadata.providerId as ProviderId) ?? process.env.DT_DEFAULT_PROVIDER as ProviderId;
-    const modelId = (context.metadata.modelId as string) ?? process.env.DT_DEFAULT_MODEL ?? '';
-    const apiKey = context.metadata.apiKey as string | undefined;
+    const overrides = context.configOverrides ?? {};
+    const meta = context.metadata ?? {};
+    const providerId = (overrides.providerId as ProviderId) || (meta.providerId as ProviderId) || (process.env.DT_DEFAULT_PROVIDER as ProviderId) || (process.env.AI_PROVIDER as ProviderId);
+    const modelId = (overrides.modelId as string) || (meta.modelId as string) || process.env.DT_DEFAULT_MODEL || process.env.AI_MODEL || '';
+    const apiKey = (overrides.apiKey as string) || (meta.apiKey as string) || process.env.DT_DEFAULT_API_KEY || process.env.AI_API_KEY || undefined;
 
     const outputMode = (context.metadata.outputMode as string) ?? 'video';
     const quality = (context.metadata.quality as string) ?? 'medium';

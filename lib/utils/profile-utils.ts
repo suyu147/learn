@@ -8,19 +8,22 @@ function getFilledDimensionsCount(dimensions: ProfileDimensions | null | undefin
   let filledCount = 0;
 
   if (dimensions.knowledgeBase?.subjects?.length > 0) filledCount++;
-  if (dimensions.cognitiveStyle?.type && dimensions.cognitiveStyle.type !== 'reading') filledCount++;
+  // Count if the user has expressed any learning style preference (default '' means not yet filled)
+  if (dimensions.cognitiveStyle?.preference && dimensions.cognitiveStyle.preference.length > 0) filledCount++;
   if (dimensions.learningGoals?.shortTerm?.length > 0 || !!dimensions.learningGoals?.longTerm) filledCount++;
   if (dimensions.weakPoints?.topics?.length > 0 || dimensions.weakPoints?.errorPatterns?.length > 0) filledCount++;
-  if ((dimensions.timePreference?.preferredDuration ?? 0) > 0) filledCount++;
+  // Default preferredDuration=0 and preferredTimeSlot='' mean not yet set by user/AI
+  if ((dimensions.timePreference?.preferredDuration ?? 0) > 0 || (dimensions.timePreference?.preferredTimeSlot?.length ?? 0) > 0) filledCount++;
   if (dimensions.interests?.domains?.length > 0) filledCount++;
-  if (dimensions.learningPace?.speed && dimensions.learningPace.speed !== 'moderate') filledCount++;
+  // Default depthPreference='' means not yet set; any non-empty value counts as filled
+  if (dimensions.learningPace?.depthPreference && dimensions.learningPace.depthPreference.length > 0) filledCount++;
   if (dimensions.errorPatterns?.commonMistakes?.length > 0 || dimensions.errorPatterns?.difficultAreas?.length > 0) filledCount++;
 
   return filledCount;
 }
 
 export function isProfileComplete(dimensions: ProfileDimensions | null | undefined): boolean {
-  return getFilledDimensionsCount(dimensions) >= 6;
+  return getFilledDimensionsCount(dimensions) >= TOTAL_DIMENSIONS;
 }
 
 export function calculateProfileCompleteness(dimensions: ProfileDimensions | null | undefined): number {

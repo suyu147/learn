@@ -16,8 +16,13 @@ model User {
   bio       String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  profileCompletedAt DateTime? @map("profile_completed_at")
 
   profiles        LearningProfile[]
+  masteryEntries  LearningSkillMastery[]
+  masterySessions LearningMasterySession[]
+  quizAttempts    LearningQuizAttempt[]
+  scheduleEntries LearningScheduleEntry[]
   resources       Resource[]
   learningPaths   LearningPath[]
   chatSessions    ChatSession[]
@@ -31,19 +36,105 @@ model User {
   books           Book[]
   cowriterDocs    CowriterDocument[]
   agentActivities AgentActivity[]
+  dtModelCatalogs DtModelCatalog[]
 }
 
 model LearningProfile {
-  id        String   @id @default(cuid())
-  userId    String
-  version   Int      @default(1)
-  dimensions Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String    @id @default(cuid())
+  userId      String
+  version     Int       @default(1)
+  dimensions  Json
+  lastSource  String?   @map("last_source")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id])
 
+  @@unique([userId])
+}
+
+model LearningSkillMastery {
+  id             String    @id @default(cuid())
+  userId         String    @map("user_id")
+  topic          String
+  mastery        Float
+  lastReviewedAt DateTime? @map("last_reviewed_at")
+  reviewCount    Int       @default(0) @map("review_count")
+  streak         Int       @default(0)
+  nextReviewAt   DateTime? @map("next_review_at")
+  difficulty     Float?
+  metadata       Json?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, topic])
   @@index([userId])
+  @@index([userId, nextReviewAt])
+  @@map("learning_skill_mastery")
+}
+
+model LearningMasterySession {
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
+  title       String    @default("")
+  topics      Json
+  evaluation  Json?
+  metadata    Json?
+  startedAt   DateTime  @default(now()) @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizAttempts LearningQuizAttempt[]
+
+  @@index([userId])
+  @@index([userId, startedAt(sort: Desc)])
+  @@map("learning_mastery_sessions")
+}
+
+model LearningQuizAttempt {
+  id               String   @id @default(cuid())
+  masterySessionId String?  @map("mastery_session_id")
+  userId           String   @map("user_id")
+  topic            String
+  question         String
+  userAnswer       String?  @map("user_answer")
+  correctAnswer    String?  @map("correct_answer")
+  explanation      String?
+  correct          Boolean
+  difficulty       Float?
+  metadata         Json?
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  masterySession LearningMasterySession? @relation(fields: [masterySessionId], references: [id], onDelete: SetNull)
+  user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, topic])
+  @@index([masterySessionId])
+  @@map("learning_quiz_attempts")
+}
+
+model LearningScheduleEntry {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  topic     String
+  dueAt     DateTime @map("due_at")
+  priority  Int      @default(0)
+  status    String   @default("pending")
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, dueAt])
+  @@map("learning_schedule_entries")
 }
 
 model Resource {
@@ -91,6 +182,7 @@ model LearningPath {
   updatedAt DateTime   @updatedAt
 
   user User @relation(fields: [userId], references: [id])
+  pathNodeResources PathNodeResource[]
 
   @@index([userId])
 }
@@ -110,6 +202,9 @@ model ChatSession {
   updatedAt DateTime    @updatedAt
 
   user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 enum SessionType {
@@ -138,7 +233,8 @@ model PathNodeResource {
   nodeId     String
   resourceId String
 
-  resource Resource @relation(fields: [resourceId], references: [id])
+  resource Resource     @relation(fields: [resourceId], references: [id])
+  path     LearningPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
 
   @@unique([pathId, nodeId, resourceId])
 }
@@ -146,8 +242,8 @@ model PathNodeResource {
 model StageOutline {
   stageId   String @id
   outlines  Json
-  createdAt Int    @default(0)
-  updatedAt Int    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ===========================================================================
@@ -203,8 +299,9 @@ model DtTurn {
   updatedAt   DateTime     @updatedAt @map("updated_at")
   finishedAt  DateTime?    @map("finished_at")
 
-  session DtSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  events  DtTurnEvent[]
+  session  DtSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  events   DtTurnEvent[]
+  messages DtMessage[]
 
   @@index([sessionId])
   @@index([sessionId, status])
@@ -230,6 +327,7 @@ model DtMessage {
   session        DtSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   parentMessage  DtMessage?  @relation("MessageTree", fields: [parentMessageId], references: [id])
   childMessages  DtMessage[] @relation("MessageTree")
+  turn           DtTurn?     @relation(fields: [turnId], references: [id], onDelete: SetNull)
 
   @@index([sessionId])
   @@index([sessionId, createdAt])
@@ -282,6 +380,8 @@ model DtModelCatalog {
   catalog   Json     // Full catalog JSON (profiles, active_profile_id, etc.)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, service])
   @@index([userId])

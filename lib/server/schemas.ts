@@ -284,7 +284,9 @@ export const VerifyModelSchema = z.object({
 // ---------------------------------------------------------------------------
 
 export const ProfileUpdateSchema = z.object({
-  userId: z.string().optional(),
   dimensions: z.record(z.unknown()).optional(),
   preferences: z.record(z.unknown()).optional(),
-});
+}).refine(
+  (data) => data.dimensions !== undefined || data.preferences !== undefined,
+  { message: 'dimensions or preferences is required' },
+);

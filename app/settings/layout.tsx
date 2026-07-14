@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bot, Cpu, Search, ToggleRight, Brain, Palette, Wifi, Activity } from 'lucide-react'
+import { Bot, Cpu, ToggleRight, Brain, Palette, Wifi, Activity, Zap, Server, Database, UserCircle, Puzzle, BookMarked, Terminal, Shield, Settings2, Globe } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/hooks/use-i18n'
 
@@ -13,11 +13,20 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   const navItems = [
     { labelKey: 'settingsNav.llmModels', href: '/settings/llm', icon: Bot },
     { labelKey: 'settingsNav.embeddingModels', href: '/settings/embedding', icon: Cpu },
-    { labelKey: 'settingsNav.searchEngine', href: '/settings/models', icon: Search },
+    { labelKey: 'settingsNav.webSearch', href: '/settings/search', icon: Globe },
+    { labelKey: 'settingsNav.capabilities', href: '/settings/capabilities', icon: Zap },
     { labelKey: 'settingsNav.toolToggles', href: '/settings/tools', icon: ToggleRight },
+    { labelKey: 'settingsNav.mcpServers', href: '/settings/mcp', icon: Server },
+    { labelKey: 'settingsNav.knowledgeBase', href: '/settings/knowledge', icon: Database },
+    { labelKey: 'settingsNav.persona', href: '/settings/persona', icon: UserCircle },
+    { labelKey: 'settingsNav.skillPacks', href: '/settings/skills', icon: Puzzle },
     { labelKey: 'settingsNav.memory', href: '/settings/memory', icon: Brain },
+    { labelKey: 'settingsNav.notebook', href: '/settings/notebook', icon: BookMarked },
+    { labelKey: 'settingsNav.sandbox', href: '/settings/sandbox', icon: Terminal },
+    { labelKey: 'settingsNav.auth', href: '/settings/auth', icon: Shield },
     { labelKey: 'settingsNav.appearance', href: '/settings/appearance', icon: Palette },
     { labelKey: 'settingsNav.network', href: '/settings/network', icon: Wifi },
+    { labelKey: 'settingsNav.advanced', href: '/settings/advanced', icon: Settings2 },
     { labelKey: 'settingsNav.status', href: '/settings/status', icon: Activity },
   ]
 

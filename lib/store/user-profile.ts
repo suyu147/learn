@@ -17,6 +17,12 @@ export const AVATAR_OPTIONS = [
   '/avatars/thinker-2.png',
 ] as const;
 
+/**
+ * Basic account presentation data only. Learning dimensions belong to useLearningProfileStore.
+ */
+/**
+ * Basic account presentation data only. Learning dimensions belong to useLearningProfileStore.
+ */
 export interface UserProfileState {
   /** Local avatar path or data-URL (for custom uploads) */
   avatar: string;

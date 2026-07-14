@@ -32,10 +32,14 @@ export async function GET(req: NextRequest) {
     const hostname = parsed.hostname;
     if (
       hostname === 'localhost' ||
+      hostname === '0.0.0.0' ||
+      hostname === '[::1]' ||
+      hostname === '::1' ||
       hostname.startsWith('127.') ||
       hostname.startsWith('10.') ||
       hostname.startsWith('192.168.') ||
       hostname.startsWith('172.') ||
+      hostname.startsWith('169.254.') ||
       hostname.endsWith('.local') ||
       hostname.endsWith('.internal')
     ) {

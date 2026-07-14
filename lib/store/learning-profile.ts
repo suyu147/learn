@@ -5,6 +5,7 @@ import type { LearningProfile, ProfileDimensions, ConversationMessage } from '@/
 import { DEFAULT_DIMENSIONS } from '@/lib/types/profile';
 import { fetchProfile, saveProfile } from '@/lib/api/learning-profile-api';
 import { createLogger } from '@/lib/logger';
+import { getApiToken } from '@/lib/auth-token';
 
 const log = createLogger('LearningProfileStore');
 
@@ -16,6 +17,7 @@ interface LearningProfileState {
   isChatOpen: boolean;
   isGenerating: boolean;
   synced: boolean;
+  saveError: string | null;
   setProfile: (profile: LearningProfile | null) => void;
   restoreArchivedProfile: (profileId: string) => LearningProfile | null;
   updateDimensions: (dimensions: Partial<ProfileDimensions>) => void;
@@ -33,6 +35,8 @@ interface LearningProfileState {
   syncFromServer: (userId: string) => Promise<void>;
   /** Push local profile to server */
   syncToServer: (userId: string) => Promise<void>;
+  /** Reset for a new user (called on logout/new login) */
+  resetForNewUser: () => void;
 }
 
 export const useLearningProfileStore = create<LearningProfileState>()(
@@ -44,6 +48,7 @@ export const useLearningProfileStore = create<LearningProfileState>()(
       isChatOpen: false,
       isGenerating: false,
       synced: false,
+      saveError: null,
 
       setProfile: (profile) => {
         console.log('Setting profile:', profile);
@@ -100,6 +105,8 @@ export const useLearningProfileStore = create<LearningProfileState>()(
           },
         };
 
+        // 直接 mutate draft（immer 推荐模式），不要 return partial state
+        // return + draft mutation 混用会导致 immer 行为不一致
         set((state) => {
           if (state.profile) {
             state.profileHistory.push({
@@ -109,7 +116,7 @@ export const useLearningProfileStore = create<LearningProfileState>()(
             });
           }
 
-          const newProfile: LearningProfile = {
+          state.profile = {
             id: state.profile?.id ?? crypto.randomUUID(),
             userId: 'current',
             updatedAt: new Date().toISOString(),
@@ -117,18 +124,26 @@ export const useLearningProfileStore = create<LearningProfileState>()(
             dimensions: mergedDimensions,
             conversationHistory: state.profile?.conversationHistory ?? [],
           };
-
-          console.log('New profile created:', newProfile);
-          return { profile: newProfile };
         });
 
         // 数据库写入（仅客户端，静默失败不影响本地使用）
         if (typeof window !== 'undefined') {
-          fetch('/api/v1/profile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+          const userId = get().profile?.userId ?? 'anonymous';
+          const headers: Record<string, string> = { 'Content-Type': 'application/json', 'x-user-id': userId };
+          const token = getApiToken();
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+          fetch('/api/v1/smartlearn/profile', {
+            method: 'PATCH',
+            headers,
             body: JSON.stringify({ dimensions: mergedDimensions }),
-          }).catch(() => {});
+          }).then((response) => {
+            if (!response.ok) throw new Error(`Profile save failed (${response.status})`);
+            set({ saveError: null });
+          }).catch((error: unknown) => {
+            const message = error instanceof Error ? error.message : 'Profile save failed';
+            log.error(message);
+            set({ saveError: message });
+          });
         }
       },
 
@@ -150,7 +165,7 @@ export const useLearningProfileStore = create<LearningProfileState>()(
       addConversationMessage: (message) =>
         set((state) => {
           const currentProfile = state.profile;
-          const newProfile: LearningProfile = currentProfile ? {
+          state.profile = currentProfile ? {
             ...currentProfile,
             conversationHistory: [...currentProfile.conversationHistory, message],
             updatedAt: new Date().toISOString(),
@@ -162,7 +177,6 @@ export const useLearningProfileStore = create<LearningProfileState>()(
             dimensions: { ...DEFAULT_DIMENSIONS },
             conversationHistory: [message],
           };
-          return { profile: newProfile };
         }),
 
       /** 将当前画像归档（保留聊天记录），返回归档的 profileId */
@@ -192,23 +206,25 @@ export const useLearningProfileStore = create<LearningProfileState>()(
 
       reset: () => set({ profile: null, profileHistory: [], isChatOpen: false, isGenerating: false }),
 
+      resetForNewUser: () => {
+        set({ profile: null, profileHistory: [], archivedProfiles: {}, isChatOpen: false, isGenerating: false, synced: false, saveError: null });
+      },
+
       syncFromServer: async (userId: string) => {
         if (get().synced) return;
         try {
-          const serverDimensions = await fetchProfile(userId);
-          if (serverDimensions) {
+          const response = await fetchProfile(userId);
+          const serverProfile = response?.profile;
+          if (serverProfile?.dimensions) {
             set((state) => {
-              // Only apply server data if no local profile exists yet
-              if (!state.profile) {
-                state.profile = {
-                  id: crypto.randomUUID(),
-                  userId,
-                  version: 1,
-                  dimensions: serverDimensions,
-                  updatedAt: new Date().toISOString(),
-                  conversationHistory: [],
-                };
-              }
+              state.profile = {
+                id: serverProfile.id ?? crypto.randomUUID(),
+                userId: serverProfile.userId ?? userId,
+                version: serverProfile.version ?? 1,
+                dimensions: serverProfile.dimensions!,
+                updatedAt: serverProfile.updatedAt ?? new Date().toISOString(),
+                conversationHistory: state.profile?.conversationHistory ?? [],
+              };
               state.synced = true;
             });
           } else {
@@ -234,6 +250,32 @@ export const useLearningProfileStore = create<LearningProfileState>()(
         }
       },
     })),
-    { name: 'learning-profile-storage', partialize: (state) => ({ profile: state.profile, archivedProfiles: state.archivedProfiles, profileHistory: state.profileHistory }) },
+    {
+      name: 'learning-profile-storage',
+      version: 1,
+      migrate: (persistedState: unknown, version: number) => {
+        if (version === 0) {
+          // v0→v1: Reset old defaults that caused inflated completeness
+          // (preferredDuration 30→0, preferredTimeSlot 'evening'→'',
+          //  depthPreference 'broad'→'', preferredFormats ['document']→[])
+          const state = persistedState as Record<string, unknown>;
+          const profile = state.profile as Record<string, unknown> | null;
+          if (profile?.dimensions) {
+            const dims = profile.dimensions as Record<string, unknown>;
+            const tp = dims.timePreference as Record<string, unknown> | undefined;
+            if (tp?.preferredDuration === 30) tp.preferredDuration = 0;
+            if (tp?.preferredTimeSlot === 'evening') tp.preferredTimeSlot = '';
+            const lp = dims.learningPace as Record<string, unknown> | undefined;
+            if (lp?.depthPreference === 'broad') lp.depthPreference = '';
+            const ints = dims.interests as Record<string, unknown> | undefined;
+            const pf = ints?.preferredFormats as unknown[] | undefined;
+            if (pf?.length === 1 && pf[0] === 'document') ints!.preferredFormats = [];
+          }
+          return state;
+        }
+        return persistedState;
+      },
+      partialize: (state) => ({ profile: state.profile, archivedProfiles: state.archivedProfiles, profileHistory: state.profileHistory }),
+    },
   ),
 );

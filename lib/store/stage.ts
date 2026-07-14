@@ -204,8 +204,8 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
         db.stageOutlines.put({
           stageId,
           outlines,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
         });
       });
     }

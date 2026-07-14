@@ -140,29 +140,28 @@ export default function AgentsPage() {
   const [selectedAgent, setSelectedAgent] = useState<AgentInfo | null>(null);
   const [filter, setFilter] = useState<'all' | 'loop' | 'agent' | 'pipeline' | 'graph'>('all');
 
-  const fetchAgents = async () => {
-    setLoading(true);
-    try {
-      const data = await apiGet<{ agents: AgentInfo[] }>('/api/v1/agents');
-      // Merge with built-in (API may return MCP agents or custom ones)
-      if (data.agents && data.agents.length > 0) {
-        const merged = [...BUILTIN_AGENTS];
-        for (const apiAgent of data.agents) {
-          if (!merged.find((a) => a.id === apiAgent.id)) {
-            merged.push({ ...apiAgent, icon: Bot });
-          }
-        }
-        setAgents(merged);
-      }
-    } catch (err) {
-      // API not available — fall back to built-in catalog
-      console.warn('Agents API unavailable, using built-in catalog:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchAgents = async () => {
+      setLoading(true);
+      try {
+        const data = await apiGet<{ agents: AgentInfo[] }>('/api/v1/agents');
+        // Merge with built-in (API may return MCP agents or custom ones)
+        if (data.agents && data.agents.length > 0) {
+          const merged = [...BUILTIN_AGENTS];
+          for (const apiAgent of data.agents) {
+            if (!merged.find((a) => a.id === apiAgent.id)) {
+              merged.push({ ...apiAgent, icon: Bot });
+            }
+          }
+          setAgents(merged);
+        }
+      } catch {
+        // API not available — fall back to built-in catalog
+      } finally {
+        setLoading(false);
+      }
+    };
+
     // Try to fetch dynamic agent list from API
     fetchAgents();
   }, []);

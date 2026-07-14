@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BookOpen, LayoutDashboard, Users, BarChart3, FolderOpen, Settings, Presentation, MessageSquare, GraduationCap, BookMarked, Brain } from 'lucide-react';
+import { BookOpen, LayoutDashboard, Users, Settings, MessageSquare, GraduationCap, BookMarked, Brain } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/hooks/use-i18n';
 
@@ -13,11 +13,6 @@ const navItems = [
   { href: '/knowledge', labelKey: 'nav.knowledge', icon: BookMarked },
   { href: '/memory', labelKey: 'nav.memory', icon: Brain },
   { href: '/profile', labelKey: 'nav.profile', icon: Users },
-  { href: '/workspace', labelKey: 'nav.workspace', icon: BookOpen },
-  { href: '/agent-orchestration', labelKey: 'nav.agentOrchestration', icon: Users },
-  { href: '/evaluation', labelKey: 'nav.evaluation', icon: BarChart3 },
-  { href: '/resources/library', labelKey: 'nav.resourceLibrary', icon: FolderOpen },
-  { href: '/ppt', labelKey: 'nav.ppt', icon: Presentation },
   { href: '/settings', labelKey: 'nav.settings', icon: Settings },
 ];
 

@@ -30,6 +30,7 @@ import { ToolRegistry } from '@/lib/deeptutor/tools/registry';
 import { StreamBusImpl } from '@/lib/deeptutor/core/stream-bus';
 import type { StreamEvent } from '@/lib/deeptutor/core/types';
 import { InputHandler, getInputHandler } from '@/lib/deeptutor/core/input-handler';
+import { resetLoadedDeferredTools } from '@/lib/deeptutor/tools/deferred-loader';
 import type { ToolDefinition, ToolParameter, ToolResult } from '@/lib/deeptutor/core/tool-protocol';
 import { createLogger } from '@/lib/logger';
 
@@ -122,6 +123,11 @@ export interface AgentLoopConfig {
  *
  * Handles: string, integer, boolean, number, array, object.
  * Falls back to `z.any()` for unrecognised types.
+ *
+ * Design notes for LLM compatibility:
+ * - Uses z.coerce for numeric types (LLMs sometimes send "5" instead of 5)
+ * - Uses .passthrough() on the top-level object (LLMs sometimes add extra fields)
+ * - Boolean fields accept "true"/"false" strings via coerce
  */
 function parametersToZodSchema(parameters: ToolParameter[]): z.ZodTypeAny {
   const shape: Record<string, z.ZodTypeAny> = {};
@@ -135,36 +141,65 @@ function parametersToZodSchema(parameters: ToolParameter[]): z.ZodTypeAny {
           const [first, ...rest] = param.enum;
           fieldSchema = z.enum([first, ...rest] as [string, ...string[]]);
         } else {
-          fieldSchema = z.string();
+          // Coerce non-string values to string (LLMs sometimes send numbers/booleans)
+          fieldSchema = z.coerce.string();
         }
         break;
 
       case 'integer':
-        fieldSchema = z.number().int();
+        // LLMs may send "5" or 5.0 — coerce then validate as int
+        fieldSchema = z.preprocess(
+          (val) => {
+            if (typeof val === 'string') {
+              const n = Number(val);
+              return Number.isNaN(n) ? val : n;
+            }
+            return val;
+          },
+          z.number().int(),
+        );
         break;
 
       case 'number':
-        fieldSchema = z.number();
+        // LLMs may send "3.14" — coerce string to number
+        fieldSchema = z.preprocess(
+          (val) => {
+            if (typeof val === 'string') {
+              const n = Number(val);
+              return Number.isNaN(n) ? val : n;
+            }
+            return val;
+          },
+          z.number(),
+        );
         break;
 
       case 'boolean':
-        fieldSchema = z.boolean();
+        // LLMs may send "true"/"false" — handle gracefully
+        fieldSchema = z.preprocess(
+          (val) => {
+            if (val === 'true') return true;
+            if (val === 'false') return false;
+            return val;
+          },
+          z.boolean(),
+        );
         break;
 
       case 'array':
         if (param.items) {
           const itemType = (param.items as Record<string, unknown>).type;
           if (itemType === 'string') {
-            fieldSchema = z.array(z.string());
+            fieldSchema = z.array(z.coerce.string());
           } else if (itemType === 'integer' || itemType === 'number') {
-            fieldSchema = z.array(z.number());
+            fieldSchema = z.array(z.coerce.number());
           } else if (itemType === 'boolean') {
-            fieldSchema = z.array(z.boolean());
+            fieldSchema = z.array(z.coerce.boolean());
           } else {
             fieldSchema = z.array(z.any());
           }
         } else {
-          fieldSchema = z.array(z.string());
+          fieldSchema = z.array(z.coerce.string());
         }
         break;
 
@@ -193,7 +228,8 @@ function parametersToZodSchema(parameters: ToolParameter[]): z.ZodTypeAny {
     shape[param.name] = fieldSchema;
   }
 
-  return z.object(shape);
+  // Use .passthrough() to allow extra fields from LLM (don't reject unknown keys)
+  return z.object(shape).passthrough();
 }
 
 /**
@@ -231,11 +267,15 @@ export function toAISDKTools(definitions: ToolDefinition[]): ToolSet {
 /**
  * Convert LangChain BaseMessage[] to AI SDK ModelMessage[] for the LLM call.
  *
+ * AI SDK v5 requires ModelMessage (CoreMessage) format, NOT UIMessage format:
+ * - Assistant tool calls go in `toolCalls` array (type: 'tool-call'), not `content` parts
+ * - Tool results use `result` (not `output`), with `{ type: 'tool-result', result }` parts
+ *
  * Mapping:
  * - SystemMessage → { role: 'system', content }
  * - HumanMessage  → { role: 'user', content }
  * - AIMessage     → { role: 'assistant', content, toolCalls? }
- * - ToolMessage   → { role: 'tool', content }
+ * - ToolMessage   → { role: 'tool', content: [{ type: 'tool-result', ... }] }
  */
 function toModelMessages(messages: BaseMessage[]): ModelMessage[] {
   const result: ModelMessage[] = [];
@@ -251,45 +291,22 @@ function toModelMessages(messages: BaseMessage[]): ModelMessage[] {
     } else if (msg instanceof AIMessage) {
       const toolCalls = msg.tool_calls ?? [];
       if (toolCalls.length > 0) {
-        // Build assistant message with tool call parts
-        const parts: Array<
-          | { type: 'text'; text: string }
-          | {
-              type: 'tool-invocation';
-              toolInvocation: {
-                toolCallId: string;
-                toolName: string;
-                args: Record<string, unknown>;
-                state: 'call';
-              };
-            }
-        > = [];
-
-        if (content) {
-          parts.push({ type: 'text', text: content });
-        }
-        for (const tc of toolCalls) {
-          parts.push({
-            type: 'tool-invocation',
-            toolInvocation: {
-              toolCallId: tc.id ?? `call_${Math.random().toString(36).slice(2, 10)}`,
-              toolName: tc.name,
-              args: tc.args as Record<string, unknown>,
-              state: 'call',
-            },
-          });
-        }
-
+        // AI SDK v5 ModelMessage format: toolCalls in separate array
         result.push({
           role: 'assistant',
-          content: parts,
+          content,
+          toolCalls: toolCalls.map((tc) => ({
+            type: 'tool-call' as const,
+            toolCallId: tc.id ?? `call_${Math.random().toString(36).slice(2, 10)}`,
+            toolName: tc.name,
+            args: tc.args as Record<string, unknown>,
+          })),
         } as ModelMessage);
       } else {
         result.push({ role: 'assistant', content });
       }
     } else if (msg instanceof ToolMessage) {
-      // AI SDK tool messages carry results as tool-result parts
-      // ToolResultPart uses `output` (not `result`) with a typed structure
+      // AI SDK v5 ModelMessage format: tool-result with `result` (not `output`)
       const toolCallId =
         msg.tool_call_id ?? `call_${Math.random().toString(36).slice(2, 10)}`;
       result.push({
@@ -299,10 +316,10 @@ function toModelMessages(messages: BaseMessage[]): ModelMessage[] {
             type: 'tool-result' as const,
             toolCallId,
             toolName: msg.name ?? 'unknown',
-            output: { type: 'text' as const, value: content },
+            result: content,
           },
         ],
-      } satisfies ModelMessage);
+      } as ModelMessage);
     } else {
       // Fallback: treat as user message
       result.push({ role: 'user', content });
@@ -534,6 +551,56 @@ function createAgentNode(config: AgentLoopConfig) {
         tools: config.tools,
         temperature: config.temperature ?? DEFAULT_TEMPERATURE,
         maxOutputTokens: 4096,
+        // Auto-repair tool calls that fail Zod validation (common with DeepSeek, etc.)
+        experimental_repairToolCall: async ({ toolCall, tools, inputSchema, error }) => {
+          logger.warn(
+            `Repairing tool call "${toolCall.toolName}": ${error.message}`,
+          );
+
+          // Strategy 1: Try to fix the raw JSON by re-parsing with the schema
+          try {
+            const rawInput = typeof toolCall.input === 'string'
+              ? toolCall.input
+              : JSON.stringify(toolCall.input);
+            const parsed = JSON.parse(rawInput);
+
+            // Strip extra fields not in the schema, coerce types where possible
+            const toolDef = tools[toolCall.toolName];
+            if (toolDef?.inputSchema) {
+              const schema = toolDef.inputSchema as z.ZodTypeAny;
+              const result = schema.safeParse(parsed);
+              if (result.success) {
+                logger.info(`Tool call repair succeeded for "${toolCall.toolName}"`);
+                return { ...toolCall, input: JSON.stringify(result.data) };
+              }
+            }
+          } catch {
+            // Fall through to strategy 2
+          }
+
+          // Strategy 2: Use generateText to ask the LLM to fix its own tool call
+          try {
+            const { text } = await generateText({
+              model: config.model,
+              prompt:
+                `The following tool call to "${toolCall.toolName}" has invalid arguments.\n` +
+                `Error: ${error.message}\n` +
+                `Raw input: ${typeof toolCall.input === 'string' ? toolCall.input : JSON.stringify(toolCall.input)}\n` +
+                `Please output ONLY a valid JSON object with the corrected arguments. No explanation.`,
+              temperature: 0,
+              maxOutputTokens: 1024,
+            });
+
+            const fixed = JSON.parse(text.trim());
+            logger.info(`Tool call repair via LLM succeeded for "${toolCall.toolName}"`);
+            return { ...toolCall, input: JSON.stringify(fixed) };
+          } catch (repairError) {
+            logger.warn(
+              `Tool call repair failed for "${toolCall.toolName}": ${repairError instanceof Error ? repairError.message : String(repairError)}`,
+            );
+            return null; // Cannot repair — return null to signal failure
+          }
+        },
       });
 
       // Collect text deltas and stream them
@@ -551,15 +618,27 @@ function createAgentNode(config: AgentLoopConfig) {
       const toolCalls = await result.toolCalls;
       const usage = await result.usage;
 
+      // Filter out invalid tool calls (failed Zod validation + repair failed)
+      const validToolCalls = toolCalls.filter((tc) => {
+        if ((tc as { invalid?: boolean }).invalid) {
+          logger.warn(
+            `Skipping invalid tool call "${tc.toolName}" (id=${tc.toolCallId}): ` +
+              'validation failed and repair was unsuccessful.',
+          );
+          return false;
+        }
+        return true;
+      });
+
       logger.debug(
         `LLM call complete: ${fullText.length} chars, ` +
-          `${toolCalls.length} tool call(s), ` +
+          `${validToolCalls.length}/${toolCalls.length} valid tool call(s), ` +
           `usage: ${usage.inputTokens ?? 0}p/${usage.outputTokens ?? 0}c`,
       );
 
-      if (toolCalls.length > 0) {
+      if (validToolCalls.length > 0) {
         // Build an AIMessage with tool_calls in the LangChain format
-        const langChainToolCalls = toolCalls.map((tc) => ({
+        const langChainToolCalls = validToolCalls.map((tc) => ({
           name: tc.toolName,
           args: tc.input as Record<string, unknown>,
           id: tc.toolCallId,
@@ -577,32 +656,109 @@ function createAgentNode(config: AgentLoopConfig) {
         };
       }
 
-      // No tool calls — this is the final response
-      const aiMessage = new AIMessage({
-        content: fullText,
-      });
-
-      return {
-        messages: [aiMessage],
-        iterationCount: iteration,
-      };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error(`agent_node LLM call failed: ${errorMsg}`);
-
-      if (streamBus) {
-        streamBus.emitError(`LLM call failed: ${errorMsg}`);
+      // All tool calls were filtered as invalid, or no tool calls were produced.
+      // If we have text content, return it as the final response.
+      if (fullText) {
+        const aiMessage = new AIMessage({ content: fullText });
+        return { messages: [aiMessage], iterationCount: iteration };
       }
 
-      // Return an error message so the graph can terminate gracefully
-      const aiMessage = new AIMessage({
-        content: `I encountered an error during processing: ${errorMsg}. Please try again.`,
-      });
+      // No valid tool calls AND no text — LLM produced only invalid tool calls with no text.
+      // Retry without tools to force a meaningful text response.
+      if (toolCalls.length > 0) {
+        logger.warn(
+          `All ${toolCalls.length} tool call(s) were invalid and no text was produced. ` +
+            'Retrying without tools to force a text response.',
+        );
+      }
 
-      return {
-        messages: [aiMessage],
-        iterationCount: iteration,
-      };
+      try {
+        const freshMessages = toModelMessages(safeMessages);
+        const noToolsResult = await generateText({
+          model: config.model,
+          messages: freshMessages,
+          temperature: config.temperature ?? DEFAULT_TEMPERATURE,
+          maxOutputTokens: 4096,
+        });
+
+        const noToolsText = noToolsResult.text;
+        if (streamBus && noToolsText) {
+          streamBus.emitContent(noToolsText);
+        }
+
+        const aiMessage = new AIMessage({ content: noToolsText });
+        return { messages: [aiMessage], iterationCount: iteration };
+      } catch (retryError) {
+        const retryMsg = retryError instanceof Error ? retryError.message : String(retryError);
+        logger.error(`No-tools retry also failed: ${retryMsg}`);
+
+        if (streamBus) {
+          streamBus.emitError(`LLM call failed: ${retryMsg}`);
+        }
+
+        const aiMessage = new AIMessage({
+          content: `处理请求时遇到了问题，请稍后重试。`,
+        });
+        return { messages: [aiMessage], iterationCount: iteration };
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.warn(`agent_node LLM call with tools failed: ${errorMsg}. Retrying without tools.`);
+
+      // Fallback: retry without tools to force a text response.
+      // This handles cases like NoOutputGeneratedError where the LLM generates
+      // only invalid tool calls. Without tools, the LLM must respond with text.
+      try {
+        if (streamBus) {
+          streamBus.emitContent(''); // Clear any partial content from failed stream
+        }
+
+        const fallbackResult = await generateText({
+          model: config.model,
+          messages: toModelMessages(safeMessages),
+          temperature: config.temperature ?? DEFAULT_TEMPERATURE,
+          maxOutputTokens: 4096,
+          // Deliberately no tools — force the LLM to produce a text answer
+        });
+
+        const fallbackText = fallbackResult.text;
+
+        logger.info(
+          `Fallback (no-tools) call succeeded: ${fallbackText.length} chars`,
+        );
+
+        if (streamBus) {
+          streamBus.emitContent(fallbackText);
+        }
+
+        const aiMessage = new AIMessage({
+          content: fallbackText,
+        });
+
+        return {
+          messages: [aiMessage],
+          iterationCount: iteration,
+        };
+      } catch (fallbackError) {
+        // Both attempts failed — report error gracefully
+        const fallbackMsg = fallbackError instanceof Error
+          ? fallbackError.message
+          : String(fallbackError);
+        logger.error(`agent_node fallback LLM call also failed: ${fallbackMsg}`);
+
+        if (streamBus) {
+          streamBus.emitError(`LLM call failed: ${fallbackMsg}`);
+        }
+
+        const aiMessage = new AIMessage({
+          content: `处理请求时遇到了问题（${fallbackMsg}）。请稍后重试，或换一种方式提问。`,
+        });
+
+        return {
+          messages: [aiMessage],
+          iterationCount: iteration,
+        };
+      }
     }
   };
 }
@@ -842,6 +998,9 @@ export async function runAgentLoop(
     `Starting agent loop: session=${sessionId}, turn=${turnId}, ` +
       `maxIterations=${maxIterations}, initialMessages=${initialMessages.length}`,
   );
+
+  // Reset deferred tool state so tools loaded in a previous turn don't leak
+  resetLoadedDeferredTools();
 
   const graph = compileAgentLoop(config);
 

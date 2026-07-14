@@ -46,7 +46,15 @@ type EditAction = 'rewrite' | 'shorten' | 'expand' | 'summarize'
 // ---------------------------------------------------------------------------
 
 function renderMarkdown(md: string): string {
-  return md
+  // Escape HTML entities first to prevent XSS
+  const escaped = md
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+
+  return escaped
     .replace(/^### (.*$)/gim, '<h3 class="text-base font-semibold mt-4 mb-2">$1</h3>')
     .replace(/^## (.*$)/gim, '<h2 class="text-lg font-semibold mt-5 mb-3">$1</h2>')
     .replace(/^# (.*$)/gim, '<h1 class="text-xl font-bold mt-6 mb-4">$1</h1>')
@@ -78,6 +86,13 @@ export default function CoWriterPage() {
   const [viewMode, setViewMode] = useState<'split' | 'editor' | 'preview'>('split')
   const [dirty, setDirty] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cleanup auto-save timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+  }, [])
 
   // ---------------------------------------------------------------------------
   // Fetch document list
@@ -120,8 +135,7 @@ export default function CoWriterPage() {
       store.setActiveDoc(id)
       setActiveDoc(mapped)
       setDirty(false)
-    } catch (err) {
-      console.error('Failed to load document:', err)
+    } catch {
     }
   }, [store])
 
@@ -144,8 +158,7 @@ export default function CoWriterPage() {
       })
       await fetchDocs()
       await loadDoc(doc.id)
-    } catch (err) {
-      console.error('Failed to create document:', err)
+    } catch {
     }
   }, [store, fetchDocs, loadDoc])
 
@@ -164,8 +177,7 @@ export default function CoWriterPage() {
           store.setActiveDoc('')
         }
         await fetchDocs()
-      } catch (err) {
-        console.error('Failed to delete document:', err)
+      } catch {
       }
     },
     [store, activeDoc, fetchDocs],
@@ -188,8 +200,7 @@ export default function CoWriterPage() {
           setDirty(false)
           // Refresh doc list to get updated timestamps
           fetchDocs()
-        } catch (err) {
-          console.error('Auto-save failed:', err)
+        } catch {
         } finally {
           setSaving(false)
         }
@@ -242,8 +253,7 @@ export default function CoWriterPage() {
           )
           store.updateDocContent(activeDoc.id, result.editedText)
         }
-      } catch (err) {
-        console.error('Edit action failed:', err)
+      } catch {
       } finally {
         setEditing(false)
         setEditAction(null)

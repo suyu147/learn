@@ -92,6 +92,14 @@ export class ChatOrchestrator {
       // Notify event bus
       eventBus.emit(EventBusEvents.TURN_COMPLETED, { turnId, sessionId });
 
+      // Trigger memory consolidation (subscriber handles async)
+      eventBus.emit(EventBusEvents.CAPABILITY_COMPLETE, {
+        turnId,
+        sessionId,
+        userId,
+        capability: capabilityName,
+      });
+
       return { turnId, status: 'completed' };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

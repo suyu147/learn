@@ -7,6 +7,9 @@
 import { useState } from 'react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useAuthStore } from '@/lib/store/auth-store';
+import { useLearningProfileStore } from '@/lib/store/learning-profile';
+import { useChatStore } from '@/lib/store/chat-store';
+import { getApiToken } from '@/lib/auth-token';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -19,6 +22,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const login = useAuthStore((s) => s.login);
+  const setHasProfile = useAuthStore((s) => s.setHasProfile);
+  const resetLearningProfile = useLearningProfileStore((s) => s.resetForNewUser);
+  const resetChat = useChatStore((s) => s.resetForNewUser);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +33,29 @@ export default function LoginPage() {
 
     try {
       await login(username, password);
-      router.push('/chat');
+      // Reset all user-specific stores for the new user
+      resetLearningProfile();
+      resetChat();
+      // Fetch hasProfile from auth status (with the new JWT token)
+      let hasProfile = false;
+      try {
+        const token = getApiToken();
+        const statusHeaders: Record<string, string> = {};
+        if (token) {
+          statusHeaders['Authorization'] = `Bearer ${token}`;
+        }
+        const statusRes = await fetch('/api/v1/auth/status', {
+          headers: statusHeaders,
+        });
+        if (statusRes.ok) {
+          const { data } = await statusRes.json();
+          hasProfile = data.hasProfile ?? false;
+          setHasProfile(hasProfile);
+        }
+      } catch {
+        // If status check fails, default to onboarding (safer)
+      }
+      router.push(hasProfile ? '/chat' : '/onboarding');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {

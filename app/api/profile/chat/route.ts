@@ -11,6 +11,7 @@ import { createLearnEventWriter } from '@/lib/deeptutor/capabilities/smartlearn/
 import { createStreamEvent } from '@/lib/deeptutor/core/types';
 import type { LearnRequest } from '@/lib/learning-graph/types';
 import type { LearningStateType } from '@/lib/learning-graph/state';
+import { ensureSession, addMessage } from '@/lib/deeptutor/services/session';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('ProfileChatRoute');
@@ -31,7 +32,10 @@ export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as ProfileChatRequest;
 
+    const userId = req.headers.get('x-user-id') ?? 'anonymous';
     const sessionId = `profile-${Date.now()}`;
+    await ensureSession(sessionId, userId);
+
     const turnId = `turn_${Date.now()}`;
 
     const learnRequest: Partial<LearnRequest> = {
@@ -87,11 +91,18 @@ export async function POST(req: NextRequest) {
         const learnEventWriter = createLearnEventWriter(emit, sessionId, turnId, 'profile-chat');
 
         try {
+          await addMessage(sessionId, userId, 'user', body.message, {
+            capability: 'profile_build',
+            metadata: { source: 'profile-chat' },
+          });
+
           await graph.invoke(initialState as LearningStateType, {
             configurable: {
               writer: learnEventWriter,
               sessionId,
               turnId,
+              userId,
+              profileChat: true,
             },
           });
 

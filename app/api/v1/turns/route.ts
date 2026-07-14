@@ -77,11 +77,11 @@ export async function POST(req: NextRequest) {
   // --- Resolve user identity (placeholder — replace with real auth in Phase 1.2) ---
   const userId = req.headers.get('x-user-id') ?? 'anonymous';
 
-  // --- Resolve model config (from request → env → defaults) ---
-  const effectiveProviderId = providerId ?? process.env.DT_DEFAULT_PROVIDER ?? 'openai';
-  const effectiveModelId = modelId ?? process.env.DT_DEFAULT_MODEL ?? 'gpt-4o-mini';
-  const effectiveApiKey = apiKey ?? process.env.DT_DEFAULT_API_KEY ?? process.env.OPENAI_API_KEY ?? '';
-  const effectiveBaseUrl = baseUrl ?? undefined;
+  // --- Resolve model config (from request → DT_ env → AI_ env → defaults) ---
+  const effectiveProviderId = providerId || process.env.DT_DEFAULT_PROVIDER || process.env.AI_PROVIDER || 'openai';
+  const effectiveModelId = modelId || process.env.DT_DEFAULT_MODEL || process.env.AI_MODEL || 'gpt-4o-mini';
+  const effectiveApiKey = apiKey || process.env.DT_DEFAULT_API_KEY || process.env.AI_API_KEY || process.env.OPENAI_API_KEY || '';
+  const effectiveBaseUrl = baseUrl || process.env.AI_BASE_URL || undefined;
 
   if (!effectiveApiKey) {
     return new Response(

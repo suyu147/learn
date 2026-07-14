@@ -178,7 +178,6 @@ export function TutorChatPanel({ selectedResource = null }: Props) {
         }
       }
     } catch (error) {
-      console.error('Tutor chat error:', error);
       appendTutorMessage(currentSessionId, {
         id: crypto.randomUUID(),
         role: 'assistant',

@@ -72,9 +72,8 @@ export default function MemoryPage() {
     try {
       await apiPost('/api/v1/memory/consolidate');
       consolidate();
-    } catch (err) {
+    } catch {
       // API may not be implemented yet — fall back to local consolidation
-      console.warn('Memory consolidation API unavailable, using local fallback:', err);
       consolidate();
     } finally {
       setConsolidating(false);

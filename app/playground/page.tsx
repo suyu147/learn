@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import {
   Play,
   Square,
@@ -67,6 +67,13 @@ export default function PlaygroundPage() {
   const abortRef = useRef<AbortController | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const eventsEndRef = useRef<HTMLDivElement>(null)
+
+  // Cleanup interval timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [])
 
   // Auto-scroll events panel
   const scrollEvents = useCallback(() => {
@@ -141,7 +148,6 @@ export default function PlaygroundPage() {
             }
           },
           onError: (err: Error) => {
-            console.error('Playground stream error:', err)
             setEvents((prev) => [
               ...prev,
               {
@@ -154,8 +160,7 @@ export default function PlaygroundPage() {
           },
         },
       )
-    } catch (err) {
-      console.error('Playground turn failed:', err)
+    } catch {
     } finally {
       setStreaming(false)
       if (timerRef.current) {
