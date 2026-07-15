@@ -74,6 +74,11 @@ export class VisualizeCapability extends PipelineCapability {
 
     endAnalyzing();
 
+    // Stream feedback: tell user what format was chosen
+    const detectedFormat = this.detectFormat(analysis, renderMode);
+    bus.emitContent(`${this.getFormatMessage(detectedFormat)}\n\n`, 'visualize');
+    bus.emitContent(`\`\`\`${detectedFormat}\n`, 'visualize');
+
     // ------------------------------------------------------------------
     // Stage 2: Generate — produce visualization code
     // ------------------------------------------------------------------
@@ -120,12 +125,55 @@ export class VisualizeCapability extends PipelineCapability {
 
     endReviewing();
 
-    // Emit the final visualization code
+    // Finalize: emit the closing fence and the result
+    const finalCode = this.stripFences(reviewedCode, detectedFormat);
+    bus.emitContent(`${finalCode}\n\`\`\`\n`, 'visualize');
+
+    // Emit the final visualization result
+    const wrappedContent = `\`\`\`${detectedFormat}\n${finalCode}\n\`\`\``;
     bus.emitResult({
-      text: reviewedCode,
-      renderMode,
+      text: wrappedContent,
+      renderMode: detectedFormat,
       quality,
     });
+  }
+
+  /**
+   * Detect which format was chosen from the analysis text.
+   */
+  private detectFormat(analysis: string, renderMode: string): string {
+    if (renderMode !== 'auto') return renderMode;
+    const lower = analysis.toLowerCase();
+    if (lower.includes('mermaid')) return 'mermaid';
+    if (lower.includes('chart.js') || lower.includes('chartjs')) return 'html';
+    if (lower.includes('html') || lower.includes('dashboard') || lower.includes('interactive')) return 'html';
+    return 'svg';
+  }
+
+  /**
+   * Get a human-readable message about the chosen format.
+   */
+  private getFormatMessage(format: string): string {
+    const messages: Record<string, string> = {
+      svg: 'Creating an **SVG diagram** for your visualization...',
+      mermaid: 'Creating a **Mermaid flowchart** for your visualization...',
+      html: 'Creating an **interactive HTML** visualization with Chart.js...',
+      chartjs: 'Creating a **Chart.js data chart** for your visualization...',
+    };
+    return messages[format] ?? `Creating a visualization using **${format}** format...`;
+  }
+
+  /**
+   * Strip markdown code fences if the LLM included them despite instructions.
+   */
+  private stripFences(code: string, format: string): string {
+    let cleaned = code.trim();
+    // Remove opening fence like ```svg or ```html or ```mermaid
+    const openFence = new RegExp(`^\`\`\`(?:${format})?\\s*\\n?`, 'i');
+    cleaned = cleaned.replace(openFence, '');
+    // Remove closing fence
+    cleaned = cleaned.replace(/\n?\`\`\`\s*$/, '');
+    return cleaned.trim();
   }
 
   private async resolveModel(context: UnifiedContext): Promise<import('ai').LanguageModel> {

@@ -306,7 +306,8 @@ function toModelMessages(messages: BaseMessage[]): ModelMessage[] {
         result.push({ role: 'assistant', content });
       }
     } else if (msg instanceof ToolMessage) {
-      // AI SDK v5 ModelMessage format: tool-result with `result` (not `output`)
+      // AI SDK v5 ToolModelMessage format: tool-result with `output` field
+      // output: { type: 'text', value: string } | { type: 'json', value: JSONValue } | ...
       const toolCallId =
         msg.tool_call_id ?? `call_${Math.random().toString(36).slice(2, 10)}`;
       result.push({
@@ -316,10 +317,10 @@ function toModelMessages(messages: BaseMessage[]): ModelMessage[] {
             type: 'tool-result' as const,
             toolCallId,
             toolName: msg.name ?? 'unknown',
-            result: content,
+            output: { type: 'text' as const, value: content },
           },
         ],
-      } as ModelMessage);
+      } satisfies ModelMessage);
     } else {
       // Fallback: treat as user message
       result.push({ role: 'user', content });

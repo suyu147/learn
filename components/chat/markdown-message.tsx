@@ -2,9 +2,18 @@
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { CodeBlock } from '@/components/ai-elements/code-block';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import { CodeBlock, CodeBlockCopyButton } from '@/components/ai-elements/code-block';
+import { CalloutBlock, parseCalloutType } from '@/components/chat/callout-block';
+import { MathBlock } from '@/components/chat/math-block';
+import { cn } from '@/lib/utils';
 import { type BundledLanguage } from 'shiki';
-import { type ComponentPropsWithoutRef } from 'react';
+import { type ComponentPropsWithoutRef, useEffect, useRef, useState, useMemo } from 'react';
+import { Eye, Code2, ZoomIn, X } from 'lucide-react';
+
+// KaTeX CSS — loaded once per page
+import 'katex/dist/katex.min.css';
 
 const SUPPORTED_LANGUAGES: Set<string> = new Set([
   'abap', 'actionscript-3', 'ada', 'angular-html', 'angular-ts',
@@ -81,37 +90,572 @@ function resolveLanguage(lang: string | undefined): BundledLanguage {
   return 'text' as BundledLanguage;
 }
 
+const LANGUAGE_LABELS: Record<string, string> = {
+  javascript: 'JavaScript',
+  typescript: 'TypeScript',
+  python: 'Python',
+  rust: 'Rust',
+  go: 'Go',
+  java: 'Java',
+  cpp: 'C++',
+  c: 'C',
+  html: 'HTML',
+  css: 'CSS',
+  sql: 'SQL',
+  shellscript: 'Shell',
+  json: 'JSON',
+  yaml: 'YAML',
+  markdown: 'Markdown',
+  jsx: 'JSX',
+  tsx: 'TSX',
+};
+
+/** Enhanced code block with optional visualization rendering */
 function CodeComponent({ className, children, ...props }: ComponentPropsWithoutRef<'code'>) {
   const match = /language-(\w+)/.exec(className || '');
   const code = String(children).replace(/\n$/, '');
 
   if (match) {
+    const lang = resolveLanguage(match[1]);
+    const label = LANGUAGE_LABELS[match[1]] ?? match[1];
+
     return (
-      <div className="my-3 min-w-0 max-w-full overflow-x-auto">
-        <CodeBlock className="min-w-0 max-w-full" code={code} language={resolveLanguage(match[1])} />
+      <div className="my-3 min-w-0 max-w-full overflow-hidden rounded-lg border">
+        {/* Language label + copy button */}
+        <div className="flex items-center justify-between border-b bg-muted/40 px-3 py-1.5">
+          <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
+          <CodeBlockCopyButton className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+        </div>
+        <CodeBlock code={code} language={lang} className="border-0 rounded-none" />
       </div>
     );
   }
 
   return (
-    <code className="rounded bg-muted/60 px-1 py-0.5 text-[0.9em]" {...props}>
+    <code className="rounded bg-muted/60 px-1 py-0.5 text-[0.9em] font-mono" {...props}>
       {children}
     </code>
   );
 }
 
-export function MarkdownMessage({ content }: { content: string }) {
+/** Visualization-aware code block — delegates to renderer or falls back to CodeComponent */
+function CodeComponentWithViz({ renderMode, ...props }: ComponentPropsWithoutRef<'code'> & { renderMode?: string }) {
+  const match = /language-(\w+)/.exec(props.className || '');
+  const code = String(props.children).replace(/\n$/, '');
+
+  if (match && renderMode) {
+    const language = match[1].toLowerCase();
+
+    if (language === 'svg' && renderMode === 'svg') {
+      return <SvgRenderer code={code} />;
+    }
+
+    if (language === 'mermaid' && renderMode === 'mermaid') {
+      return <MermaidRenderer code={code} />;
+    }
+
+    if (language === 'html' && (renderMode === 'html' || renderMode === 'chartjs')) {
+      return <HtmlIframeRenderer code={code} format={renderMode} />;
+    }
+  }
+
+  return <CodeComponent {...props} />;
+}
+
+/** Styled table with alternating rows */
+function TableComponent({ children, ...props }: ComponentPropsWithoutRef<'table'>) {
   return (
-    <div className="min-w-0 prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap break-words prose-p:leading-7 prose-li:leading-7 prose-pre:p-0">
+    <div className="my-3 overflow-x-auto rounded-lg border">
+      <table className="w-full text-sm" {...props}>
+        {children}
+      </table>
+    </div>
+  );
+}
+
+function TheadComponent({ children, ...props }: ComponentPropsWithoutRef<'thead'>) {
+  return (
+    <thead className="bg-muted/50" {...props}>
+      {children}
+    </thead>
+  );
+}
+
+function ThComponent({ children, ...props }: ComponentPropsWithoutRef<'th'>) {
+  return (
+    <th className="border-b px-3 py-2 text-left text-xs font-semibold text-muted-foreground" {...props}>
+      {children}
+    </th>
+  );
+}
+
+function TdComponent({ children, ...props }: ComponentPropsWithoutRef<'td'>) {
+  return (
+    <td className="border-b px-3 py-2 text-sm" {...props}>
+      {children}
+    </td>
+  );
+}
+
+function TrComponent({ children, ...props }: ComponentPropsWithoutRef<'tr'>) {
+  return (
+    <tr className="even:bg-muted/20" {...props}>
+      {children}
+    </tr>
+  );
+}
+
+/**
+ * Detect GitHub-style callout blocks in blockquotes.
+ *
+ * Format:
+ *   > [!NOTE]
+ *   > This is a note
+ *   > with multiple lines
+ *
+ * The remark parser turns this into:
+ *   blockquote > paragraph > [strong "[!NOTE]", text " This is a note"]
+ */
+function BlockquoteComponent({ children, ...props }: ComponentPropsWithoutRef<'blockquote'>) {
+  // Try to detect callout pattern from children
+  // React children are opaque, so we use a simpler approach:
+  // check the rendered text content for [!TYPE] pattern
+  return (
+    <blockquote
+      className="my-3 border-l-4 border-muted-foreground/20 pl-4 italic text-muted-foreground"
+      {...props}
+    >
+      {children}
+    </blockquote>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Zoom overlay — fullscreen lightbox for visualization preview
+// ---------------------------------------------------------------------------
+
+function VisualizationZoomOverlay({
+  children,
+  onClose,
+  title,
+}: {
+  children: ReactNode;
+  onClose: () => void;
+  title: string;
+}) {
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      document.body.style.overflow = '';
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col bg-black/80 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+        <span className="text-[13px] font-medium text-white/80">{title}</span>
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+        >
+          <X className="h-4 w-4 text-white/70" />
+        </button>
+      </div>
+      <div
+        className="flex-1 overflow-auto p-6 flex items-center justify-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="max-w-[90vw] max-h-[85vh] overflow-auto">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Visualization renderers — SVG inline, Mermaid, HTML iframe
+// ---------------------------------------------------------------------------
+
+/** Inline SVG renderer */
+function SvgRenderer({ code }: { code: string }) {
+  const [zoomed, setZoomed] = useState(false);
+
+  return (
+    <>
+      <div className="my-3 rounded-lg border bg-white dark:bg-[#1e1e2e] overflow-hidden">
+        <div className="flex items-center justify-between border-b bg-muted/40 px-3 py-1.5">
+          <span className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+            <Eye className="h-3 w-3" />
+            SVG Preview
+          </span>
+          <button
+            onClick={() => setZoomed(true)}
+            className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ZoomIn className="h-3 w-3" />
+            Zoom
+          </button>
+        </div>
+        <div className="p-4 flex justify-center overflow-x-auto" dangerouslySetInnerHTML={{ __html: code }} />
+      </div>
+      {zoomed && (
+        <VisualizationZoomOverlay title="SVG Preview" onClose={() => setZoomed(false)}>
+          <div className="bg-white dark:bg-[#1e1e2e] rounded-lg p-8" dangerouslySetInnerHTML={{ __html: code }} />
+        </VisualizationZoomOverlay>
+      )}
+    </>
+  );
+}
+
+/**
+ * Clean Mermaid code: strip markdown fences, HTML wrappers, and leading/trailing noise.
+ * LLMs sometimes ignore "output only raw syntax" instructions.
+ */
+function cleanMermaidCode(raw: string): string {
+  let cleaned = raw.trim();
+
+  // Strip markdown code fences: ```mermaid ... ``` or ``` ... ```
+  cleaned = cleaned.replace(/^```(?:mermaid)?\s*\n?/i, '');
+  cleaned = cleaned.replace(/\n?```\s*$/i, '');
+
+  // If the code is an HTML document wrapping a mermaid div, extract the diagram text
+  const mermaidDivMatch = cleaned.match(/<div[^>]*class=["']mermaid["'][^>]*>([\s\S]*?)<\/div>/i);
+  if (mermaidDivMatch) {
+    cleaned = mermaidDivMatch[1].trim();
+  }
+
+  // Remove any remaining HTML tags (LLM sometimes adds <br>, <p>, etc.)
+  if (cleaned.includes('<') && cleaned.includes('>')) {
+    // Only strip if there are actual HTML tags, not Mermaid syntax with angle brackets
+    const withoutHtml = cleaned.replace(/<\/?[a-zA-Z][^>]*>/g, '');
+    // If stripping HTML significantly reduced the content, it was HTML-wrapped
+    if (withoutHtml.length < cleaned.length * 0.8) {
+      cleaned = withoutHtml.trim();
+    }
+  }
+
+  return cleaned.trim();
+}
+
+/** Mermaid diagram renderer — dynamically loads mermaid.js */
+function MermaidRenderer({ code }: { code: string }) {
+  const [svgHtml, setSvgHtml] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [viewSource, setViewSource] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
+  const cleanCode = useMemo(() => cleanMermaidCode(code), [code]);
+
+  useEffect(() => {
+    if (viewSource) return;
+
+    let cancelled = false;
+
+    async function render() {
+      try {
+        const mermaid = (await import('mermaid')).default;
+        if (cancelled) return;
+
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: 'default',
+          securityLevel: 'loose',
+          logLevel: 'error',
+        });
+
+        const id = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+        // mermaid v10/v11 compatible: render(id, text, container?)
+        const result = await mermaid.render(id, cleanCode);
+        const svgOutput = typeof result === 'string' ? result : result.svg;
+        if (!cancelled && svgOutput) {
+          setSvgHtml(svgOutput);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to render diagram');
+        }
+      }
+    }
+
+    render();
+    return () => { cancelled = true; };
+  }, [cleanCode, viewSource]);
+
+  if (error && !viewSource) {
+    return (
+      <div className="my-3 rounded-lg border overflow-hidden">
+        <div className="flex items-center justify-between border-b bg-red-50 dark:bg-red-950 px-3 py-1.5">
+          <span className="text-[11px] font-medium text-red-600 dark:text-red-400">
+            Render error: {error.slice(0, 120)}
+          </span>
+          <button
+            onClick={() => { setViewSource(true); setError(null); }}
+            className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Code2 className="h-3 w-3" />
+            View Source
+          </button>
+        </div>
+        <CodeBlock className="border-0 rounded-none" code={cleanCode} language="mermaid">
+          <CodeBlockCopyButton className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+        </CodeBlock>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="my-3 rounded-lg border bg-white dark:bg-[#1e1e2e] overflow-hidden">
+        <div className="flex items-center justify-between border-b bg-muted/40 px-3 py-1.5">
+          <span className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+            <Eye className="h-3 w-3" />
+            Diagram Preview
+          </span>
+          <div className="flex items-center gap-2">
+            {svgHtml && !viewSource && (
+              <button
+                onClick={() => setZoomed(true)}
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ZoomIn className="h-3 w-3" />
+                Zoom
+              </button>
+            )}
+            <button
+              onClick={() => { setViewSource(!viewSource); setError(null); }}
+              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Code2 className="h-3 w-3" />
+              {viewSource ? 'Preview' : 'Source'}
+            </button>
+          </div>
+        </div>
+        {viewSource ? (
+          <CodeBlock className="border-0 rounded-none" code={cleanCode} language="mermaid">
+            <CodeBlockCopyButton className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+          </CodeBlock>
+        ) : (
+          <div className="p-4 flex justify-center overflow-x-auto">
+            {svgHtml ? (
+              <div dangerouslySetInnerHTML={{ __html: svgHtml }} />
+            ) : (
+              <div className="flex items-center gap-2 text-[12px] text-muted-foreground py-8">
+                <div className="h-3 w-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                Rendering diagram...
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      {zoomed && svgHtml && (
+        <VisualizationZoomOverlay title="Diagram Preview" onClose={() => setZoomed(false)}>
+          <div className="bg-white dark:bg-[#1e1e2e] rounded-lg p-8" dangerouslySetInnerHTML={{ __html: svgHtml }} />
+        </VisualizationZoomOverlay>
+      )}
+    </>
+  );
+}
+
+/** HTML / Chart.js iframe sandbox renderer */
+function HtmlIframeRenderer({ code, format }: { code: string; format: string }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [viewSource, setViewSource] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
+  const [srcDoc, setSrcDoc] = useState<string>('');
+
+  useEffect(() => {
+    // Use srcdoc for secure rendering (avoids blob URL CSP issues)
+    setSrcDoc(code);
+  }, [code]);
+
+  const previewLabel = format === 'html' ? 'HTML Preview' : 'Chart.js Preview';
+
+  return (
+    <>
+      <div className="my-3 rounded-lg border overflow-hidden">
+        <div className="flex items-center justify-between border-b bg-muted/40 px-3 py-1.5">
+          <span className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+            <Eye className="h-3 w-3" />
+            {previewLabel}
+          </span>
+          <div className="flex items-center gap-2">
+            {!viewSource && (
+              <button
+                onClick={() => setZoomed(true)}
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ZoomIn className="h-3 w-3" />
+                Zoom
+              </button>
+            )}
+            <button
+              onClick={() => setViewSource(!viewSource)}
+              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Code2 className="h-3 w-3" />
+              {viewSource ? 'Preview' : 'Source'}
+            </button>
+          </div>
+        </div>
+        {viewSource ? (
+          <CodeBlock className="border-0 rounded-none" code={code} language={format as BundledLanguage}>
+            <CodeBlockCopyButton className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+          </CodeBlock>
+        ) : (
+          <iframe
+            ref={iframeRef}
+            srcDoc={srcDoc}
+            className="w-full bg-white dark:bg-[#1e1e2e]"
+            style={{ minHeight: '400px', border: 'none' }}
+            sandbox="allow-scripts allow-same-origin"
+            title="Visualization preview"
+          />
+        )}
+      </div>
+      {zoomed && (
+        <VisualizationZoomOverlay title={previewLabel} onClose={() => setZoomed(false)}>
+          <iframe
+            srcDoc={srcDoc}
+            className="w-full bg-white dark:bg-[#1e1e2e] rounded-lg"
+            style={{ minHeight: '600px', minWidth: '600px', border: 'none' }}
+            sandbox="allow-scripts allow-same-origin"
+            title="Visualization zoom"
+          />
+        </VisualizationZoomOverlay>
+      )}
+    </>
+  );
+}
+
+interface EnhancedMarkdownMessageProps {
+  content: string;
+  className?: string;
+  /** Override prose styles for specific contexts */
+  proseClass?: string;
+  /** When set, enables visualization rendering for matching code blocks */
+  renderMode?: string;
+}
+
+/**
+ * Enhanced markdown renderer with:
+ * - Syntax-highlighted code blocks (Shiki) with language label + copy button
+ * - Styled GFM tables with alternating rows
+ * - KaTeX math formulas ($...$ inline, $$...$$ block)
+ * - Callout blocks (> [!NOTE/WARNING/TIP/DANGER])
+ * - Standard prose typography
+ */
+export function EnhancedMarkdownMessage({
+  content,
+  className,
+  proseClass = 'prose prose-sm dark:prose-invert max-w-none',
+  renderMode,
+}: EnhancedMarkdownMessageProps) {
+  // Pre-process callout blocks: convert "> [!TYPE]\n> content" to custom syntax
+  // that the markdown parser can handle as a blockquote with our custom rendering
+  const processedContent = useMemo(() => preprocessCallouts(content), [content]);
+
+  return (
+    <div className={cn('min-w-0 break-words', proseClass, className)}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
         components={{
           pre: ({ children }) => <>{children}</>,
-          code: CodeComponent,
+          code: renderMode
+            ? (props: ComponentPropsWithoutRef<'code'>) => <CodeComponentWithViz {...props} renderMode={renderMode} />
+            : CodeComponent,
+          table: TableComponent,
+          thead: TheadComponent,
+          th: ThComponent,
+          td: TdComponent,
+          tr: TrComponent,
+          blockquote: BlockquoteComponent,
         }}
       >
-        {content}
+        {processedContent}
       </ReactMarkdown>
     </div>
   );
+}
+
+/**
+ * Backward-compatible alias — same as EnhancedMarkdownMessage
+ */
+export function MarkdownMessage({ content }: { content: string }) {
+  return <EnhancedMarkdownMessage content={content} />;
+}
+
+/**
+ * Pre-process GitHub-style callout blocks into a format
+ * that renders as colored CalloutBlock components.
+ *
+ * Input:  > [!NOTE]\n> Some text\n> More text
+ * Output: Custom HTML that CalloutBlock can render
+ *
+ * Strategy: Replace `> [!TYPE]` patterns with our custom
+ * `:::callout[type]` fence syntax before markdown parsing.
+ */
+function preprocessCallouts(text: string): string {
+  // Match blockquote lines starting with > [!TYPE]
+  const lines = text.split('\n');
+  const result: string[] = [];
+  let inCallout = false;
+  let calloutType = '';
+  let calloutLines: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Check for callout start: > [!TYPE]
+    const calloutMatch = line.match(/^>\s*\[!(\w+)\]\s*(.*)/);
+    if (calloutMatch && !inCallout) {
+      inCallout = true;
+      calloutType = calloutMatch[1].toLowerCase();
+      const firstLine = calloutMatch[2].trim();
+      if (firstLine) calloutLines.push(firstLine);
+      continue;
+    }
+
+    // Inside callout: continue collecting > lines
+    if (inCallout) {
+      if (line.startsWith('>')) {
+        const content = line.replace(/^>\s?/, '').trim();
+        if (content) calloutLines.push(content);
+      } else {
+        // End of callout block
+        const parsedType = parseCalloutType(calloutType);
+        const title = calloutType.charAt(0).toUpperCase() + calloutType.slice(1).toLowerCase();
+        result.push(`<div class="callout-block" data-callout-type="${parsedType}" data-callout-title="${title}">`);
+        result.push(...calloutLines);
+        result.push('</div>');
+        result.push(line);
+        inCallout = false;
+        calloutType = '';
+        calloutLines = [];
+      }
+      continue;
+    }
+
+    result.push(line);
+  }
+
+  // Flush any remaining callout
+  if (inCallout) {
+    const parsedType = parseCalloutType(calloutType);
+    const title = calloutType.charAt(0).toUpperCase() + calloutType.slice(1).toLowerCase();
+    result.push(`<div class="callout-block" data-callout-type="${parsedType}" data-callout-title="${title}">`);
+    result.push(...calloutLines);
+    result.push('</div>');
+  }
+
+  return result.join('\n');
 }

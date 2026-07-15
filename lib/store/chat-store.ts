@@ -16,6 +16,8 @@ export interface ChatMessage {
   toolCalls?: ToolCall[];
   /** Turn ID from the backend, used for regenerate */
   turnId?: string;
+  /** Visualization render mode: svg | chartjs | mermaid | html */
+  renderMode?: string;
 }
 
 interface ChatState {

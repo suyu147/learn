@@ -30,6 +30,9 @@ import { useSettingsStoreV2 } from '@/lib/store/settings-store';
 import { useSettingsStore } from '@/lib/store/settings';
 import { useKnowledgeStore } from '@/lib/store/knowledge-store';
 import { useTurnStream, type ToolCallInfo } from '@/lib/hooks/use-turn-stream';
+import { EnhancedMarkdownMessage } from '@/components/chat/markdown-message';
+import { ToolCallCard } from '@/components/chat/tool-call-card';
+import { SourceCard, type SourceItem } from '@/components/chat/source-card';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -412,29 +415,26 @@ export default function ChatPage() {
                     </div>
                   )}
 
-                  {/* Tool calls inline */}
+                  {/* Tool calls — enhanced cards */}
                   {msg.toolCalls && msg.toolCalls.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-2">
+                    <div className="space-y-1.5 mb-2">
                       {msg.toolCalls.map((tc, idx) => (
-                        <div
+                        <ToolCallCard
                           key={idx}
-                          className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 flex items-center gap-1.5"
-                        >
-                          <CheckCircle2 className="h-3 w-3 text-[var(--success)]" />
-                          <span className="text-[11px] text-[var(--muted-foreground)]">
-                            {tc.name}
-                          </span>
-                        </div>
+                          toolName={tc.name}
+                          args={tc.input ? (() => { try { return JSON.parse(tc.input) as Record<string, unknown>; } catch { return undefined; } })() : undefined}
+                        />
                       ))}
                     </div>
                   )}
 
-                  {/* Message content */}
-                  <div className="prose prose-sm max-w-none text-[var(--foreground)]">
-                    <div className="text-[13.5px] leading-relaxed whitespace-pre-wrap">
-                      {msg.content}
-                    </div>
-                  </div>
+                  {/* Message content — enhanced markdown */}
+                  <EnhancedMarkdownMessage
+                    content={msg.content}
+                    className="text-[var(--foreground)]"
+                    proseClass="prose prose-sm dark:prose-invert max-w-none prose-p:leading-7 prose-li:leading-7"
+                    renderMode={msg.renderMode}
+                  />
                   <div className="flex items-center gap-3">
                     <p className="text-[11px] text-[var(--muted-foreground)]">
                       {new Date(msg.timestamp).toLocaleTimeString([], {
@@ -523,13 +523,14 @@ export default function ChatPage() {
                   </div>
                 )}
 
-                {/* Live streaming content */}
+                {/* Live streaming content — enhanced markdown */}
                 {streamingContent ? (
-                  <div className="prose prose-sm max-w-none text-[var(--foreground)]">
-                    <div className="text-[13.5px] leading-relaxed whitespace-pre-wrap">
-                      {streamingContent}
-                      <span className="inline-block w-1.5 h-4 bg-[var(--primary)] animate-pulse ml-0.5 align-middle" />
-                    </div>
+                  <div className="text-[var(--foreground)]">
+                    <EnhancedMarkdownMessage
+                      content={streamingContent}
+                      proseClass="prose prose-sm dark:prose-invert max-w-none prose-p:leading-7 prose-li:leading-7"
+                    />
+                    <span className="inline-block w-1.5 h-4 bg-[var(--primary)] animate-pulse ml-0.5 align-middle" />
                   </div>
                 ) : (
                   <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl px-4 py-3 flex items-center gap-1">
@@ -809,41 +810,16 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* Sources */}
+          {/* Sources — enhanced card */}
           {stream.sources.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-[12px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
-                Sources
-              </h3>
-              <div className="space-y-1.5">
-                {stream.sources.map((source, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-[var(--background)] rounded-lg p-2.5"
-                  >
-                    {source.url ? (
-                      <a
-                        href={source.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[12px] text-[var(--primary)] hover:underline block truncate"
-                      >
-                        {source.name}
-                      </a>
-                    ) : (
-                      <span className="text-[12px] text-[var(--foreground)] block truncate">
-                        {source.name}
-                      </span>
-                    )}
-                    {source.kind && (
-                      <span className="text-[10px] text-[var(--muted-foreground)]">
-                        {source.kind}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+            <SourceCard
+              sources={stream.sources.map((s, i) => ({
+                index: i + 1,
+                title: s.name,
+                url: s.url,
+                snippet: s.kind,
+              }))}
+            />
           )}
         </div>
       </div>

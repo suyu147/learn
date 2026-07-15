@@ -71,11 +71,12 @@ const CHARTJS_RULES = `## Chart.js Rules
 - Use accessible color combinations`;
 
 const MERMAID_RULES = `## Mermaid Rules
-- Output a complete HTML document with Mermaid loaded from CDN
-- Use: <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-- Include <div class="mermaid"> with the diagram code
+- Output ONLY raw Mermaid diagram syntax (NOT an HTML document)
+- The rendering engine will wrap it in a Mermaid container automatically
 - Use appropriate diagram type: flowchart, sequenceDiagram, classDiagram, stateDiagram, gantt, pie, etc.
-- Keep node labels concise`;
+- Keep node labels concise
+- Start with the diagram type keyword on line 1 (e.g. flowchart TD, sequenceDiagram, etc.)
+- Do NOT include markdown fences or HTML tags`;
 
 const HTML_RULES = `## HTML Rules
 - Output a complete, self-contained HTML document

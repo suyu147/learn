@@ -164,8 +164,16 @@ export function useTurnStream() {
         case 'done':
         case 'result': {
           // Flush accumulated content as an assistant message
-          const content = contentBufferRef.current;
+          let content = contentBufferRef.current;
+
+          // If no content from stream (e.g., Visualize capability uses emitResult),
+          // extract from result metadata
+          if (!content && event.metadata?.text) {
+            content = event.metadata.text as string;
+          }
+
           if (content) {
+            const renderMode = event.metadata?.renderMode as string | undefined;
             const assistantMsgId = `msg-${Date.now()}-assistant`;
             addMessage({
               id: assistantMsgId,
@@ -173,6 +181,7 @@ export function useTurnStream() {
               content,
               timestamp: new Date().toISOString(),
               turnId: event.turnId || undefined,
+              ...(renderMode ? { renderMode } : {}),
             });
             contentBufferRef.current = '';
           }
