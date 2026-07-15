@@ -69,7 +69,7 @@ export function AgentRolesCard({ className }: AgentRolesCardProps) {
                 <p className="text-xs text-muted-foreground">{agent.description}</p>
                 {agent.systemPrompt && (
                   <div className="rounded-md bg-muted/50 p-2">
-                    <p className="mb-1 text-[10px] font-medium text-muted-foreground">System Prompt 摘要</p>
+                    <p className="mb-1 text-[10px] font-medium text-muted-foreground">系统提示词摘要</p>
                     <p className="text-[11px] leading-relaxed text-muted-foreground/90">
                       {truncatePrompt(agent.systemPrompt)}
                     </p>

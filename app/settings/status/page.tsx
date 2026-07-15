@@ -38,7 +38,7 @@ export default function StatusPage() {
       const data = await apiGet<HealthData>('/api/v1/health');
       setHealth(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch health status');
+      setError(err instanceof Error ? err.message : '获取健康状态失败');
     } finally {
       setLoading(false);
     }
@@ -50,31 +50,31 @@ export default function StatusPage() {
 
   const services: ServiceStatus[] = [
     {
-      name: 'LLM Gateway',
+      name: 'LLM 网关',
       status: health ? 'online' : 'offline',
       latency: health ? '—' : '—',
       icon: Cpu,
     },
     {
-      name: 'Vector Database',
+      name: '向量数据库',
       status: health ? 'online' : 'offline',
       latency: '—',
       icon: Database,
     },
     {
-      name: 'Knowledge Index',
+      name: '知识索引',
       status: health ? 'online' : 'offline',
       latency: '—',
       icon: Database,
     },
     {
-      name: 'Embedding Model',
+      name: '嵌入模型',
       status: health ? 'online' : 'offline',
       latency: '—',
       icon: Cpu,
     },
     {
-      name: 'Search Engine',
+      name: '搜索引擎',
       status: health ? 'warning' : 'offline',
       latency: '—',
       icon: Activity,
@@ -93,10 +93,10 @@ export default function StatusPage() {
     <div className="p-6 max-w-2xl">
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">
-          System Status
+          系统状态
         </h1>
         <p className="text-[13px] text-[var(--muted-foreground)]">
-          View the running status, latency, and resource usage of each service
+          查看各服务的运行状态、延迟和资源使用情况
         </p>
       </div>
 
@@ -111,7 +111,7 @@ export default function StatusPage() {
             onClick={fetchHealth}
             className="mt-2 text-[12px] text-[var(--primary)] hover:underline"
           >
-            Retry
+            重试
           </button>
         </div>
       ) : (
@@ -119,7 +119,7 @@ export default function StatusPage() {
           {/* Service Status */}
           <div className="space-y-3 mb-6">
             <h2 className="text-[14px] font-semibold text-[var(--foreground)]">
-              Services
+              服务
             </h2>
             {services.map((service) => {
               const config = getStatusConfig(service.status);
@@ -145,10 +145,10 @@ export default function StatusPage() {
                       <StatusIcon className={cn('h-3.5 w-3.5', config.color)} />
                       <span className={cn('text-[12px] font-medium', config.color)}>
                         {service.status === 'online'
-                          ? 'Online'
+                          ? '在线'
                           : service.status === 'warning'
-                            ? 'Warning'
-                            : 'Offline'}
+                            ? '警告'
+                            : '离线'}
                       </span>
                     </div>
                   </div>
@@ -160,18 +160,18 @@ export default function StatusPage() {
           {/* System Info */}
           <div className="space-y-3">
             <h2 className="text-[14px] font-semibold text-[var(--foreground)]">
-              System Info
+              系统信息
             </h2>
             <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[13px] text-[var(--foreground)]">Version</span>
+                <span className="text-[13px] text-[var(--foreground)]">版本</span>
                 <span className="text-[12px] text-[var(--muted-foreground)]">
                   {health?.version ?? '—'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[13px] text-[var(--foreground)]">
-                  Capabilities
+                  能力
                 </span>
                 <span className="text-[12px] text-[var(--muted-foreground)]">
                   {health?.capabilities?.join(', ') ?? '—'}
@@ -179,7 +179,7 @@ export default function StatusPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[13px] text-[var(--foreground)]">
-                  Uptime
+                  运行时间
                 </span>
                 <span className="text-[12px] text-[var(--muted-foreground)]">
                   {health?.uptime ?? '—'}
@@ -201,7 +201,7 @@ export default function StatusPage() {
           ) : (
             <RefreshCw className="h-3.5 w-3.5" />
           )}
-          Refresh
+          刷新
         </button>
       </div>
     </div>

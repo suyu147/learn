@@ -37,21 +37,21 @@ export default function MemoryPage() {
   const layers: { id: MemoryLayer; label: string; description: string }[] = [
     {
       id: 'L1',
-      label: 'L1 · Short-term',
+      label: 'L1 · 短期记忆',
       description:
-        'Temporary memories from the current session — conversation context, user preferences, and immediate feedback. Automatically consolidated into L2 when the session ends.',
+        '当前会话的临时记忆——对话上下文、用户偏好和即时反馈。会话结束时自动整合到 L2。',
     },
     {
       id: 'L2',
-      label: 'L2 · Mid-term',
+      label: 'L2 · 中期记忆',
       description:
-        'Cross-session consolidated memory — key knowledge points and learning patterns. Compressed and updated periodically.',
+        '跨会话整合记忆——关键知识点和学习模式。定期压缩和更新。',
     },
     {
       id: 'L3',
-      label: 'L3 · Long-term',
+      label: 'L3 · 长期记忆',
       description:
-        'Core knowledge graph and long-term learning preferences. Persistent storage, only adjusted on significant knowledge updates.',
+        '核心知识图谱和长期学习偏好。持久化存储，仅在重大知识更新时调整。',
     },
   ];
 
@@ -83,7 +83,7 @@ export default function MemoryPage() {
   // Build graph nodes from tags
   const allTags = Array.from(new Set(entries.flatMap((e) => e.tags)));
   const graphNodes: GraphNode[] = [
-    { id: 'center', label: 'Memory', x: 50, y: 50, size: 'primary' },
+    { id: 'center', label: '记忆', x: 50, y: 50, size: 'primary' },
     ...allTags.slice(0, 8).map((tag, i) => {
       const angle = (2 * Math.PI * i) / Math.min(allTags.length, 8);
       const radius = 30;
@@ -120,7 +120,7 @@ export default function MemoryPage() {
       <div className="border-b border-[var(--border)] px-6 py-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold text-[var(--foreground)]">
-            Memory Workbench
+            记忆工作台
           </h1>
           <div className="flex gap-2">
             <button
@@ -128,7 +128,7 @@ export default function MemoryPage() {
               className="px-3 py-1.5 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors flex items-center gap-1.5"
             >
               <Download className="h-3.5 w-3.5" />
-              Export Snapshot
+              导出快照
             </button>
             <button
               onClick={handleConsolidate}
@@ -140,7 +140,7 @@ export default function MemoryPage() {
               ) : (
                 <RefreshCw className="h-3.5 w-3.5" />
               )}
-              Consolidate
+              整合
             </button>
           </div>
         </div>
@@ -178,7 +178,7 @@ export default function MemoryPage() {
       {/* Memory Timeline */}
       <div className="px-6 pb-6">
         <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-3">
-          Memory Timeline ({filteredEntries.length})
+          记忆时间线 ({filteredEntries.length})
         </h2>
 
         {loading ? (
@@ -189,7 +189,7 @@ export default function MemoryPage() {
           <div className="text-center py-12">
             <Clock className="h-10 w-10 text-[var(--muted-foreground)] mx-auto mb-4 opacity-40" />
             <p className="text-[14px] text-[var(--muted-foreground)]">
-              No {activeLayer} memories yet. Memories are created automatically during conversations.
+              暂无 {activeLayer} 记忆。记忆会在对话过程中自动创建。
             </p>
           </div>
         ) : (
@@ -214,7 +214,7 @@ export default function MemoryPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[12px] font-medium text-[var(--primary)]">
-                        {entry.source ?? 'Conversation'}
+                        {entry.source ?? '对话'}
                       </span>
                       <button
                         onClick={() => removeEntry(entry.id)}
@@ -249,10 +249,10 @@ export default function MemoryPage() {
       <div className="px-6 pb-6">
         <div className="flex items-center gap-2 mb-3">
           <h2 className="text-[14px] font-semibold text-[var(--foreground)]">
-            Memory Graph
+            记忆图谱
           </h2>
           <span className="text-[11px] text-[var(--muted-foreground)]">
-            · {graphNodes.length} entities · {graphEdges.length} relations
+            · {graphNodes.length} 实体 · {graphEdges.length} 关系
           </span>
         </div>
 
@@ -263,7 +263,7 @@ export default function MemoryPage() {
           {graphNodes.length <= 1 ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-[13px] text-[var(--muted-foreground)]">
-                No tags found. Memory graph will appear as conversations accumulate.
+                暂无标签。随着对话累积，记忆图谱将自动呈现。
               </p>
             </div>
           ) : (

@@ -126,7 +126,7 @@ export function ProfileChat({ mode = 'embedded', onComplete, onDimensionsUpdate 
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to get response');
+      if (!response.ok) throw new Error('获取回复失败');
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();

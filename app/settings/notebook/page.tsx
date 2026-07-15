@@ -54,10 +54,10 @@ export default function NotebookSettingsPage() {
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">
           <BookMarked className="inline h-5 w-5 mr-2 -mt-0.5" />
-          Notebook Settings
+          笔记本设置
         </h1>
         <p className="text-[13px] text-[var(--muted-foreground)]">
-          Configure default notebook behavior, auto-save, and export preferences.
+          配置默认笔记本行为、自动保存和导出偏好。
         </p>
       </div>
 
@@ -66,7 +66,7 @@ export default function NotebookSettingsPage() {
         <div className="space-y-2">
           <label className="text-[13px] font-medium text-[var(--foreground)] flex items-center gap-1.5">
             <Layout className="h-3.5 w-3.5" />
-            Default Notebook Format
+            默认笔记本格式
           </label>
           <select
             value={defaultFormat}
@@ -74,25 +74,25 @@ export default function NotebookSettingsPage() {
             className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
           >
             <option value="markdown">Markdown</option>
-            <option value="richtext">Rich Text (WYSIWYG)</option>
-            <option value="plaintext">Plain Text</option>
-            <option value="ipynb">Jupyter Notebook (.ipynb)</option>
+            <option value="richtext">富文本（所见即所得）</option>
+            <option value="plaintext">纯文本</option>
+            <option value="ipynb">Jupyter 笔记本（.ipynb）</option>
           </select>
         </div>
 
         {/* Default Template */}
         <div className="space-y-2">
-          <label className="text-[13px] font-medium text-[var(--foreground)]">Default Template</label>
+          <label className="text-[13px] font-medium text-[var(--foreground)]">默认模板</label>
           <select
             value={defaultTemplate}
             onChange={(e) => setDefaultTemplate(e.target.value)}
             className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
           >
-            <option value="blank">Blank Notebook</option>
-            <option value="study_notes">Study Notes Template</option>
-            <option value="research_log">Research Log Template</option>
-            <option value="meeting_notes">Meeting Notes Template</option>
-            <option value="project_plan">Project Plan Template</option>
+            <option value="blank">空白笔记本</option>
+            <option value="study_notes">学习笔记模板</option>
+            <option value="research_log">研究日志模板</option>
+            <option value="meeting_notes">会议记录模板</option>
+            <option value="project_plan">项目计划模板</option>
           </select>
         </div>
 
@@ -100,30 +100,30 @@ export default function NotebookSettingsPage() {
         <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4 space-y-4">
           <h3 className="text-[13px] font-semibold text-[var(--foreground)] flex items-center gap-1.5">
             <Save className="h-3.5 w-3.5" />
-            Auto-Save Configuration
+            自动保存配置
           </h3>
 
           <ToggleField
             checked={autoSave}
             onChange={setAutoSave}
-            label="Enable Auto-Save"
-            description="Automatically save notebook changes at a regular interval"
+            label="启用自动保存"
+            description="按固定间隔自动保存笔记本更改"
           />
 
           {autoSave && (
             <div className="space-y-2">
               <label className="text-[13px] font-medium text-[var(--foreground)]">
-                Auto-Save Interval
+                自动保存间隔
               </label>
               <select
                 value={autoSaveInterval}
                 onChange={(e) => setAutoSaveInterval(e.target.value)}
                 className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
               >
-                <option value="10">Every 10 seconds</option>
-                <option value="30">Every 30 seconds</option>
-                <option value="60">Every 1 minute</option>
-                <option value="300">Every 5 minutes</option>
+                <option value="10">每 10 秒</option>
+                <option value="30">每 30 秒</option>
+                <option value="60">每 1 分钟</option>
+                <option value="300">每 5 分钟</option>
               </select>
             </div>
           )}
@@ -132,7 +132,7 @@ export default function NotebookSettingsPage() {
         {/* Max Notes */}
         <div className="space-y-2">
           <label className="text-[13px] font-medium text-[var(--foreground)]">
-            Max Notes Per Notebook
+            每个笔记本最大笔记数
           </label>
           <input
             type="number"
@@ -144,7 +144,7 @@ export default function NotebookSettingsPage() {
             className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
           />
           <p className="text-[11px] text-[var(--muted-foreground)]">
-            Maximum number of individual notes allowed in a single notebook.
+            单个笔记本中允许的最大笔记数量。
           </p>
         </div>
 
@@ -152,11 +152,11 @@ export default function NotebookSettingsPage() {
         <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4 space-y-4">
           <h3 className="text-[13px] font-semibold text-[var(--foreground)] flex items-center gap-1.5">
             <FileDown className="h-3.5 w-3.5" />
-            Export Preferences
+            导出偏好
           </h3>
 
           <div className="space-y-2">
-            <label className="text-[13px] font-medium text-[var(--foreground)]">Default Export Format</label>
+            <label className="text-[13px] font-medium text-[var(--foreground)]">默认导出格式</label>
             <div className="grid grid-cols-4 gap-2">
               {['pdf', 'markdown', 'docx', 'html'].map((fmt) => (
                 <button
@@ -179,14 +179,14 @@ export default function NotebookSettingsPage() {
             <ToggleField
               checked={includeTimestamps}
               onChange={setIncludeTimestamps}
-              label="Include Timestamps"
-              description="Add creation and modification dates to exported notes"
-            />
-            <ToggleField
-              checked={includeSources}
-              onChange={setIncludeSources}
-              label="Include Source References"
-              description="Append cited sources and references at the end of exports"
+              label="包含时间戳"
+            description="在导出的笔记中添加创建和修改日期"
+          />
+          <ToggleField
+            checked={includeSources}
+            onChange={setIncludeSources}
+            label="包含来源引用"
+            description="在导出末尾附加引用的来源和参考文献"
             />
           </div>
         </div>
@@ -195,8 +195,8 @@ export default function NotebookSettingsPage() {
         <ToggleField
           checked={smartOrganize}
           onChange={setSmartOrganize}
-          label="Smart Organization"
-          description="Automatically suggest notebook organization and tags based on content"
+          label="智能整理"
+          description="根据内容自动建议笔记本整理方式和标签"
         />
       </div>
 
@@ -218,7 +218,7 @@ export default function NotebookSettingsPage() {
           }}
           className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors"
         >
-          Reset to Defaults
+          恢复默认
         </button>
       </div>
     </div>

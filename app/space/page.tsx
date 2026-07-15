@@ -48,29 +48,29 @@ export default function SpacePage() {
   // Quick actions
   const quickActions = [
     {
-      label: 'New Chat',
-      description: 'Start a conversation with the AI',
+      label: '新对话',
+      description: '与 AI 开始对话',
       href: '/chat',
       icon: MessageSquare,
       color: 'bg-[var(--primary)]/10 text-[var(--primary)]',
     },
     {
-      label: 'SmartLearn',
-      description: 'Build a learning profile and path',
+      label: '智慧学习',
+      description: '构建学习画像和学习路径',
       href: '/smartlearn',
       icon: GraduationCap,
       color: 'bg-[var(--success)]/10 text-[var(--success)]',
     },
     {
-      label: 'Knowledge',
-      description: 'Manage your knowledge bases',
+      label: '知识库',
+      description: '管理你的知识库',
       href: '/knowledge',
       icon: Database,
       color: 'bg-[var(--warning)]/10 text-[var(--warning)]',
     },
     {
-      label: 'Book',
-      description: 'Create AI-generated books',
+      label: 'AI 课本',
+      description: '创建 AI 生成的课本',
       href: '/book',
       icon: BookOpen,
       color: 'bg-[var(--destructive)]/10 text-[var(--destructive)]',
@@ -82,10 +82,10 @@ export default function SpacePage() {
       {/* Header */}
       <div className="border-b border-[var(--border)] px-6 py-6">
         <h1 className="text-xl font-semibold text-[var(--foreground)]">
-          Workspace
+          工作台
         </h1>
         <p className="text-[13px] text-[var(--muted-foreground)] mt-1">
-          Overview of your learning workspace and recent activity
+          你的学习工作台和近期活动概览
         </p>
       </div>
 
@@ -93,27 +93,27 @@ export default function SpacePage() {
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard
-            label="Sessions"
+            label="会话"
             value={totalSessions}
-            subtitle={`${activeSessions} active`}
+            subtitle={`${activeSessions} 活跃`}
             icon={MessageSquare}
           />
           <StatCard
-            label="Knowledge Bases"
+            label="知识库"
             value={totalKBs}
-            subtitle={`${totalDocs} documents`}
+            subtitle={`${totalDocs} 文档`}
             icon={Database}
           />
           <StatCard
-            label="Memories"
+            label="记忆"
             value={totalMemories}
-            subtitle="Across L1/L2/L3"
+            subtitle="跨 L1/L2/L3"
             icon={Brain}
           />
           <StatCard
-            label="Messages"
+            label="消息"
             value={totalMessages}
-            subtitle="Total exchanged"
+            subtitle="累计交互"
             icon={Zap}
           />
         </div>
@@ -121,7 +121,7 @@ export default function SpacePage() {
         {/* Quick Actions */}
         <div>
           <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-3">
-            Quick Actions
+            快捷操作
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {quickActions.map((action) => {
@@ -142,7 +142,7 @@ export default function SpacePage() {
                     {action.description}
                   </p>
                   <div className="mt-3 flex items-center gap-1 text-[11px] text-[var(--primary)] font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                    Open
+                    打开
                     <ArrowRight className="h-3 w-3" />
                   </div>
                 </Link>
@@ -155,13 +155,13 @@ export default function SpacePage() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-[14px] font-semibold text-[var(--foreground)]">
-              Recent Sessions
+              近期会话
             </h2>
             <Link
               href="/chat"
               className="text-[12px] text-[var(--primary)] hover:underline"
             >
-              View all
+              查看全部
             </Link>
           </div>
 
@@ -169,17 +169,17 @@ export default function SpacePage() {
             <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-8 text-center">
               <Clock className="h-10 w-10 text-[var(--muted-foreground)] mx-auto mb-4 opacity-40" />
               <p className="text-[14px] text-[var(--foreground)] font-medium mb-1">
-                No sessions yet
+                暂无会话
               </p>
               <p className="text-[12px] text-[var(--muted-foreground)] mb-4">
-                Start a conversation to see your recent activity here.
+                开始一段对话，即可在此查看近期活动。
               </p>
               <Link
                 href="/chat"
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Start Chat
+                开始对话
               </Link>
             </div>
           ) : (
@@ -226,13 +226,13 @@ export default function SpacePage() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[14px] font-semibold text-[var(--foreground)]">
-                Knowledge Bases
+                知识库
               </h2>
               <Link
                 href="/knowledge"
                 className="text-[12px] text-[var(--primary)] hover:underline"
               >
-                Manage
+                管理
               </Link>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -253,11 +253,11 @@ export default function SpacePage() {
                           : 'bg-[var(--warning)] text-white',
                       )}
                     >
-                      {kb.indexStatus === 'ready' ? 'Ready' : kb.indexStatus}
+                      {kb.indexStatus === 'ready' ? '就绪' : kb.indexStatus}
                     </span>
                   </div>
                   <p className="text-[11px] text-[var(--muted-foreground)]">
-                    {kb.documentCount} docs · {kb.blockCount} blocks
+                    {kb.documentCount} 文档 · {kb.blockCount} 块
                   </p>
                 </div>
               ))}

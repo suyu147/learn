@@ -28,7 +28,7 @@ import type { ProviderId } from '@/lib/types/provider';
 export class VisualizeCapability extends PipelineCapability {
   readonly manifest = createCapabilityManifest({
     name: 'visualize',
-    description: 'Visualization code generation — SVG, Chart.js, Mermaid, HTML',
+    description: '可视化代码生成 — SVG、Chart.js、Mermaid、HTML',
     stages: ['analyzing', 'generating', 'reviewing'],
     toolsUsed: [],
     cliAliases: ['visualize', 'viz', 'visualise'],
@@ -68,7 +68,7 @@ export class VisualizeCapability extends PipelineCapability {
     } catch (error) {
       endAnalyzing();
       const errorMsg = error instanceof Error ? error.message : String(error);
-      bus.emitError(`Visualization analysis failed: ${errorMsg}`, 'visualize');
+      bus.emitError(`可视化分析失败: ${errorMsg}`, 'visualize');
       return;
     }
 
@@ -97,7 +97,7 @@ export class VisualizeCapability extends PipelineCapability {
     } catch (error) {
       endGenerating();
       const errorMsg = error instanceof Error ? error.message : String(error);
-      bus.emitError(`Visualization generation failed: ${errorMsg}`, 'visualize');
+      bus.emitError(`可视化生成失败: ${errorMsg}`, 'visualize');
       return;
     }
 
@@ -155,12 +155,12 @@ export class VisualizeCapability extends PipelineCapability {
    */
   private getFormatMessage(format: string): string {
     const messages: Record<string, string> = {
-      svg: 'Creating an **SVG diagram** for your visualization...',
-      mermaid: 'Creating a **Mermaid flowchart** for your visualization...',
-      html: 'Creating an **interactive HTML** visualization with Chart.js...',
-      chartjs: 'Creating a **Chart.js data chart** for your visualization...',
+      svg: '正在为您创建 **SVG 图表**...',
+      mermaid: '正在为您创建 **Mermaid 流程图**...',
+      html: '正在为您创建 **交互式 HTML** 可视化（Chart.js）...',
+      chartjs: '正在为您创建 **Chart.js 数据图表**...',
     };
-    return messages[format] ?? `Creating a visualization using **${format}** format...`;
+    return messages[format] ?? `正在使用 **${format}** 格式创建可视化...`;
   }
 
   /**

@@ -16,19 +16,19 @@ interface CalloutConfig {
 const CALLOUT_CONFIG: Record<CalloutType, CalloutConfig> = {
   note: {
     icon: <Info className="h-4 w-4" />,
-    label: 'Note',
+    label: '注意',
     containerClass: 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200',
     iconClass: 'text-blue-600 dark:text-blue-400',
   },
   tip: {
     icon: <Lightbulb className="h-4 w-4" />,
-    label: 'Tip',
+    label: '提示',
     containerClass: 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200',
     iconClass: 'text-emerald-600 dark:text-emerald-400',
   },
   warning: {
     icon: <AlertTriangle className="h-4 w-4" />,
-    label: 'Warning',
+    label: '警告',
     containerClass: 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200',
     iconClass: 'text-amber-600 dark:text-amber-400',
   },

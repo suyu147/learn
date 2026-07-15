@@ -39,7 +39,7 @@ export class SmartLearnCapability extends GraphCapability {
     super();
     this.manifest = createCapabilityManifest({
       name: 'smartlearn',
-      description: 'Adaptive learning pipeline: profile → plan → resources → evaluate → profile update cycle.',
+      description: '自适应学习流程：画像 → 规划 → 资源 → 评估 → 画像更新循环',
       stages: [
         'plan',
         'analyze',
@@ -134,7 +134,7 @@ export class SmartLearnCapability extends GraphCapability {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       log.error('SmartLearn run failed:', err);
-      stream.emit(createStreamEvent('error', { content: `SmartLearn error: ${message}`, source: 'smartlearn' }));
+      stream.emit(createStreamEvent('error', { content: `SmartLearn 错误: ${message}`, source: 'smartlearn' }));
       stream.emit(createStreamEvent('done', { source: 'smartlearn' }));
     }
   }

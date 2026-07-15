@@ -43,7 +43,7 @@ export interface NotebookAnalysisResult {
 export class NotebookCapability extends PipelineCapability {
   readonly manifest = createCapabilityManifest({
     name: 'notebook',
-    description: 'Notebook content analysis and structured summarization',
+    description: '笔记本内容分析与结构化摘要',
     stages: ['analysis', 'summarize'],
     toolsUsed: ['list_notebook', 'write_note'],
     cliAliases: ['notebook', 'notes'],
@@ -62,18 +62,18 @@ export class NotebookCapability extends PipelineCapability {
     // -------------------------------------------------------------------------
     const endAnalysis = bus.enterStage('analysis', 'notebook');
     try {
-      bus.emitThinking('Analyzing notebook content...', 'notebook');
+      bus.emitThinking('正在分析笔记本内容...', 'notebook');
 
       // Read notebooks (via NotebookService from bootstrap)
       const notebookContent = await this.readNotebooks(userId, notebookId);
 
       if (!notebookContent) {
-        bus.emitContent('No notebook content found. Please create some notes first.', 'notebook');
+        bus.emitContent('未找到笔记本内容。请先创建一些笔记。', 'notebook');
         endAnalysis();
         return;
       }
 
-      bus.emitThinking(`Found ${notebookContent.length} characters of notebook content. Extracting key concepts...`, 'notebook');
+      bus.emitThinking(`已找到 ${notebookContent.length} 个字符的笔记本内容。正在提取关键概念...`, 'notebook');
 
       endAnalysis();
 
@@ -91,7 +91,7 @@ export class NotebookCapability extends PipelineCapability {
     } catch (err) {
       endAnalysis();
       log.error('Notebook pipeline failed:', err);
-      bus.emitError(`Notebook analysis failed: ${err instanceof Error ? err.message : String(err)}`, 'notebook');
+      bus.emitError(`笔记本分析失败: ${err instanceof Error ? err.message : String(err)}`, 'notebook');
     }
   }
 
@@ -160,22 +160,22 @@ export class NotebookCapability extends PipelineCapability {
     });
 
     const querySection = query
-      ? `\n\n## 针对问题: ${query}\n\nBased on the notebook content above, here are the key points relevant to your question.`
+      ? `\n\n## 针对问题: ${query}\n\n根据以上笔记本内容，以下是与你问题相关的要点。`
       : '';
 
     return [
-      '# Notebook Summary',
+      '# 笔记本摘要',
       '',
-      `## Structure (${headers.length} sections)`,
+      `## 结构（${headers.length} 个章节）`,
       ...headers.slice(0, 10).map((h) => `- ${h.replace(/^#+\s*/, '')}`),
       '',
-      '## Key Excerpts',
+      '## 关键摘录',
       ...keyExcerpts.map((e) => `> ${e}`),
       '',
-      `## Statistics`,
-      `- Total sections: ${headers.length}`,
-      `- Content paragraphs: ${sections.length}`,
-      `- Total characters: ${content.length}`,
+      `## 统计`,
+      `- 总章节数：${headers.length}`,
+      `- 内容段落数：${sections.length}`,
+      `- 总字符数：${content.length}`,
       querySection,
     ].join('\n');
   }

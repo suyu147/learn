@@ -114,7 +114,7 @@ export default function NotebookPage() {
 
   // Delete notebook
   const handleDeleteNotebook = async (id: string) => {
-    if (!confirm('Delete this notebook and all its notes?')) return;
+    if (!confirm('确定删除此笔记本及其所有笔记？')) return;
     try {
       await apiDelete(`/api/v1/notebook/${id}`);
       setNotebooks((prev) => prev.filter((n) => n.id !== id));
@@ -188,7 +188,7 @@ export default function NotebookPage() {
         <div className="p-4 border-b border-[var(--border)]">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-[14px] font-semibold text-[var(--foreground)]">
-              Notebooks
+              笔记本
             </h2>
             <button
               onClick={() => setShowCreateForm(!showCreateForm)}
@@ -206,7 +206,7 @@ export default function NotebookPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg pl-8 pr-3 py-1.5 text-[12px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
-              placeholder="Search notebooks..."
+              placeholder="搜索笔记本..."
             />
           </div>
         </div>
@@ -219,7 +219,7 @@ export default function NotebookPage() {
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-[12px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
-              placeholder="Notebook title"
+              placeholder="笔记本标题"
               autoFocus
             />
             <input
@@ -227,7 +227,7 @@ export default function NotebookPage() {
               value={newDesc}
               onChange={(e) => setNewDesc(e.target.value)}
               className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-[12px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
-              placeholder="Description (optional)"
+              placeholder="描述（可选）"
             />
             <div className="flex gap-2">
               <button
@@ -235,7 +235,7 @@ export default function NotebookPage() {
                 disabled={creating || !newTitle.trim()}
                 className="px-2.5 py-1 rounded text-[11px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] disabled:opacity-50"
               >
-                {creating ? '...' : 'Create'}
+                {creating ? '...' : '创建'}
               </button>
               <button
                 onClick={() => {
@@ -245,7 +245,7 @@ export default function NotebookPage() {
                 }}
                 className="px-2.5 py-1 rounded text-[11px] font-medium bg-[var(--muted)] text-[var(--foreground)]"
               >
-                Cancel
+                取消
               </button>
             </div>
           </div>
@@ -261,7 +261,7 @@ export default function NotebookPage() {
             <div className="p-4 text-center">
               <BookOpen className="h-8 w-8 text-[var(--muted-foreground)] mx-auto mb-2 opacity-40" />
               <p className="text-[12px] text-[var(--muted-foreground)]">
-                {searchQuery ? 'No matches found' : 'No notebooks yet'}
+                {searchQuery ? '未找到匹配项' : '暂无笔记本'}
               </p>
             </div>
           ) : (
@@ -288,7 +288,7 @@ export default function NotebookPage() {
                         </p>
                       )}
                       <p className="text-[10px] text-[var(--muted-foreground)] mt-1">
-                        {nb.noteCount} notes
+                        {nb.noteCount} 条笔记
                       </p>
                     </div>
                     <button
@@ -313,8 +313,8 @@ export default function NotebookPage() {
         <div className="p-4 border-b border-[var(--border)]">
           <h3 className="text-[13px] font-semibold text-[var(--foreground)]">
             {selectedNotebook
-              ? notebooks.find((nb) => nb.id === selectedNotebook)?.title ?? 'Notes'
-              : 'Select a notebook'}
+              ? notebooks.find((nb) => nb.id === selectedNotebook)?.title ?? '笔记'
+              : '选择笔记本'}
           </h3>
         </div>
 
@@ -322,7 +322,7 @@ export default function NotebookPage() {
           {!selectedNotebook ? (
             <div className="p-4 text-center">
               <p className="text-[12px] text-[var(--muted-foreground)]">
-                Select a notebook to view its notes
+                选择笔记本查看其中的笔记
               </p>
             </div>
           ) : notesLoading ? (
@@ -333,7 +333,7 @@ export default function NotebookPage() {
             <div className="p-4 text-center">
               <FileText className="h-8 w-8 text-[var(--muted-foreground)] mx-auto mb-2 opacity-40" />
               <p className="text-[12px] text-[var(--muted-foreground)]">
-                No notes in this notebook
+                此笔记本暂无笔记
               </p>
             </div>
           ) : (
@@ -397,7 +397,7 @@ export default function NotebookPage() {
                       className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 flex items-center gap-1.5"
                     >
                       <Save className="h-3.5 w-3.5" />
-                      Save
+                      保存
                     </button>
                     <button
                       onClick={() => setEditing(false)}
@@ -412,7 +412,7 @@ export default function NotebookPage() {
                     className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors flex items-center gap-1.5"
                   >
                     <Edit3 className="h-3.5 w-3.5" />
-                    Edit
+                    编辑
                   </button>
                 )}
               </div>
@@ -425,7 +425,7 @@ export default function NotebookPage() {
                   value={editContent}
                   onChange={(e) => setEditContent(e.target.value)}
                   className="w-full h-full bg-transparent text-[14px] text-[var(--foreground)] leading-relaxed outline-none resize-none"
-                  placeholder="Write your note..."
+                  placeholder="编写笔记..."
                 />
               ) : (
                 <div className="prose prose-sm max-w-none text-[var(--foreground)]">
@@ -439,10 +439,10 @@ export default function NotebookPage() {
             {/* Footer */}
             <div className="border-t border-[var(--border)] px-6 py-2 flex items-center justify-between">
               <span className="text-[11px] text-[var(--muted-foreground)]">
-                Created: {new Date(selectedNote.createdAt).toLocaleString()}
+                创建于 {new Date(selectedNote.createdAt).toLocaleString()}
               </span>
               <span className="text-[11px] text-[var(--muted-foreground)]">
-                Updated: {new Date(selectedNote.updatedAt).toLocaleString()}
+                更新于 {new Date(selectedNote.updatedAt).toLocaleString()}
               </span>
             </div>
           </>
@@ -452,8 +452,8 @@ export default function NotebookPage() {
               <FileText className="h-12 w-12 text-[var(--muted-foreground)] mx-auto mb-4 opacity-30" />
               <p className="text-[14px] text-[var(--muted-foreground)]">
                 {selectedNotebook
-                  ? 'Select a note to view or edit'
-                  : 'Select a notebook from the left panel'}
+                  ? '选择笔记查看或编辑'
+                  : '从左侧面板选择笔记本'}
               </p>
             </div>
           </div>

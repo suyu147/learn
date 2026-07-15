@@ -53,10 +53,10 @@ export default function LLMSettingsPage() {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">
-          LLM Settings
+          LLM 设置
         </h1>
         <p className="text-[13px] text-[var(--muted-foreground)]">
-          Configure LLM provider, API key, and default parameters
+          配置 LLM 提供商、API 密钥和默认参数
         </p>
       </div>
 
@@ -65,7 +65,7 @@ export default function LLMSettingsPage() {
         {/* Provider ID */}
         <div className="space-y-2">
           <label className="text-[13px] font-medium text-[var(--foreground)]">
-            Provider
+            提供商
           </label>
           <input
             type="text"
@@ -74,14 +74,14 @@ export default function LLMSettingsPage() {
               settings.setSmartlearnModel(e.target.value, settings.smartlearnModelId || '')
             }
             className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
-            placeholder="openai, anthropic, google, etc."
+            placeholder="openai、anthropic、google 等"
           />
         </div>
 
         {/* Model ID */}
         <div className="space-y-2">
           <label className="text-[13px] font-medium text-[var(--foreground)]">
-            Default Model
+            默认模型
           </label>
           <input
             type="text"
@@ -93,14 +93,14 @@ export default function LLMSettingsPage() {
               )
             }
             className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
-            placeholder="gpt-4o, claude-3.5-sonnet, etc."
+            placeholder="gpt-4o、claude-3.5-sonnet 等"
           />
         </div>
 
         {/* API Key */}
         <div className="space-y-2">
           <label className="text-[13px] font-medium text-[var(--foreground)]">
-            API Key
+            API 密钥
           </label>
           <input
             type="password"
@@ -110,14 +110,14 @@ export default function LLMSettingsPage() {
             placeholder="sk-..."
           />
           <p className="text-[11px] text-[var(--muted-foreground)]">
-            Stored on the server side only. Never sent to the browser.
+            仅存储在服务端，不会发送到浏览器。
           </p>
         </div>
 
         {/* Base URL */}
         <div className="space-y-2">
           <label className="text-[13px] font-medium text-[var(--foreground)]">
-            Base URL (optional)
+            Base URL（可选）
           </label>
           <input
             type="text"
@@ -131,7 +131,7 @@ export default function LLMSettingsPage() {
         {/* Temperature */}
         <div className="space-y-2">
           <label className="text-[13px] font-medium text-[var(--foreground)]">
-            Temperature
+            温度
           </label>
           <input
             type="number"
@@ -147,7 +147,7 @@ export default function LLMSettingsPage() {
         {/* Max Tokens */}
         <div className="space-y-2">
           <label className="text-[13px] font-medium text-[var(--foreground)]">
-            Max Tokens
+            最大 Token 数
           </label>
           <input
             type="number"
@@ -162,20 +162,20 @@ export default function LLMSettingsPage() {
           <Toggle
             checked={settings.thinkingMode}
             onChange={() => settings.toggleThinkingMode()}
-            label="Thinking Mode"
-            description="Show reasoning process before the answer, improving accuracy on complex tasks"
+            label="思考模式"
+            description="在回答前展示推理过程，提升复杂任务的准确性"
           />
           <Toggle
             checked={settings.autoContextWindow}
             onChange={() => settings.toggleAutoContextWindow()}
-            label="Auto Context Window Protection"
-            description="Automatically compress history when context approaches the limit"
+            label="自动上下文窗口保护"
+            description="当上下文接近限制时自动压缩历史记录"
           />
           <Toggle
             checked={settings.rateLimitEnabled}
             onChange={() => settings.toggleRateLimit()}
-            label="Rate Limiting (RPM throttle)"
-            description="Limit requests per minute to avoid API rate limit errors"
+            label="速率限制（RPM 节流）"
+            description="限制每分钟请求数以避免 API 速率限制错误"
           />
         </div>
       </div>
@@ -183,7 +183,7 @@ export default function LLMSettingsPage() {
       {/* Status */}
       <div className="mt-6 p-4 rounded-lg bg-[var(--card)] border border-[var(--border)]">
         <p className="text-[12px] text-[var(--muted-foreground)]">
-          Settings are saved automatically and persisted in the browser. Changes take effect on the next message.
+          设置自动保存并持久化在浏览器中。更改将在下一条消息时生效。
         </p>
       </div>
     </div>

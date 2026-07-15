@@ -55,10 +55,10 @@ export default function KnowledgeSettingsPage() {
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">
           <Database className="inline h-5 w-5 mr-2 -mt-0.5" />
-          Knowledge Base Settings
+          知识库设置
         </h1>
         <p className="text-[13px] text-[var(--muted-foreground)]">
-          Configure chunking, embedding, and retrieval parameters for the RAG knowledge pipeline.
+          配置 RAG 知识管道的分块、嵌入和检索参数。
         </p>
       </div>
 
@@ -67,12 +67,12 @@ export default function KnowledgeSettingsPage() {
         <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4 space-y-4">
           <h3 className="text-[13px] font-semibold text-[var(--foreground)] flex items-center gap-1.5">
             <Layers className="h-3.5 w-3.5" />
-            Chunking Configuration
+            分块配置
           </h3>
 
           <div className="space-y-2">
             <label className="text-[13px] font-medium text-[var(--foreground)]">
-              Default Chunk Size: {chunkSize} tokens
+              默认分块大小：{chunkSize} tokens
             </label>
             <input
               type="range"
@@ -93,7 +93,7 @@ export default function KnowledgeSettingsPage() {
 
           <div className="space-y-2">
             <label className="text-[13px] font-medium text-[var(--foreground)]">
-              Chunk Overlap: {chunkOverlap} tokens
+              分块重叠：{chunkOverlap} tokens
             </label>
             <input
               type="range"
@@ -115,7 +115,7 @@ export default function KnowledgeSettingsPage() {
 
         {/* Embedding Model */}
         <div className="space-y-2">
-          <label className="text-[13px] font-medium text-[var(--foreground)]">Embedding Model</label>
+          <label className="text-[13px] font-medium text-[var(--foreground)]">嵌入模型</label>
           <select
             value={embeddingModel}
             onChange={(e) => setEmbeddingModel(e.target.value)}
@@ -133,13 +133,13 @@ export default function KnowledgeSettingsPage() {
         <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4 space-y-4">
           <h3 className="text-[13px] font-semibold text-[var(--foreground)] flex items-center gap-1.5">
             <Gauge className="h-3.5 w-3.5" />
-            Retrieval Configuration
+            检索配置
           </h3>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-[13px] font-medium text-[var(--foreground)]">
-                Top K Results: {ragTopK}
+                Top K 结果数：{ragTopK}
               </label>
               <input
                 type="range"
@@ -158,7 +158,7 @@ export default function KnowledgeSettingsPage() {
 
             <div className="space-y-2">
               <label className="text-[13px] font-medium text-[var(--foreground)]">
-                Min Similarity Score: {minScore.toFixed(2)}
+                最低相似度分数：{minScore.toFixed(2)}
               </label>
               <input
                 type="range"
@@ -179,7 +179,7 @@ export default function KnowledgeSettingsPage() {
 
           <div className="space-y-2">
             <label className="text-[13px] font-medium text-[var(--foreground)]">
-              Max Context Length: {maxContextLength} tokens
+              最大上下文长度：{maxContextLength} tokens
             </label>
             <input
               type="number"
@@ -191,7 +191,7 @@ export default function KnowledgeSettingsPage() {
               className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
             />
             <p className="text-[11px] text-[var(--muted-foreground)]">
-              Maximum number of tokens from retrieved chunks injected into the prompt context.
+              从检索分块注入到提示上下文中的最大 Token 数。
             </p>
           </div>
         </div>
@@ -201,26 +201,26 @@ export default function KnowledgeSettingsPage() {
           <ToggleField
             checked={rerank}
             onChange={setRerank}
-            label="Rerank Results"
-            description="Apply a cross-encoder reranker to reorder retrieved chunks by relevance"
+            label="重排结果"
+            description="应用交叉编码器重排器按相关性重新排序检索分块"
           />
           <ToggleField
             checked={hybridSearch}
             onChange={setHybridSearch}
-            label="Hybrid Search"
-            description="Combine vector similarity with BM25 keyword matching for better recall"
+            label="混合搜索"
+            description="结合向量相似度与 BM25 关键词匹配以提高召回率"
           />
           <ToggleField
             checked={autoIndex}
             onChange={setAutoIndex}
-            label="Auto-Index New Documents"
-            description="Automatically chunk and embed documents when uploaded to the knowledge base"
+            label="自动索引新文档"
+            description="上传到知识库时自动分块和嵌入文档"
           />
           <ToggleField
             checked={deduplicate}
             onChange={setDeduplicate}
-            label="Deduplicate Chunks"
-            description="Remove near-duplicate chunks across documents to reduce redundancy"
+            label="去重分块"
+            description="移除跨文档的近重复分块以减少冗余"
           />
         </div>
       </div>
@@ -244,7 +244,7 @@ export default function KnowledgeSettingsPage() {
           }}
           className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors"
         >
-          Reset to Defaults
+          恢复默认
         </button>
       </div>
     </div>

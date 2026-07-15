@@ -47,7 +47,7 @@ import type { ProviderId } from '@/lib/types/provider';
 export class ChatCapability extends LoopCapability {
   readonly manifest = createCapabilityManifest({
     name: 'chat',
-    description: 'Interactive chat with tool use — the default conversational mode',
+    description: '交互式对话与工具调用 — 默认对话模式',
     stages: ['thinking', 'acting', 'observing', 'responding'],
     toolsUsed: ['brainstorm', 'reason', 'web_fetch', 'ask_user', 'web_search'],
     cliAliases: ['chat', 'default'],
@@ -163,7 +163,7 @@ export class ChatCapability extends LoopCapability {
     } catch (error) {
       endResponding();
       const errorMsg = error instanceof Error ? error.message : String(error);
-      bus.emitError(`Agent loop failed: ${errorMsg}`, 'chat');
+      bus.emitError(`智能体循环失败: ${errorMsg}`, 'chat');
       return;
     }
 

@@ -295,20 +295,20 @@ function SvgRenderer({ code }: { code: string }) {
         <div className="flex items-center justify-between border-b bg-muted/40 px-3 py-1.5">
           <span className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
             <Eye className="h-3 w-3" />
-            SVG Preview
+            SVG 预览
           </span>
           <button
             onClick={() => setZoomed(true)}
             className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
           >
             <ZoomIn className="h-3 w-3" />
-            Zoom
+            放大
           </button>
         </div>
         <div className="p-4 flex justify-center overflow-x-auto" dangerouslySetInnerHTML={{ __html: code }} />
       </div>
       {zoomed && (
-        <VisualizationZoomOverlay title="SVG Preview" onClose={() => setZoomed(false)}>
+        <VisualizationZoomOverlay title="SVG 预览" onClose={() => setZoomed(false)}>
           <div className="bg-white dark:bg-[#1e1e2e] rounded-lg p-8" dangerouslySetInnerHTML={{ __html: code }} />
         </VisualizationZoomOverlay>
       )}
@@ -381,7 +381,7 @@ function MermaidRenderer({ code }: { code: string }) {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to render diagram');
+          setError(err instanceof Error ? err.message : '图表渲染失败');
         }
       }
     }
@@ -395,14 +395,14 @@ function MermaidRenderer({ code }: { code: string }) {
       <div className="my-3 rounded-lg border overflow-hidden">
         <div className="flex items-center justify-between border-b bg-red-50 dark:bg-red-950 px-3 py-1.5">
           <span className="text-[11px] font-medium text-red-600 dark:text-red-400">
-            Render error: {error.slice(0, 120)}
+            渲染错误：{error.slice(0, 120)}
           </span>
           <button
             onClick={() => { setViewSource(true); setError(null); }}
             className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
           >
             <Code2 className="h-3 w-3" />
-            View Source
+            查看源码
           </button>
         </div>
         <CodeBlock className="border-0 rounded-none" code={cleanCode} language="mermaid">
@@ -418,7 +418,7 @@ function MermaidRenderer({ code }: { code: string }) {
         <div className="flex items-center justify-between border-b bg-muted/40 px-3 py-1.5">
           <span className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
             <Eye className="h-3 w-3" />
-            Diagram Preview
+            图表预览
           </span>
           <div className="flex items-center gap-2">
             {svgHtml && !viewSource && (
@@ -427,7 +427,7 @@ function MermaidRenderer({ code }: { code: string }) {
                 className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ZoomIn className="h-3 w-3" />
-                Zoom
+                放大
               </button>
             )}
             <button
@@ -435,7 +435,7 @@ function MermaidRenderer({ code }: { code: string }) {
               className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
             >
               <Code2 className="h-3 w-3" />
-              {viewSource ? 'Preview' : 'Source'}
+              {viewSource ? '预览' : '源码'}
             </button>
           </div>
         </div>
@@ -450,14 +450,14 @@ function MermaidRenderer({ code }: { code: string }) {
             ) : (
               <div className="flex items-center gap-2 text-[12px] text-muted-foreground py-8">
                 <div className="h-3 w-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                Rendering diagram...
+                正在渲染图表...
               </div>
             )}
           </div>
         )}
       </div>
       {zoomed && svgHtml && (
-        <VisualizationZoomOverlay title="Diagram Preview" onClose={() => setZoomed(false)}>
+        <VisualizationZoomOverlay title="图表预览" onClose={() => setZoomed(false)}>
           <div className="bg-white dark:bg-[#1e1e2e] rounded-lg p-8" dangerouslySetInnerHTML={{ __html: svgHtml }} />
         </VisualizationZoomOverlay>
       )}
@@ -477,7 +477,7 @@ function HtmlIframeRenderer({ code, format }: { code: string; format: string }) 
     setSrcDoc(code);
   }, [code]);
 
-  const previewLabel = format === 'html' ? 'HTML Preview' : 'Chart.js Preview';
+  const previewLabel = format === 'html' ? 'HTML 预览' : 'Chart.js 预览';
 
   return (
     <>
@@ -494,7 +494,7 @@ function HtmlIframeRenderer({ code, format }: { code: string; format: string }) 
                 className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ZoomIn className="h-3 w-3" />
-                Zoom
+                放大
               </button>
             )}
             <button
@@ -502,7 +502,7 @@ function HtmlIframeRenderer({ code, format }: { code: string; format: string }) 
               className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
             >
               <Code2 className="h-3 w-3" />
-              {viewSource ? 'Preview' : 'Source'}
+              {viewSource ? '预览' : '源码'}
             </button>
           </div>
         </div>

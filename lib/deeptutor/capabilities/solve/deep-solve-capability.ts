@@ -50,7 +50,7 @@ import type { ProviderId } from '@/lib/types/provider';
 export class DeepSolveCapability extends LoopCapability {
   readonly manifest = createCapabilityManifest({
     name: 'deep_solve',
-    description: 'Structured problem-solving with plan-execute-synthesize pipeline',
+    description: '结构化解题 — 规划-执行-综合流程',
     stages: ['pre_retrieve', 'planning', 'solving', 'synthesizing'],
     toolsUsed: [
       'solve_plan',
@@ -177,7 +177,7 @@ export class DeepSolveCapability extends LoopCapability {
     } catch (error) {
       endSolving();
       const errorMsg = error instanceof Error ? error.message : String(error);
-      bus.emitError(`Deep solve failed: ${errorMsg}`, 'deep_solve');
+      bus.emitError(`深度解题失败: ${errorMsg}`, 'deep_solve');
       return;
     }
 

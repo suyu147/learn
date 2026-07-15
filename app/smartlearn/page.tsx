@@ -246,7 +246,7 @@ export default function SmartLearnPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : 'Failed to fetch profile'
+          const message = err instanceof Error ? err.message : '加载画像失败'
           setProfileError(message)
         }
       } finally {
@@ -342,7 +342,7 @@ export default function SmartLearnPage() {
 
         // -- Error --
         case 'error':
-          setError(event.content || 'Unknown error')
+          setError(event.content || '未知错误')
           break
 
         // -- Done --
@@ -501,7 +501,7 @@ export default function SmartLearnPage() {
           },
           onError: (err) => {
             if (!abort.signal.aborted) {
-              setError(err.message || 'Evaluation stream error')
+              setError(err.message || '评估流式传输错误')
               setIsStreaming(false)
             }
           },
@@ -573,7 +573,7 @@ export default function SmartLearnPage() {
         },
         onError: (err) => {
           if (!abort.signal.aborted) {
-            setError(err.message || 'Resource generation stream error')
+            setError(err.message || '资源生成流式传输错误')
             setIsStreaming(false)
           }
         },
@@ -734,7 +734,7 @@ export default function SmartLearnPage() {
                 className="px-3 py-1.5 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
-                Reset
+                重置
               </button>
               <button
                 onClick={handleStartLearning}
@@ -746,7 +746,7 @@ export default function SmartLearnPage() {
                 ) : (
                   <Play className="h-3.5 w-3.5" />
                 )}
-                {isStreaming ? '学习中...' : totalCount > 0 ? 'Continue' : 'Start'}
+                {isStreaming ? '学习中...' : totalCount > 0 ? '继续' : '开始学习'}
               </button>
             </div>
           </div>
@@ -838,7 +838,7 @@ export default function SmartLearnPage() {
                     准备开始学习
                   </h2>
                   <p className="text-[13px] text-[var(--muted-foreground)]">
-                    点击上方 Start 按钮，AI 将根据您的学习画像规划学习路径并生成个性化学习资源。
+                    点击上方「开始学习」按钮，AI 将根据您的学习画像规划学习路径并生成个性化学习资源。
                   </p>
                 </>
               )}

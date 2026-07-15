@@ -38,11 +38,11 @@ function ToggleField({ label, description, checked, onChange }: ToggleFieldProps
 }
 
 const SEARCH_PROVIDERS = [
-  { id: 'tavily', name: 'Tavily', description: 'AI-optimized search engine with structured results' },
-  { id: 'brave', name: 'Brave Search', description: 'Privacy-first independent search index' },
-  { id: 'duckduckgo', name: 'DuckDuckGo', description: 'Free privacy-focused search (no API key required)' },
-  { id: 'serper', name: 'Serper', description: 'Google Search API with fast, reliable results' },
-  { id: 'searxng', name: 'SearXNG', description: 'Self-hosted metasearch engine aggregator' },
+  { id: 'tavily', name: 'Tavily', description: 'AI 优化的搜索引擎，提供结构化结果' },
+  { id: 'brave', name: 'Brave Search', description: '隐私优先的独立搜索索引' },
+  { id: 'duckduckgo', name: 'DuckDuckGo', description: '免费的隐私搜索引擎（无需 API 密钥）' },
+  { id: 'serper', name: 'Serper', description: 'Google 搜索 API，快速可靠的结果' },
+  { id: 'searxng', name: 'SearXNG', description: '自托管的元搜索引擎聚合器' },
 ]
 
 export default function SearchSettingsPage() {
@@ -65,10 +65,10 @@ export default function SearchSettingsPage() {
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">
           <Search className="inline h-5 w-5 mr-2 -mt-0.5" />
-          Web Search Settings
+          网页搜索设置
         </h1>
         <p className="text-[13px] text-[var(--muted-foreground)]">
-          Configure search providers and result parameters for web search capabilities.
+          配置网页搜索功能的搜索引擎和结果参数。
         </p>
       </div>
 
@@ -77,7 +77,7 @@ export default function SearchSettingsPage() {
         <div className="space-y-2">
           <label className="text-[13px] font-medium text-[var(--foreground)] flex items-center gap-1.5">
             <Search className="h-3.5 w-3.5" />
-            Search Provider
+            搜索引擎
           </label>
           <div className="space-y-2">
             {SEARCH_PROVIDERS.map((provider) => (
@@ -119,7 +119,7 @@ export default function SearchSettingsPage() {
           <div className="space-y-2">
             <label className="text-[13px] font-medium text-[var(--foreground)] flex items-center gap-1.5">
               <Key className="h-3.5 w-3.5" />
-              API Key
+              API 密钥
             </label>
             {activeProvider === 'searxng' ? (
               <input
@@ -134,14 +134,14 @@ export default function SearchSettingsPage() {
                 type="password"
                 value={apiKeys[activeProvider] || ''}
                 onChange={(e) => setApiKeys({ ...apiKeys, [activeProvider]: e.target.value })}
-                placeholder={`Enter your ${SEARCH_PROVIDERS.find((p) => p.id === activeProvider)?.name} API key`}
+                placeholder={`输入 ${SEARCH_PROVIDERS.find((p) => p.id === activeProvider)?.name} API 密钥`}
                 className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)] placeholder:text-[var(--muted-foreground)]"
               />
             )}
             <p className="text-[11px] text-[var(--muted-foreground)]">
               {activeProvider === 'searxng'
-                ? 'Enter the base URL of your SearXNG instance.'
-                : 'Your API key is stored locally and never shared.'}
+                ? '输入您的 SearXNG 实例的基础 URL。'
+                : '您的 API 密钥存储在本地，不会被共享。'}
             </p>
           </div>
         )}
@@ -150,7 +150,7 @@ export default function SearchSettingsPage() {
         <div className="space-y-2">
           <label className="text-[13px] font-medium text-[var(--foreground)] flex items-center gap-1.5">
             <SlidersHorizontal className="h-3.5 w-3.5" />
-            Max Results: {maxResults}
+            最大结果数：{maxResults}
           </label>
           <input
             type="range"
@@ -174,20 +174,20 @@ export default function SearchSettingsPage() {
           <ToggleField
             checked={safeSearch}
             onChange={setSafeSearch}
-            label="Safe Search"
-            description="Filter out explicit or adult content from search results"
+            label="安全搜索"
+            description="过滤搜索结果中的不适当内容"
           />
           <ToggleField
             checked={includeSnippets}
             onChange={setIncludeSnippets}
-            label="Include Snippets"
-            description="Include text snippets from search results in the context"
+            label="包含摘要"
+            description="在上下文中包含搜索结果的文本摘要"
           />
           <ToggleField
             checked={includeImages}
             onChange={setIncludeImages}
-            label="Include Images"
-            description="Return image URLs alongside text results when available"
+            label="包含图片"
+            description="可用时在文本结果中一同返回图片 URL"
           />
         </div>
       </div>
@@ -208,7 +208,7 @@ export default function SearchSettingsPage() {
           }}
           className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors"
         >
-          Reset to Defaults
+          恢复默认
         </button>
       </div>
     </div>

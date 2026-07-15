@@ -67,7 +67,7 @@ export default function KnowledgePage() {
       // Replace all KBs in store at once to avoid stale comparisons
       useKnowledgeStore.setState({ knowledgeBases: data.knowledgeBases });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load knowledge bases');
+      setError(err instanceof Error ? err.message : '加载知识库失败');
     } finally {
       setLoading(false);
     }
@@ -100,7 +100,7 @@ export default function KnowledgePage() {
       setNewDesc('');
       setShowCreateForm(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create knowledge base');
+      setError(err instanceof Error ? err.message : '创建知识库失败');
     } finally {
       setCreating(false);
     }
@@ -108,7 +108,7 @@ export default function KnowledgePage() {
 
   // Delete KB
   const handleDelete = async (kbId: string) => {
-    if (!confirm('Delete this knowledge base and all its documents?')) return;
+    if (!confirm('确定删除此知识库及其所有文档？')) return;
     try {
       await apiDelete(`/api/v1/knowledge/${kbId}`);
       removeKB(kbId);
@@ -117,7 +117,7 @@ export default function KnowledgePage() {
         setKbDetails(null);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete knowledge base');
+      setError(err instanceof Error ? err.message : '删除知识库失败');
     }
   };
 
@@ -135,7 +135,7 @@ export default function KnowledgePage() {
       // Refresh KB list to update counts
       await fetchKnowledgeBases();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to upload document');
+      setError(err instanceof Error ? err.message : '上传文档失败');
     } finally {
       setUploading(false);
     }
@@ -162,14 +162,14 @@ export default function KnowledgePage() {
         <div className="border-b border-[var(--border)] px-6 py-4">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-semibold text-[var(--foreground)]">
-              Knowledge Base
+              知识库
             </h1>
             <button
               onClick={() => setShowCreateForm(true)}
               className="px-3 py-1.5 rounded-lg text-[13px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity flex items-center gap-1.5"
             >
               <Plus className="h-3.5 w-3.5" />
-              New KB
+              新建知识库
             </button>
           </div>
         </div>
@@ -194,14 +194,14 @@ export default function KnowledgePage() {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
-                placeholder="Knowledge base name"
+                placeholder="知识库名称"
                 autoFocus
               />
               <textarea
                 value={newDesc}
                 onChange={(e) => setNewDesc(e.target.value)}
                 className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)] resize-none"
-                placeholder="Description (optional)"
+                placeholder="描述（可选）"
                 rows={2}
               />
               <div className="flex gap-2">
@@ -215,7 +215,7 @@ export default function KnowledgePage() {
                   ) : (
                     <Plus className="h-3.5 w-3.5" />
                   )}
-                  Create
+                  创建
                 </button>
                 <button
                   onClick={() => {
@@ -225,7 +225,7 @@ export default function KnowledgePage() {
                   }}
                   className="px-3 py-1.5 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors"
                 >
-                  Cancel
+                  取消
                 </button>
               </div>
             </div>
@@ -266,10 +266,10 @@ export default function KnowledgePage() {
                 <Upload className="h-8 w-8 text-[var(--muted-foreground)] mx-auto mb-3" />
               )}
               <p className="text-[14px] font-medium text-[var(--foreground)] mb-1">
-                {uploading ? 'Uploading...' : 'Drop files here or click to upload'}
+                {uploading ? '上传中...' : '拖拽文件到此处或点击上传'}
               </p>
               <p className="text-[12px] text-[var(--muted-foreground)]">
-                Supports PDF, DOCX, MD, TXT · Max 50MB per file
+                支持 PDF、DOCX、MD、TXT · 单文件最大 50MB
               </p>
             </div>
           </div>
@@ -285,7 +285,7 @@ export default function KnowledgePage() {
             <div className="text-center py-12">
               <Book className="h-10 w-10 text-[var(--muted-foreground)] mx-auto mb-4 opacity-40" />
               <p className="text-[14px] text-[var(--muted-foreground)]">
-                No knowledge bases yet. Create one to get started.
+                暂无知识库，创建一个开始使用。
               </p>
             </div>
           ) : (
@@ -329,12 +329,12 @@ export default function KnowledgePage() {
                               {kb.indexStatus === 'ready' ? (
                                 <>
                                   <CheckCircle2 className="h-2.5 w-2.5" />
-                                  Ready
+                                  就绪
                                 </>
                               ) : kb.indexStatus === 'indexing' ? (
                                 <>
                                   <Clock className="h-2.5 w-2.5" />
-                                  Indexing
+                                  索引中
                                 </>
                               ) : (
                                 kb.indexStatus
@@ -357,7 +357,7 @@ export default function KnowledgePage() {
                           </p>
                         )}
                         <span className="text-[11px] text-[var(--muted-foreground)]">
-                          {kb.documentCount} docs · {kb.blockCount} blocks
+                          {kb.documentCount} 文档 · {kb.blockCount} 块
                         </span>
                       </div>
                     </div>
@@ -373,7 +373,7 @@ export default function KnowledgePage() {
       <div className="w-96 border-l border-[var(--border)] bg-[var(--card)] overflow-y-auto">
         <div className="p-4 space-y-4">
           <h3 className="text-[12px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
-            {selectedKB ? 'Documents' : 'RAG Search Preview'}
+            {selectedKB ? '文档列表' : 'RAG 搜索预览'}
           </h3>
 
           {!selectedKB ? (
@@ -386,12 +386,12 @@ export default function KnowledgePage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg pl-9 pr-3 py-2 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
-                  placeholder="Search knowledge bases..."
+                  placeholder="搜索知识库..."
                 />
               </div>
 
               <p className="text-[12px] text-[var(--muted-foreground)]">
-                Select a knowledge base to view its documents and indexing details.
+                选择一个知识库查看其文档和索引详情。
               </p>
             </>
           ) : (
@@ -413,13 +413,13 @@ export default function KnowledgePage() {
                       </p>
                     )}
                     <div className="flex items-center gap-4 text-[11px] text-[var(--muted-foreground)]">
-                      <span>{kbDetails.documents.length} documents</span>
+                      <span>{kbDetails.documents.length} 文档</span>
                       <span>
                         {kbDetails.documents.reduce(
                           (acc, d) => acc + d.chunkCount,
                           0,
                         )}{' '}
-                        chunks
+                        分块
                       </span>
                     </div>
                   </div>
@@ -436,7 +436,7 @@ export default function KnowledgePage() {
                             {doc.title}
                           </p>
                           <p className="text-[10px] text-[var(--muted-foreground)]">
-                            {doc.chunkCount} chunks · {doc.status}
+                            {doc.chunkCount} 分块 · {doc.status}
                           </p>
                         </div>
                         {doc.status === 'indexed' ? (
@@ -449,7 +449,7 @@ export default function KnowledgePage() {
 
                     {kbDetails.documents.length === 0 && (
                       <p className="text-[12px] text-[var(--muted-foreground)] text-center py-4">
-                        No documents yet. Upload files above.
+                        暂无文档，请在上方上传文件。
                       </p>
                     )}
                   </div>
@@ -461,12 +461,12 @@ export default function KnowledgePage() {
                     }}
                     className="text-[12px] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                   >
-                    ← Back to list
+                    ← 返回列表
                   </button>
                 </div>
               ) : (
                 <p className="text-[12px] text-[var(--muted-foreground)]">
-                  Failed to load document details.
+                  加载文档详情失败。
                 </p>
               )}
             </>

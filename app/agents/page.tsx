@@ -37,18 +37,18 @@ interface AgentInfo {
 const BUILTIN_AGENTS: AgentInfo[] = [
   {
     id: 'chat',
-    name: 'Chat',
+    name: '对话助手',
     description:
-      'General-purpose conversational assistant with web search, reasoning, and knowledge retrieval.',
+      '通用对话助手，具备网络搜索、推理和知识检索能力。',
     type: 'loop',
     tools: ['brainstorm', 'reason', 'web_search', 'web_fetch', 'ask_user', 'rag'],
     icon: MessageSquare,
   },
   {
     id: 'deep_solve',
-    name: 'Deep Solve',
+    name: '深度解题',
     description:
-      'Multi-step problem solver that creates plans, executes steps, and synthesizes answers.',
+      '多步骤问题求解器，制定计划、逐步执行并综合回答。',
     type: 'loop',
     tools: [
       'solve_plan',
@@ -63,9 +63,9 @@ const BUILTIN_AGENTS: AgentInfo[] = [
   },
   {
     id: 'mastery_path',
-    name: 'Mastery Path',
+    name: '掌握路径',
     description:
-      'Adaptive learning path builder that quizzes, grades, and tracks skill mastery.',
+      '自适应学习路径构建器，提供测验、评分和技能掌握度追踪。',
     type: 'loop',
     tools: [
       'mastery_status',
@@ -78,18 +78,18 @@ const BUILTIN_AGENTS: AgentInfo[] = [
   },
   {
     id: 'explore_context',
-    name: 'Explore Context',
+    name: '知识探索',
     description:
-      'Deep knowledge exploration across documents and sources with multi-angle discovery.',
+      '跨文档和多来源的深度知识探索，支持多角度发现。',
     type: 'loop',
     tools: ['read_source', 'rag', 'web_search', 'web_fetch', 'brainstorm', 'reason'],
     icon: SearchIcon,
   },
   {
     id: 'deep_question',
-    name: 'Deep Question',
+    name: '深度出题',
     description:
-      'Educational question generator for quizzes, practice problems, and study guides.',
+      '教育题目生成器，用于测验、练习题和学习指南。',
     type: 'loop',
     tools: [
       'brainstorm',
@@ -104,9 +104,9 @@ const BUILTIN_AGENTS: AgentInfo[] = [
   },
   {
     id: 'deep_research',
-    name: 'Deep Research',
+    name: '深度研究',
     description:
-      'Multi-phase research agent that decomposes topics, researches each, and synthesizes reports.',
+      '多阶段研究智能体，分解主题、逐一研究并综合报告。',
     type: 'loop',
     tools: [
       'rag',
@@ -121,9 +121,9 @@ const BUILTIN_AGENTS: AgentInfo[] = [
   },
   {
     id: 'visualize',
-    name: 'Visualize',
+    name: '数据可视化',
     description:
-      'Visualization pipeline that generates charts, diagrams, and interactive visuals from data.',
+      '可视化管线，从数据生成图表、图示和交互式视觉内容。',
     type: 'pipeline',
     tools: ['code_execution'],
     icon: BarChart3,
@@ -170,11 +170,11 @@ export default function AgentsPage() {
     filter === 'all' ? agents : agents.filter((a) => a.type === filter);
 
   const typeFilters = [
-    { id: 'all', label: 'All' },
-    { id: 'loop', label: 'Loop' },
-    { id: 'agent', label: 'Agent' },
-    { id: 'pipeline', label: 'Pipeline' },
-    { id: 'graph', label: 'Graph' },
+    { id: 'all', label: '全部' },
+    { id: 'loop', label: '循环' },
+    { id: 'agent', label: '智能体' },
+    { id: 'pipeline', label: '管线' },
+    { id: 'graph', label: '图谱' },
   ];
 
   const getTypeColor = (type: string) => {
@@ -201,10 +201,10 @@ export default function AgentsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-semibold text-[var(--foreground)]">
-                Agents
+                智能体
               </h1>
               <p className="text-[13px] text-[var(--muted-foreground)] mt-1">
-                {agents.length} capabilities available
+                {agents.length} 个可用能力
               </p>
             </div>
           </div>
@@ -303,7 +303,7 @@ export default function AgentsPage() {
                       getTypeColor(selectedAgent.type),
                     )}
                   >
-                    {selectedAgent.type} capability
+                    {selectedAgent.type} 能力
                   </span>
                 </div>
               </div>
@@ -318,7 +318,7 @@ export default function AgentsPage() {
               {/* Tools */}
               <div className="space-y-2">
                 <h3 className="text-[12px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
-                  Tools ({selectedAgent.tools.length})
+                  工具 ({selectedAgent.tools.length})
                 </h3>
                 <div className="space-y-1.5">
                   {selectedAgent.tools.map((tool) => (
@@ -339,8 +339,8 @@ export default function AgentsPage() {
               <div className="flex items-start gap-2 bg-[var(--primary)]/5 border border-[var(--primary)]/20 rounded-lg p-3">
                 <Info className="h-4 w-4 text-[var(--primary)] shrink-0 mt-0.5" />
                 <p className="text-[11px] text-[var(--foreground)] leading-relaxed">
-                  Select this agent in the Chat page by clicking the capability tab.
-                  The agent will use its configured tools to process your messages.
+                  在对话页面点击功能标签即可选择此智能体。
+                  智能体将使用其配置的工具来处理你的消息。
                 </p>
               </div>
             </div>
@@ -348,7 +348,7 @@ export default function AgentsPage() {
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Bot className="h-12 w-12 text-[var(--muted-foreground)] mx-auto mb-4 opacity-30" />
               <p className="text-[13px] text-[var(--muted-foreground)]">
-                Select an agent to view its details, tools, and usage instructions.
+                选择一个智能体查看其详情、工具和使用说明。
               </p>
             </div>
           )}

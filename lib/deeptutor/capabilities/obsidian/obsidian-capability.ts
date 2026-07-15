@@ -68,7 +68,7 @@ Guidelines:
 export class ObsidianCapability extends KnowledgeCapability {
   readonly manifest = createCapabilityManifest({
     name: 'obsidian',
-    description: 'Obsidian vault knowledge exploration with 9 exclusive tools',
+    description: 'Obsidian 知识库探索 — 9 个专属工具',
     stages: ['exploring'],
     toolsUsed: [
       'obsidian_search',
@@ -169,7 +169,7 @@ export class ObsidianCapability extends KnowledgeCapability {
     } catch (err) {
       endStage();
       log.error('Obsidian capability failed:', err);
-      bus.emitError(`Obsidian exploration failed: ${err instanceof Error ? err.message : String(err)}`, 'obsidian');
+      bus.emitError(`Obsidian 探索失败: ${err instanceof Error ? err.message : String(err)}`, 'obsidian');
     }
   }
 }

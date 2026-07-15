@@ -49,7 +49,7 @@ import type { ProviderId } from '@/lib/types/provider';
 export class ExploreContextCapability extends LoopCapability {
   readonly manifest = createCapabilityManifest({
     name: 'explore_context',
-    description: 'Deep reading and context exploration — discover, read, and synthesize from sources',
+    description: '深度阅读与上下文探索 — 发现、阅读和综合信息来源',
     stages: ['discover', 'read', 'synthesize'],
     toolsUsed: [
       'read_source',
@@ -161,7 +161,7 @@ export class ExploreContextCapability extends LoopCapability {
     } catch (error) {
       endRead();
       const errorMsg = error instanceof Error ? error.message : String(error);
-      bus.emitError(`Context exploration failed: ${errorMsg}`, 'explore_context');
+      bus.emitError(`上下文探索失败: ${errorMsg}`, 'explore_context');
       return;
     }
 

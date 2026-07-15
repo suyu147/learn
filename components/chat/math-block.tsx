@@ -33,7 +33,7 @@ export function MathBlock({ math, inline = false, className }: MathBlockProps) {
         setHtml(rendered);
         setError(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Math render error');
+        setError(err instanceof Error ? err.message : '数学公式渲染错误');
       }
     });
   }, [math, inline]);

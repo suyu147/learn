@@ -51,8 +51,8 @@ interface CapabilityConfig {
 const DEFAULT_CAPABILITIES: CapabilityConfig[] = [
   {
     id: 'chat',
-    name: 'Chat',
-    description: 'General conversation and Q&A responses',
+    name: '对话',
+    description: '通用对话和问答响应',
     icon: MessageSquare,
     modelOverride: '',
     temperature: 0.7,
@@ -61,8 +61,8 @@ const DEFAULT_CAPABILITIES: CapabilityConfig[] = [
   },
   {
     id: 'deep_solve',
-    name: 'Deep Solve',
-    description: 'Complex multi-step problem solving with chain-of-thought',
+    name: '深度求解',
+    description: '通过思维链进行复杂的多步骤问题求解',
     icon: Lightbulb,
     modelOverride: '',
     temperature: 0.3,
@@ -71,8 +71,8 @@ const DEFAULT_CAPABILITIES: CapabilityConfig[] = [
   },
   {
     id: 'mastery_path',
-    name: 'Mastery Path',
-    description: 'Personalized learning path generation and curriculum design',
+    name: '掌握路径',
+    description: '个性化学习路径生成与课程设计',
     icon: Target,
     modelOverride: '',
     temperature: 0.5,
@@ -81,8 +81,8 @@ const DEFAULT_CAPABILITIES: CapabilityConfig[] = [
   },
   {
     id: 'deep_research',
-    name: 'Deep Research',
-    description: 'In-depth research synthesis across multiple sources',
+    name: '深度研究',
+    description: '跨多个来源的深度研究综合',
     icon: BookOpen,
     modelOverride: '',
     temperature: 0.4,
@@ -91,8 +91,8 @@ const DEFAULT_CAPABILITIES: CapabilityConfig[] = [
   },
   {
     id: 'deep_question',
-    name: 'Deep Question',
-    description: 'Socratic questioning and probing for deeper understanding',
+    name: '深度提问',
+    description: '苏格拉底式提问，促进更深层理解',
     icon: HelpCircle,
     modelOverride: '',
     temperature: 0.6,
@@ -101,8 +101,8 @@ const DEFAULT_CAPABILITIES: CapabilityConfig[] = [
   },
   {
     id: 'visualize',
-    name: 'Visualize',
-    description: 'Diagram generation, chart creation, and visual explanations',
+    name: '可视化',
+    description: '图表生成、图表创建和视觉解释',
     icon: BarChart3,
     modelOverride: '',
     temperature: 0.2,
@@ -112,7 +112,7 @@ const DEFAULT_CAPABILITIES: CapabilityConfig[] = [
 ]
 
 const MODEL_OPTIONS = [
-  'Default (system model)',
+  '默认（系统模型）',
   'gpt-4o',
   'gpt-4o-mini',
   'claude-3.5-sonnet',
@@ -139,10 +139,10 @@ export default function CapabilitiesSettingsPage() {
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">
           <Zap className="inline h-5 w-5 mr-2 -mt-0.5" />
-          Capability Configuration
+          能力配置
         </h1>
         <p className="text-[13px] text-[var(--muted-foreground)]">
-          Override model and generation parameters for each AI capability. Leave model as &quot;Default&quot; to use the system-wide LLM. ({enabledCount}/{capabilities.length} enabled)
+          覆盖每个 AI 能力的模型和生成参数。模型设为&quot;默认&quot;则使用系统级 LLM。（已启用 {enabledCount}/{capabilities.length} 项）
         </p>
       </div>
 
@@ -189,14 +189,14 @@ export default function CapabilitiesSettingsPage() {
               {isExpanded && cap.enabled && (
                 <div className="border-t border-[var(--border)] p-4 space-y-4 bg-[var(--muted)]/30">
                   <div className="space-y-2">
-                    <label className="text-[13px] font-medium text-[var(--foreground)]">Model Override</label>
+                    <label className="text-[13px] font-medium text-[var(--foreground)]">模型覆盖</label>
                     <select
                       value={cap.modelOverride}
                       onChange={(e) => updateCapability(cap.id, { modelOverride: e.target.value })}
                       className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
                     >
                       {MODEL_OPTIONS.map((model) => (
-                        <option key={model} value={model === 'Default (system model)' ? '' : model}>
+                        <option key={model} value={model === '默认（系统模型）' ? '' : model}>
                           {model}
                         </option>
                       ))}
@@ -206,7 +206,7 @@ export default function CapabilitiesSettingsPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-[13px] font-medium text-[var(--foreground)]">
-                        Temperature: {cap.temperature}
+                        温度：{cap.temperature}
                       </label>
                       <input
                         type="range"
@@ -220,13 +220,13 @@ export default function CapabilitiesSettingsPage() {
                         className="w-full accent-[var(--primary)]"
                       />
                       <div className="flex justify-between text-[11px] text-[var(--muted-foreground)]">
-                        <span>Precise</span>
-                        <span>Creative</span>
+                        <span>精确</span>
+                        <span>创造</span>
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-[13px] font-medium text-[var(--foreground)]">Max Tokens</label>
+                      <label className="text-[13px] font-medium text-[var(--foreground)]">最大 Token 数</label>
                       <input
                         type="number"
                         value={cap.maxTokens}
@@ -255,7 +255,7 @@ export default function CapabilitiesSettingsPage() {
           onClick={() => setCapabilities(DEFAULT_CAPABILITIES)}
           className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors"
         >
-          Reset All
+          全部重置
         </button>
       </div>
     </div>

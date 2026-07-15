@@ -44,7 +44,7 @@ import type { ProviderId } from '@/lib/types/provider';
 export class DeepQuestionCapability extends LoopCapability {
   readonly manifest = createCapabilityManifest({
     name: 'deep_question',
-    description: 'Educational quiz/question generation with topic research and multi-type questions',
+    description: '教育测验/题目生成 — 主题研究与多题型支持',
     stages: ['ideation', 'generation'],
     toolsUsed: [
       'brainstorm',
@@ -150,7 +150,7 @@ export class DeepQuestionCapability extends LoopCapability {
     } catch (error) {
       endGeneration();
       const errorMsg = error instanceof Error ? error.message : String(error);
-      bus.emitError(`Question generation failed: ${errorMsg}`, 'deep_question');
+      bus.emitError(`题目生成失败: ${errorMsg}`, 'deep_question');
       return;
     }
 

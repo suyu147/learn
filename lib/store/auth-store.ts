@@ -11,6 +11,7 @@
 import { create } from 'zustand';
 import { setApiToken, getApiToken } from '@/lib/auth-token';
 import { clearAllUserData } from './clear-user-data';
+import { useSessionStore } from './session-store';
 
 /**
  * Decode JWT payload in the browser (no verification — middleware already
@@ -88,7 +89,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      throw new Error(body.error ?? `Login failed (${res.status})`);
+      throw new Error(body.error ?? `登录失败 (${res.status})`);
     }
 
     const { data } = (await res.json()) as {
@@ -97,6 +98,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     setApiToken(data.token);
     set({ token: data.token, user: data.user });
+    // Reset sessions so they are re-fetched for the new user
+    useSessionStore.getState().resetSessions();
+    useSessionStore.getState().fetchSessions();
   },
 
   register: async (username, password) => {
@@ -108,7 +112,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      throw new Error(body.error ?? `Registration failed (${res.status})`);
+      throw new Error(body.error ?? `注册失败 (${res.status})`);
     }
 
     const { data } = (await res.json()) as {
@@ -117,6 +121,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     setApiToken(data.token);
     set({ token: data.token, user: data.user });
+    // Reset sessions so they are re-fetched for the new user
+    useSessionStore.getState().resetSessions();
+    useSessionStore.getState().fetchSessions();
   },
 
   logout: () => {
@@ -202,6 +209,11 @@ export const useAuthStore = create<AuthState>((set) => ({
         hasProfile: resolvedHasProfile,
         isInitialized: true,
       });
+
+      // Fetch sessions for the resolved user
+      if (resolvedUser) {
+        useSessionStore.getState().fetchSessions();
+      }
     } catch {
       // Network error or server unavailable — assume disabled mode
       set({ mode: 'disabled', isInitialized: true });

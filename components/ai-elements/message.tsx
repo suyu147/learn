@@ -213,7 +213,7 @@ export const MessageBranchPrevious = ({ children, ...props }: MessageBranchPrevi
 
   return (
     <Button
-      aria-label="Previous branch"
+      aria-label="上一个分支"
       disabled={totalBranches <= 1}
       onClick={goToPrevious}
       size="icon-sm"
@@ -237,7 +237,7 @@ export const MessageBranchNext = ({
 
   return (
     <Button
-      aria-label="Next branch"
+      aria-label="下一个分支"
       disabled={totalBranches <= 1}
       onClick={goToNext}
       size="icon-sm"
@@ -260,7 +260,7 @@ export const MessageBranchPage = ({ className, ...props }: MessageBranchPageProp
       className={cn('border-none bg-transparent text-muted-foreground shadow-none', className)}
       {...props}
     >
-      {currentBranch + 1} of {totalBranches}
+      {currentBranch + 1} / {totalBranches}
     </ButtonGroupText>
   );
 };
@@ -289,14 +289,14 @@ export function MessageAttachment({ data, className, onRemove, ...props }: Messa
   const filename = data.filename || '';
   const mediaType = data.mediaType?.startsWith('image/') && data.url ? 'image' : 'file';
   const isImage = mediaType === 'image';
-  const attachmentLabel = filename || (isImage ? 'Image' : 'Attachment');
+  const attachmentLabel = filename || (isImage ? '图片' : '附件');
 
   return (
     <div className={cn('group relative size-24 overflow-hidden rounded-lg', className)} {...props}>
       {isImage ? (
         <>
           <img
-            alt={filename || 'attachment'}
+            alt={filename || '附件'}
             className="size-full object-cover"
             height={100}
             src={data.url}
@@ -304,7 +304,7 @@ export function MessageAttachment({ data, className, onRemove, ...props }: Messa
           />
           {onRemove && (
             <Button
-              aria-label="Remove attachment"
+              aria-label="移除附件"
               className="absolute top-2 right-2 size-6 rounded-full bg-background/80 p-0 opacity-0 backdrop-blur-sm transition-opacity hover:bg-background group-hover:opacity-100 [&>svg]:size-3"
               onClick={(e) => {
                 e.stopPropagation();
@@ -314,7 +314,7 @@ export function MessageAttachment({ data, className, onRemove, ...props }: Messa
               variant="ghost"
             >
               <XIcon />
-              <span className="sr-only">Remove</span>
+              <span className="sr-only">移除</span>
             </Button>
           )}
         </>
@@ -332,7 +332,7 @@ export function MessageAttachment({ data, className, onRemove, ...props }: Messa
           </Tooltip>
           {onRemove && (
             <Button
-              aria-label="Remove attachment"
+              aria-label="移除附件"
               className="size-6 shrink-0 rounded-full p-0 opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100 [&>svg]:size-3"
               onClick={(e) => {
                 e.stopPropagation();
@@ -342,7 +342,7 @@ export function MessageAttachment({ data, className, onRemove, ...props }: Messa
               variant="ghost"
             >
               <XIcon />
-              <span className="sr-only">Remove</span>
+              <span className="sr-only">移除</span>
             </Button>
           )}
         </>

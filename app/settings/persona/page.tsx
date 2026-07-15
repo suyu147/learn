@@ -41,7 +41,7 @@ export default function PersonaSettingsPage() {
   const { t } = useI18n()
   const [personaName, setPersonaName] = useState('SmartLearn Assistant')
   const [personaDescription, setPersonaDescription] = useState(
-    'A knowledgeable and patient learning companion that adapts to your learning style and pace.'
+    '一位博学且有耐心的学习伴侣，能适应您的学习风格和节奏。'
   )
   const [communicationStyle, setCommunicationStyle] = useState('friendly')
   const [language, setLanguage] = useState('auto')
@@ -55,10 +55,10 @@ export default function PersonaSettingsPage() {
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">
           <UserCircle className="inline h-5 w-5 mr-2 -mt-0.5" />
-          Persona & Style Settings
+          人格与风格设置
         </h1>
         <p className="text-[13px] text-[var(--muted-foreground)]">
-          Customize the assistant&apos;s personality, tone, and communication preferences.
+          自定义助手的人格、语气和沟通偏好。
         </p>
       </div>
 
@@ -67,28 +67,28 @@ export default function PersonaSettingsPage() {
         <div className="space-y-2">
           <label className="text-[13px] font-medium text-[var(--foreground)] flex items-center gap-1.5">
             <UserCircle className="h-3.5 w-3.5" />
-            Persona Name
+            人格名称
           </label>
           <input
             type="text"
             value={personaName}
             onChange={(e) => setPersonaName(e.target.value)}
-            placeholder="e.g., Alex, Study Buddy"
+            placeholder="例如，小智、学习伙伴"
             className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)] placeholder:text-[var(--muted-foreground)]"
           />
         </div>
 
         <div className="space-y-2">
-          <label className="text-[13px] font-medium text-[var(--foreground)]">Persona Description</label>
+          <label className="text-[13px] font-medium text-[var(--foreground)]">人格描述</label>
           <textarea
             value={personaDescription}
             onChange={(e) => setPersonaDescription(e.target.value)}
             rows={3}
-            placeholder="Describe the assistant's personality, expertise, and behavior..."
+            placeholder="描述助手的人格、专业领域和行为方式..."
             className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)] resize-none placeholder:text-[var(--muted-foreground)]"
           />
           <p className="text-[11px] text-[var(--muted-foreground)]">
-            This description is injected into the system prompt to guide the assistant&apos;s behavior.
+            此描述将注入到系统提示中以引导助手的行为。
           </p>
         </div>
 
@@ -96,17 +96,17 @@ export default function PersonaSettingsPage() {
         <div className="space-y-2">
           <label className="text-[13px] font-medium text-[var(--foreground)] flex items-center gap-1.5">
             <Type className="h-3.5 w-3.5" />
-            Communication Style
+            沟通风格
           </label>
           <select
             value={communicationStyle}
             onChange={(e) => setCommunicationStyle(e.target.value)}
             className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
           >
-            <option value="formal">Formal - Professional and structured language</option>
-            <option value="casual">Casual - Relaxed and conversational tone</option>
-            <option value="academic">Academic - Scholarly with citations and rigor</option>
-            <option value="friendly">Friendly - Warm and encouraging approach</option>
+            <option value="formal">正式 - 专业且结构化的语言</option>
+            <option value="casual">随意 - 轻松且对话式语气</option>
+            <option value="academic">学术 - 学术严谨并附引用</option>
+            <option value="friendly">友好 - 温暖且鼓励的方式</option>
           </select>
         </div>
 
@@ -114,14 +114,14 @@ export default function PersonaSettingsPage() {
         <div className="space-y-2">
           <label className="text-[13px] font-medium text-[var(--foreground)] flex items-center gap-1.5">
             <Globe className="h-3.5 w-3.5" />
-            Language Preference
+            语言偏好
           </label>
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
             className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
           >
-            <option value="auto">Auto-detect (match user&apos;s language)</option>
+            <option value="auto">自动检测（匹配用户语言）</option>
             <option value="en">English</option>
             <option value="zh-CN">Chinese (Simplified)</option>
             <option value="zh-TW">Chinese (Traditional)</option>
@@ -137,13 +137,13 @@ export default function PersonaSettingsPage() {
         <div className="space-y-2">
           <label className="text-[13px] font-medium text-[var(--foreground)] flex items-center gap-1.5">
             <Volume2 className="h-3.5 w-3.5" />
-            Response Verbosity
+            回复详细程度
           </label>
           <div className="grid grid-cols-3 gap-2">
             {[
-              { value: 'concise', label: 'Concise', desc: 'Short, to-the-point answers' },
-              { value: 'balanced', label: 'Balanced', desc: 'Moderate detail with context' },
-              { value: 'detailed', label: 'Detailed', desc: 'Thorough, comprehensive answers' },
+              { value: 'concise', label: '简洁', desc: '简短、切中要点的回答' },
+              { value: 'balanced', label: '均衡', desc: '适度详细并提供上下文' },
+              { value: 'detailed', label: '详细', desc: '全面、深入的回答' },
             ].map((opt) => (
               <button
                 key={opt.value}
@@ -167,20 +167,20 @@ export default function PersonaSettingsPage() {
           <ToggleField
             checked={useEmoji}
             onChange={setUseEmoji}
-            label="Use Emoji in Responses"
-            description="Add relevant emoji to make responses more visually engaging"
+            label="在回复中使用表情符号"
+            description="添加相关表情符号使回复更具视觉吸引力"
           />
           <ToggleField
             checked={showReasoning}
             onChange={setShowReasoning}
-            label="Show Reasoning Process"
-            description="Display the step-by-step thinking process before giving answers"
+            label="显示推理过程"
+            description="在给出答案前展示逐步思考过程"
           />
           <ToggleField
             checked={proactiveTips}
             onChange={setProactiveTips}
-            label="Proactive Learning Tips"
-            description="Suggest related topics and follow-up questions to deepen understanding"
+            label="主动学习提示"
+            description="建议相关主题和后续问题以加深理解"
           />
         </div>
       </div>
@@ -192,7 +192,7 @@ export default function PersonaSettingsPage() {
         <button
           onClick={() => {
             setPersonaName('SmartLearn Assistant')
-            setPersonaDescription('A knowledgeable and patient learning companion that adapts to your learning style and pace.')
+            setPersonaDescription('一位博学且有耐心的学习伴侣，能适应您的学习风格和节奏。')
             setCommunicationStyle('friendly')
             setLanguage('auto')
             setVerbosity('balanced')
@@ -202,7 +202,7 @@ export default function PersonaSettingsPage() {
           }}
           className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors"
         >
-          Reset to Defaults
+          恢复默认
         </button>
       </div>
     </div>

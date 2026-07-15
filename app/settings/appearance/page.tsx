@@ -20,10 +20,10 @@ export default function AppearancePage() {
     icon: React.ComponentType<{ className?: string }>;
     desc: string;
   }[] = [
-    { id: 'light', label: 'Light', icon: Sun, desc: 'Always use light theme' },
-    { id: 'dark', label: 'Dark', icon: Moon, desc: 'Always use dark theme' },
-    { id: 'system', label: 'System', icon: Monitor, desc: 'Follow system theme' },
-    { id: 'glass', label: 'Glass', icon: Palette, desc: 'Glassmorphism effect' },
+    { id: 'light', label: '浅色', icon: Sun, desc: '始终使用浅色主题' },
+    { id: 'dark', label: '深色', icon: Moon, desc: '始终使用深色主题' },
+    { id: 'system', label: '跟随系统', icon: Monitor, desc: '跟随系统主题设置' },
+    { id: 'glass', label: '毛玻璃', icon: Palette, desc: '毛玻璃拟态效果' },
   ];
 
   const languages = [
@@ -37,10 +37,10 @@ export default function AppearancePage() {
     <div className="p-6 max-w-2xl">
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">
-          Appearance
+          外观设置
         </h1>
         <p className="text-[13px] text-[var(--muted-foreground)]">
-          Customize the visual appearance, theme, and language
+          自定义视觉外观、主题和语言
         </p>
       </div>
 
@@ -48,7 +48,7 @@ export default function AppearancePage() {
         {/* Theme Picker */}
         <div className="space-y-3">
           <label className="text-[13px] font-medium text-[var(--foreground)]">
-            Theme
+            主题
           </label>
           <div className="grid grid-cols-2 gap-3">
             {themes.map((t) => {
@@ -97,7 +97,7 @@ export default function AppearancePage() {
         {/* Language */}
         <div className="space-y-2">
           <label className="text-[13px] font-medium text-[var(--foreground)]">
-            Interface Language
+            界面语言
           </label>
           <select
             value={language}
@@ -115,12 +115,12 @@ export default function AppearancePage() {
         {/* Density */}
         <div className="space-y-2">
           <label className="text-[13px] font-medium text-[var(--foreground)]">
-            Display Density
+            显示密度
           </label>
           <select className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]">
-            <option>Compact</option>
-            <option>Default</option>
-            <option>Comfortable</option>
+            <option>紧凑</option>
+            <option>默认</option>
+            <option>舒适</option>
           </select>
         </div>
       </div>
@@ -128,7 +128,7 @@ export default function AppearancePage() {
       {/* Status */}
       <div className="mt-6 p-4 rounded-lg bg-[var(--card)] border border-[var(--border)]">
         <p className="text-[12px] text-[var(--muted-foreground)]">
-          Settings are saved automatically. Theme changes apply immediately.
+          设置自动保存。主题更改立即生效。
         </p>
       </div>
     </div>

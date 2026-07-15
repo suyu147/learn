@@ -38,12 +38,12 @@ interface PlaygroundEvent {
 type Capability = 'chat' | 'deep_solve' | 'mastery_path' | 'deep_research' | 'visualize' | 'smartlearn'
 
 const CAPABILITIES: { id: Capability; label: string; icon: React.ComponentType<{ className?: string }>; descKey: string }[] = [
-  { id: 'chat', label: 'Chat', icon: MessageSquare, descKey: 'playground.capabilityDescriptions.chat' },
-  { id: 'deep_solve', label: 'Solve', icon: Lightbulb, descKey: 'playground.capabilityDescriptions.deepSolve' },
-  { id: 'mastery_path', label: 'Quiz', icon: HelpCircle, descKey: 'playground.capabilityDescriptions.masteryPath' },
-  { id: 'deep_research', label: 'Research', icon: Search, descKey: 'playground.capabilityDescriptions.deepResearch' },
-  { id: 'visualize', label: 'Visualize', icon: BarChart3, descKey: 'playground.capabilityDescriptions.visualize' },
-  { id: 'smartlearn', label: 'SmartLearn', icon: GraduationCap, descKey: 'playground.capabilityDescriptions.smartlearn' },
+  { id: 'chat', label: '对话', icon: MessageSquare, descKey: 'playground.capabilityDescriptions.chat' },
+  { id: 'deep_solve', label: '解题', icon: Lightbulb, descKey: 'playground.capabilityDescriptions.deepSolve' },
+  { id: 'mastery_path', label: '测验', icon: HelpCircle, descKey: 'playground.capabilityDescriptions.masteryPath' },
+  { id: 'deep_research', label: '研究', icon: Search, descKey: 'playground.capabilityDescriptions.deepResearch' },
+  { id: 'visualize', label: '可视化', icon: BarChart3, descKey: 'playground.capabilityDescriptions.visualize' },
+  { id: 'smartlearn', label: '智慧学习', icon: GraduationCap, descKey: 'playground.capabilityDescriptions.smartlearn' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -195,7 +195,7 @@ export default function PlaygroundPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Zap className="h-5 w-5 text-[var(--primary)]" />
-              <h1 className="text-lg font-semibold text-[var(--foreground)]">Playground</h1>
+              <h1 className="text-lg font-semibold text-[var(--foreground)]">演练场</h1>
               <span className="px-2 py-0.5 text-[11px] font-medium rounded-full bg-[var(--muted)] text-[var(--muted-foreground)]">
                 {t('playground.testTool')}
               </span>
@@ -240,7 +240,7 @@ export default function PlaygroundPage() {
             <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl overflow-hidden">
               <div className="px-4 py-2.5 border-b border-[var(--border)] flex items-center gap-2">
                 <Lightbulb className="h-3.5 w-3.5 text-[var(--primary)]" />
-                <span className="text-[12px] font-medium text-[var(--foreground)]">Thinking</span>
+                <span className="text-[12px] font-medium text-[var(--foreground)]">思考</span>
               </div>
               <div className="px-4 py-3">
                 <p className="text-[12.5px] text-[var(--muted-foreground)] leading-relaxed whitespace-pre-wrap">
@@ -254,7 +254,7 @@ export default function PlaygroundPage() {
           {stage && (
             <div className="flex items-center gap-2 text-[12px] text-[var(--muted-foreground)]">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--primary)]" />
-              <span>Stage: {stage}</span>
+              <span>阶段: {stage}</span>
             </div>
           )}
 
@@ -279,7 +279,7 @@ export default function PlaygroundPage() {
             <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Bot className="h-4 w-4 text-[var(--primary)]" />
-                <span className="text-[11px] text-[var(--muted-foreground)]">Response</span>
+                <span className="text-[11px] text-[var(--muted-foreground)]">回复</span>
               </div>
               <div className="text-[13.5px] text-[var(--foreground)] leading-relaxed whitespace-pre-wrap">
                 {content}
@@ -347,13 +347,13 @@ export default function PlaygroundPage() {
       {/* Right: Event log panel */}
       <div className="w-96 border-l border-[var(--border)] bg-[var(--card)] flex flex-col">
         <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between">
-          <h3 className="text-[13px] font-semibold text-[var(--foreground)]">Event Log</h3>
+          <h3 className="text-[13px] font-semibold text-[var(--foreground)]">事件日志</h3>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowRaw(!showRaw)}
               className="text-[11px] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
             >
-              {showRaw ? 'Raw' : 'Compact'}
+              {showRaw ? '原始' : '精简'}
             </button>
             <button
               onClick={() => {
@@ -364,7 +364,7 @@ export default function PlaygroundPage() {
                 setStage('')
               }}
               className="p-1.5 rounded hover:bg-[var(--muted)] transition-colors"
-              title="Clear"
+              title="清空"
             >
               <Trash2 className="h-3.5 w-3.5 text-[var(--muted-foreground)]" />
             </button>
@@ -412,8 +412,8 @@ export default function PlaygroundPage() {
 
         {/* Stats footer */}
         <div className="border-t border-[var(--border)] px-4 py-2.5 flex items-center justify-between text-[11px] text-[var(--muted-foreground)]">
-          <span>Events: {events.length}</span>
-          <span>Session: {sessionId.slice(-8)}</span>
+          <span>事件: {events.length}</span>
+          <span>会话: {sessionId.slice(-8)}</span>
         </div>
       </div>
     </div>

@@ -20,17 +20,17 @@ function StatusBadge({ status }: { status: McpServer['status'] }) {
     connected: {
       icon: CircleCheck,
       className: 'text-green-500',
-      label: 'Connected',
+      label: '已连接',
     },
     disconnected: {
       icon: CircleX,
       className: 'text-[var(--muted-foreground)]',
-      label: 'Disconnected',
+      label: '已断开',
     },
     error: {
       icon: AlertTriangle,
       className: 'text-red-500',
-      label: 'Error',
+      label: '错误',
     },
   }
   const { icon: Icon, className, label } = config[status]
@@ -58,14 +58,14 @@ export default function McpSettingsPage() {
         setLoading(true)
         setFetchError(null)
         const res = await fetch('/api/v1/mcp')
-        if (!res.ok) throw new Error(`Failed to load MCP servers (${res.status})`)
+        if (!res.ok) throw new Error(`加载 MCP 服务器失败 (${res.status})`)
         const data = await res.json()
         if (!cancelled) {
           setServers(Array.isArray(data) ? data : [])
         }
       } catch (err) {
         if (!cancelled) {
-          setFetchError(err instanceof Error ? err.message : 'Unknown error')
+          setFetchError(err instanceof Error ? err.message : '未知错误')
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -84,7 +84,7 @@ export default function McpSettingsPage() {
       args: newServer.args,
       env: newServer.env,
       status: 'disconnected',
-      lastChecked: 'Just now',
+      lastChecked: '刚刚',
     }
     setServers([...servers, server])
     setNewServer({ name: '', command: '', args: '', env: '' })
@@ -97,7 +97,7 @@ export default function McpSettingsPage() {
 
   const reconnectServer = (id: string) => {
     setServers((svrs) =>
-      svrs.map((s) => (s.id === id ? { ...s, status: 'connected' as const, lastChecked: 'Just now' } : s))
+      svrs.map((s) => (s.id === id ? { ...s, status: 'connected' as const, lastChecked: '刚刚' } : s))
     )
   }
 
@@ -108,10 +108,10 @@ export default function McpSettingsPage() {
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">
           <Server className="inline h-5 w-5 mr-2 -mt-0.5" />
-          MCP Server Management
+          MCP 服务器管理
         </h1>
         <p className="text-[13px] text-[var(--muted-foreground)]">
-          Manage Model Context Protocol servers for tool integration. ({connectedCount}/{servers.length} connected)
+          管理模型上下文协议服务器以集成工具。({connectedCount}/{servers.length} 已连接)
         </p>
       </div>
 
@@ -120,7 +120,7 @@ export default function McpSettingsPage() {
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <RefreshCw className="h-5 w-5 animate-spin text-[var(--muted-foreground)] mr-2" />
-            <span className="text-[13px] text-[var(--muted-foreground)]">Loading MCP servers...</span>
+            <span className="text-[13px] text-[var(--muted-foreground)]">正在加载 MCP 服务器...</span>
           </div>
         ) : fetchError ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
@@ -130,14 +130,14 @@ export default function McpSettingsPage() {
               onClick={() => window.location.reload()}
               className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors"
             >
-              Retry
+              重试
             </button>
           </div>
         ) : servers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 gap-2">
             <Server className="h-8 w-8 text-[var(--muted-foreground)]" />
-            <p className="text-[13px] text-[var(--muted-foreground)]">No MCP servers configured.</p>
-            <p className="text-[12px] text-[var(--muted-foreground)]">Add a server below to get started.</p>
+            <p className="text-[13px] text-[var(--muted-foreground)]">尚未配置 MCP 服务器。</p>
+            <p className="text-[12px] text-[var(--muted-foreground)]">在下方添加服务器以开始使用。</p>
           </div>
         ) : (
         servers.map((server) => (
@@ -155,7 +155,7 @@ export default function McpSettingsPage() {
                   {server.command} {server.args}
                 </p>
                 <p className="text-[11px] text-[var(--muted-foreground)] mt-1">
-                  Last checked: {server.lastChecked}
+                  上次检查：{server.lastChecked}
                 </p>
               </div>
               <div className="flex items-center gap-2 ml-3">
@@ -163,7 +163,7 @@ export default function McpSettingsPage() {
                   <button
                     onClick={() => reconnectServer(server.id)}
                     className="p-1.5 rounded-md hover:bg-[var(--muted)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-                    title="Reconnect"
+                    title="重新连接"
                   >
                     <RefreshCw className="h-4 w-4" />
                   </button>
@@ -172,12 +172,12 @@ export default function McpSettingsPage() {
                   onClick={() => setEditingId(editingId === server.id ? null : server.id)}
                   className="px-2 py-1 rounded-md text-[12px] text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"
                 >
-                  Edit
+                  编辑
                 </button>
                 <button
                   onClick={() => removeServer(server.id)}
                   className="p-1.5 rounded-md hover:bg-red-500/10 text-[var(--muted-foreground)] hover:text-red-500 transition-colors"
-                  title="Remove"
+                  title="移除"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -189,7 +189,7 @@ export default function McpSettingsPage() {
               <div className="border-t border-[var(--border)] p-4 space-y-3 bg-[var(--muted)]/30">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-[12px] font-medium text-[var(--foreground)]">Name</label>
+                    <label className="text-[12px] font-medium text-[var(--foreground)]">名称</label>
                     <input
                       type="text"
                       defaultValue={server.name}
@@ -197,7 +197,7 @@ export default function McpSettingsPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[12px] font-medium text-[var(--foreground)]">Command</label>
+                    <label className="text-[12px] font-medium text-[var(--foreground)]">命令</label>
                     <input
                       type="text"
                       defaultValue={server.command}
@@ -206,7 +206,7 @@ export default function McpSettingsPage() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[12px] font-medium text-[var(--foreground)]">Arguments</label>
+                  <label className="text-[12px] font-medium text-[var(--foreground)]">参数</label>
                   <input
                     type="text"
                     defaultValue={server.args}
@@ -214,16 +214,16 @@ export default function McpSettingsPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[12px] font-medium text-[var(--foreground)]">Environment Variables</label>
+                  <label className="text-[12px] font-medium text-[var(--foreground)]">环境变量</label>
                   <textarea
                     defaultValue={server.env}
                     rows={2}
                     className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--primary)] font-mono resize-none"
-                    placeholder="KEY=value (one per line)"
+                    placeholder="KEY=value（每行一个）"
                   />
                 </div>
                 <button className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity">
-                  Save Changes
+                  保存更改
                 </button>
               </div>
             )}
@@ -235,31 +235,31 @@ export default function McpSettingsPage() {
       {/* Add Server Form */}
       {showAddForm ? (
         <div className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--card)] p-4 space-y-3">
-          <h3 className="text-[13px] font-medium text-[var(--foreground)]">Add New MCP Server</h3>
+          <h3 className="text-[13px] font-medium text-[var(--foreground)]">添加新 MCP 服务器</h3>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-[12px] font-medium text-[var(--foreground)]">Name *</label>
+              <label className="text-[12px] font-medium text-[var(--foreground)]">名称 *</label>
               <input
                 type="text"
                 value={newServer.name}
                 onChange={(e) => setNewServer({ ...newServer, name: e.target.value })}
-                placeholder="e.g., brave-search"
+                placeholder="例如，brave-search"
                 className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--primary)] placeholder:text-[var(--muted-foreground)]"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[12px] font-medium text-[var(--foreground)]">Command *</label>
+              <label className="text-[12px] font-medium text-[var(--foreground)]">命令 *</label>
               <input
                 type="text"
                 value={newServer.command}
                 onChange={(e) => setNewServer({ ...newServer, command: e.target.value })}
-                placeholder="e.g., npx"
+                placeholder="例如，npx"
                 className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--primary)] placeholder:text-[var(--muted-foreground)]"
               />
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-[12px] font-medium text-[var(--foreground)]">Arguments</label>
+            <label className="text-[12px] font-medium text-[var(--foreground)]">参数</label>
             <input
               type="text"
               value={newServer.args}
@@ -283,7 +283,7 @@ export default function McpSettingsPage() {
               onClick={addServer}
               className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity"
             >
-              Add Server
+              添加服务器
             </button>
             <button
               onClick={() => {
@@ -292,7 +292,7 @@ export default function McpSettingsPage() {
               }}
               className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors"
             >
-              Cancel
+              取消
             </button>
           </div>
         </div>
@@ -302,7 +302,7 @@ export default function McpSettingsPage() {
           className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-dashed border-[var(--border)] text-[13px] font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:border-[var(--primary)] hover:bg-[var(--primary)]/5 transition-colors"
         >
           <Plus className="h-4 w-4" />
-          Add MCP Server
+          添加 MCP 服务器
         </button>
       )}
 
@@ -314,7 +314,7 @@ export default function McpSettingsPage() {
 
       <div className="mt-4 p-4 rounded-lg bg-[var(--card)] border border-[var(--border)]">
         <p className="text-[12px] text-[var(--muted-foreground)]">
-          MCP servers extend the agent&apos;s capabilities with external tools. Each server runs as a separate process and communicates via the Model Context Protocol. Ensure required environment variables and credentials are configured before connecting.
+          MCP 服务器扩展代理的外部工具能力。每个服务器作为独立进程运行，通过模型上下文协议进行通信。连接前请确保已配置所需的环境变量和凭据。
         </p>
       </div>
     </div>

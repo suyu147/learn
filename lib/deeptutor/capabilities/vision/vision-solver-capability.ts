@@ -61,7 +61,7 @@ const VALID_GGB_COMMANDS = new Set([
 export class VisionSolverCapability extends PipelineCapability {
   readonly manifest = createCapabilityManifest({
     name: 'vision_solver',
-    description: 'Geometry image analysis with GeoGebra script generation',
+    description: '几何图像分析与 GeoGebra 脚本生成',
     stages: ['bbox', 'analysis', 'ggbscript', 'reflection'],
     toolsUsed: [],
     cliAliases: ['vision', 'geogebra', 'solve_image'],
@@ -79,7 +79,7 @@ export class VisionSolverCapability extends PipelineCapability {
     const apiKey = (overrides.apiKey as string) || (meta.apiKey as string) || process.env.DT_DEFAULT_API_KEY || process.env.AI_API_KEY || undefined;
 
     if (!imageBase64 && !imageUrl) {
-      bus.emitError('No image provided. Attach an image to use the vision solver.', 'vision_solver');
+      bus.emitError('未提供图片。请附上图片以使用视觉求解器。', 'vision_solver');
       return;
     }
 
@@ -94,7 +94,7 @@ export class VisionSolverCapability extends PipelineCapability {
     try {
       // Stage 1: BBox
       const endBbox = bus.enterStage('bbox', 'vision_solver');
-      bus.emitThinking('Detecting geometric elements in the image...', 'vision_solver');
+      bus.emitThinking('正在检测图像中的几何元素...', 'vision_solver');
 
       const bboxResult = await generateText({
         model,
@@ -118,12 +118,12 @@ export class VisionSolverCapability extends PipelineCapability {
       } catch {
         bboxOutput = { imageDimensions: { width: 800, height: 600 }, elements: [] };
       }
-      bus.emit(createStreamEvent('observation', { content: `Detected ${bboxOutput.elements.length} geometric elements.`, source: 'vision_solver' }));
+      bus.emit(createStreamEvent('observation', { content: `检测到 ${bboxOutput.elements.length} 个几何元素。`, source: 'vision_solver' }));
       endBbox();
 
       // Stage 2: Analysis
       const endAnalysis = bus.enterStage('analysis', 'vision_solver');
-      bus.emitThinking('Analyzing geometric relationships and constraints...', 'vision_solver');
+      bus.emitThinking('正在分析几何关系与约束...', 'vision_solver');
 
       const analysisResult = await generateText({
         model,
@@ -148,12 +148,12 @@ export class VisionSolverCapability extends PipelineCapability {
         analysisOutput = { keyElements: [], constraints: [], geometricRelations: [], imageIsReference: false };
       }
       const relCount = Array.isArray(analysisOutput.geometricRelations) ? analysisOutput.geometricRelations.length : 0;
-      bus.emit(createStreamEvent('observation', { content: `Found ${relCount} geometric relations.`, source: 'vision_solver' }));
+      bus.emit(createStreamEvent('observation', { content: `发现 ${relCount} 个几何关系。`, source: 'vision_solver' }));
       endAnalysis();
 
       // Stage 3: GGBScript
       const endGGB = bus.enterStage('ggbscript', 'vision_solver');
-      bus.emitThinking('Generating GeoGebra commands...', 'vision_solver');
+      bus.emitThinking('正在生成 GeoGebra 命令...', 'vision_solver');
 
       const ggbResult = await generateText({
         model,
@@ -167,12 +167,12 @@ export class VisionSolverCapability extends PipelineCapability {
       } catch {
         // Fallback
       }
-      bus.emit(createStreamEvent('observation', { content: `Generated ${ggbCommands.length} GeoGebra commands.`, source: 'vision_solver' }));
+      bus.emit(createStreamEvent('observation', { content: `生成了 ${ggbCommands.length} 条 GeoGebra 命令。`, source: 'vision_solver' }));
       endGGB();
 
       // Stage 4: Reflection
       const endReflection = bus.enterStage('reflection', 'vision_solver');
-      bus.emitThinking('Validating GeoGebra commands...', 'vision_solver');
+      bus.emitThinking('正在验证 GeoGebra 命令...', 'vision_solver');
 
       let correctedCommands = ggbCommands;
       const issues: string[] = [];
@@ -202,12 +202,12 @@ export class VisionSolverCapability extends PipelineCapability {
       const commandText = correctedCommands.map((c) => `# ${c.description}\n${c.command}`).join('\n\n');
 
       const summary = [
-        '## Vision Solver Results',
+        '## 视觉求解结果',
         '',
-        `**Elements detected:** ${bboxOutput.elements.length}`,
-        `**GeoGebra commands:** ${correctedCommands.length}`,
+        `**检测到的元素：** ${bboxOutput.elements.length}`,
+        `**GeoGebra 命令：** ${correctedCommands.length}`,
         '',
-        '### GeoGebra Script',
+        '### GeoGebra 脚本',
         '```geogebra',
         commandText,
         '```',
@@ -219,7 +219,7 @@ export class VisionSolverCapability extends PipelineCapability {
       log.info('Vision solver completed successfully');
     } catch (err) {
       log.error('Vision solver failed:', err);
-      bus.emitError(`Vision solver failed: ${err instanceof Error ? err.message : String(err)}`, 'vision_solver');
+      bus.emitError(`视觉求解失败: ${err instanceof Error ? err.message : String(err)}`, 'vision_solver');
     }
   }
 }

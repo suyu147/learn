@@ -23,34 +23,34 @@ import {
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/lib/store/ui-store';
 import { useAuthStore } from '@/lib/store/auth-store';
-import { useSessionsStore } from '@/lib/store/sessions';
+import { useSessionStore } from '@/lib/store/session-store';
 
 const navGroups = [
   {
-    label: 'Workspace',
+    label: '工作台',
     items: [
-      { href: '/space', label: 'Dashboard', icon: LayoutDashboard },
-      { href: '/chat', label: 'Chat', icon: MessageSquare },
-      { href: '/smartlearn', label: 'SmartLearn', icon: GraduationCap },
-      { href: '/book', label: 'Book', icon: Library },
-      { href: '/co-writer', label: 'Co-Writer', icon: PenLine },
-      { href: '/agents', label: 'Agents', icon: Bot },
-      { href: '/playground', label: 'Playground', icon: Zap },
+      { href: '/space', label: '总览', icon: LayoutDashboard },
+      { href: '/chat', label: '对话', icon: MessageSquare },
+      { href: '/smartlearn', label: '智能学习', icon: GraduationCap },
+      { href: '/book', label: '书籍', icon: Library },
+      { href: '/co-writer', label: '协作写作', icon: PenLine },
+      { href: '/agents', label: '智能体', icon: Bot },
+      { href: '/playground', label: '测试场', icon: Zap },
     ],
   },
   {
-    label: 'Data',
+    label: '数据',
     items: [
-      { href: '/knowledge', label: 'Knowledge', icon: Database },
-      { href: '/memory', label: 'Memory', icon: Brain },
-      { href: '/notebook', label: 'Notebook', icon: NotebookPen },
+      { href: '/knowledge', label: '知识库', icon: Database },
+      { href: '/memory', label: '记忆', icon: Brain },
+      { href: '/notebook', label: '笔记本', icon: NotebookPen },
     ],
   },
 ];
 
 const bottomItems = [
-  { href: '/profile', label: 'Profile', icon: User },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/profile', label: '个人资料', icon: User },
+  { href: '/settings', label: '设置', icon: Settings },
 ];
 
 export function Sidebar() {
@@ -61,7 +61,7 @@ export function Sidebar() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const mode = useAuthStore((s) => s.mode);
-  const sessions = useSessionsStore((s) => s.sessions);
+  const sessions = useSessionStore((s) => s.sessions);
 
   return (
     <aside
@@ -148,8 +148,8 @@ export function Sidebar() {
           .slice(0, 5);
         const dotColor: Record<string, string> = {
           active: 'bg-success',
-          paused: 'bg-warning',
           completed: 'bg-white/30',
+          failed: 'bg-destructive',
         };
         return (
           <div className="border-t border-sidebar-border px-3 py-3">
@@ -159,14 +159,14 @@ export function Sidebar() {
             <div className="flex flex-col gap-0.5">
               {recentSessions.length === 0 ? (
                 <div className="px-2 py-1.5 text-[12.5px] text-white/40">
-                  No recent sessions
+                  暂无最近会话
                 </div>
               ) : (
                 recentSessions.map((session) => (
                   <button
                     key={session.id}
                     onClick={() => {
-                      useSessionsStore.getState().switchSession(session.id);
+                      useSessionStore.getState().setActiveSession(session.id);
                       router.push('/chat');
                     }}
                     className="flex items-center gap-2 rounded-md px-2 py-1.5 text-[12.5px] text-white/70 hover:bg-sidebar-accent/50 hover:text-white cursor-pointer transition-colors text-left w-full"
@@ -210,7 +210,7 @@ export function Sidebar() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-[12px] font-medium text-white/90 truncate">
-                {user?.username ?? 'Guest'}
+                {user?.username ?? '访客'}
               </div>
               <div className="text-[11px] text-white/60">
                 {user?.role === 'admin' ? '管理员' : '用户'}

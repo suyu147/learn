@@ -46,11 +46,11 @@ const capabilities: {
   icon: React.ComponentType<{ className?: string }>;
   capabilityName: string;
 }[] = [
-  { id: 'chat', label: 'Chat', icon: MessageSquare, capabilityName: 'chat' },
-  { id: 'solve', label: 'Solve', icon: Lightbulb, capabilityName: 'deep_solve' },
-  { id: 'quiz', label: 'Quiz', icon: HelpCircle, capabilityName: 'mastery_path' },
-  { id: 'research', label: 'Research', icon: SearchIcon, capabilityName: 'deep_research' },
-  { id: 'visualize', label: 'Visualize', icon: BarChart3, capabilityName: 'visualize' },
+  { id: 'chat', label: '对话', icon: MessageSquare, capabilityName: 'chat' },
+  { id: 'solve', label: '解题', icon: Lightbulb, capabilityName: 'deep_solve' },
+  { id: 'quiz', label: '测验', icon: HelpCircle, capabilityName: 'mastery_path' },
+  { id: 'research', label: '研究', icon: SearchIcon, capabilityName: 'deep_research' },
+  { id: 'visualize', label: '可视化', icon: BarChart3, capabilityName: 'visualize' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -104,7 +104,7 @@ export default function ChatPage() {
     if (!activeSessionId) {
       const newSession = {
         id: `session-${Date.now()}`,
-        title: 'New Chat',
+        title: '新对话',
         mode: 'chat',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -228,13 +228,13 @@ export default function ChatPage() {
         body: formData,
       });
       if (!res.ok) {
-        const errBody = await res.json().catch(() => ({ error: 'Import failed' }));
+        const errBody = await res.json().catch(() => ({ error: '导入失败' }));
         throw new Error(errBody.error ?? `HTTP ${res.status}`);
       }
       const data = await res.json();
       setImportPreview(data.data ?? data);
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : 'Import failed');
+      setImportError(err instanceof Error ? err.message : '导入失败');
     } finally {
       setImportLoading(false);
     }
@@ -256,7 +256,7 @@ export default function ChatPage() {
         body: JSON.stringify({ content: importText }),
       });
       if (!res.ok) {
-        const errBody = await res.json().catch(() => ({ error: 'Import failed' }));
+        const errBody = await res.json().catch(() => ({ error: '导入失败' }));
         throw new Error(errBody.error ?? `HTTP ${res.status}`);
       }
       const data = await res.json();
@@ -267,7 +267,7 @@ export default function ChatPage() {
       for (const conv of conversations) {
         addSession({
           id: conv.id ?? `imported-${Date.now()}`,
-          title: conv.title ?? 'Imported Chat',
+          title: conv.title ?? '导入的对话',
           mode: 'chat',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -277,7 +277,7 @@ export default function ChatPage() {
       setImportOpen(false);
       setImportText('');
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : 'Import failed');
+      setImportError(err instanceof Error ? err.message : '导入失败');
     } finally {
       setImportLoading(false);
     }
@@ -313,17 +313,17 @@ export default function ChatPage() {
         <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-4">
           <div className="flex items-center gap-3">
             <h1 className="text-lg font-semibold text-[var(--foreground)]">
-              {currentSession?.title ?? 'Chat'}
+              {currentSession?.title ?? '对话'}
             </h1>
             <span className="px-2 py-0.5 text-[11px] font-medium rounded-full bg-[var(--primary)] text-[var(--primary-foreground)]">
-              {capabilities.find((c) => c.id === activeCapability)?.label ?? 'Chat'}
+              {capabilities.find((c) => c.id === activeCapability)?.label ?? '对话'}
             </span>
             {messages.length > 0 && (
               <button
                 onClick={clearMessages}
                 className="text-[11px] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
               >
-                Clear
+                清空
               </button>
             )}
           </div>
@@ -331,7 +331,7 @@ export default function ChatPage() {
             <button
               onClick={() => setImportOpen(true)}
               className="p-2 rounded-lg hover:bg-[var(--muted)] transition-colors"
-              title="Import chat history"
+              title="导入对话记录"
             >
               <Upload className="h-[18px] w-[18px] text-[var(--muted-foreground)]" />
             </button>
@@ -350,10 +350,10 @@ export default function ChatPage() {
             <div className="flex flex-col items-center justify-center h-full text-center">
               <Sparkles className="h-10 w-10 text-[var(--muted-foreground)] mb-4 opacity-40" />
               <h2 className="text-[16px] font-medium text-[var(--foreground)] mb-2">
-                Start a conversation
+                开始对话
               </h2>
               <p className="text-[13px] text-[var(--muted-foreground)] max-w-sm">
-                Ask questions, solve problems, or explore topics. Select a capability below to change the interaction mode.
+                提问、解题或探索话题。选择下方的功能模式来切换交互方式。
               </p>
             </div>
           )}
@@ -382,7 +382,7 @@ export default function ChatPage() {
                   <div className="flex items-center gap-2 mb-2">
                     <Bot className="h-4 w-4 text-[var(--primary)]" />
                     <span className="text-[11px] text-[var(--muted-foreground)]">
-                      Assistant
+                      助手
                     </span>
                   </div>
 
@@ -396,7 +396,7 @@ export default function ChatPage() {
                         <div className="flex items-center gap-2">
                           <Lightbulb className="h-3.5 w-3.5 text-[var(--primary)]" />
                           <span className="text-[12px] font-medium text-[var(--foreground)]">
-                            Thinking process
+                            思考过程
                           </span>
                         </div>
                         {thinkingExpanded ? (
@@ -446,7 +446,7 @@ export default function ChatPage() {
                       <button
                         onClick={() => handleRegenerate(msg.id)}
                         className="p-1 rounded hover:bg-[var(--muted)] transition-colors group"
-                        title="Regenerate response"
+                        title="重新生成"
                       >
                         <RefreshCw className="h-3.5 w-3.5 text-[var(--muted-foreground)] group-hover:text-[var(--foreground)]" />
                       </button>
@@ -464,7 +464,7 @@ export default function ChatPage() {
                 <div className="flex items-center gap-2 mb-2">
                   <Bot className="h-4 w-4 text-[var(--primary)]" />
                   <span className="text-[11px] text-[var(--muted-foreground)]">
-                    Assistant
+                    助手
                   </span>
                   {stream.stage && (
                     <span className="text-[10px] text-[var(--primary)] font-medium bg-[var(--primary)]/10 px-1.5 py-0.5 rounded">
@@ -483,7 +483,7 @@ export default function ChatPage() {
                       <div className="flex items-center gap-2">
                         <Lightbulb className="h-3.5 w-3.5 text-[var(--primary)] animate-pulse" />
                         <span className="text-[12px] font-medium text-[var(--foreground)]">
-                          Thinking...
+                          思考中...
                         </span>
                       </div>
                       {thinkingExpanded ? (
@@ -559,14 +559,14 @@ export default function ChatPage() {
             <div className="flex justify-start">
               <div className="bg-[var(--card)] border-2 border-[var(--primary)]/30 rounded-xl p-4 max-w-[70%]">
                 <p className="text-[13px] text-[var(--foreground)] mb-3">
-                  {stream.waitForInput.prompt || 'The assistant needs your input:'}
+                  {stream.waitForInput.prompt || '助手需要你的输入：'}
                 </p>
                 <div className="flex gap-2">
                   <input
                     ref={userInputRef}
                     type="text"
                     className="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--primary)]"
-                    placeholder="Your answer..."
+                    placeholder="输入你的回答..."
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && e.currentTarget.value.trim()) {
                         stream.submitInput(e.currentTarget.value.trim());
@@ -584,7 +584,7 @@ export default function ChatPage() {
                     }}
                     className="px-3 py-2 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-[13px] font-medium hover:opacity-90"
                   >
-                    Submit
+                    提交
                   </button>
                 </div>
               </div>
@@ -642,7 +642,7 @@ export default function ChatPage() {
                 value={messageInput}
                 onChange={handleTextareaChange}
                 onKeyDown={handleKeyDown}
-                placeholder="Type your message..."
+                placeholder="输入消息..."
                 className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)] resize-none min-h-[44px] max-h-[120px]"
                 rows={1}
                 disabled={stream.isStreaming}
@@ -669,7 +669,7 @@ export default function ChatPage() {
             )}
           </div>
           <p className="text-[11px] text-[var(--muted-foreground)] mt-2 text-center">
-            Enter to send · Shift+Enter for new line
+            回车发送 · Shift+回车换行
           </p>
         </div>
       </div>
@@ -680,11 +680,11 @@ export default function ChatPage() {
           {/* Agent Status */}
           <div className="space-y-2">
             <h3 className="text-[12px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
-              Agent Status
+              智能体状态
             </h3>
             <div className="bg-[var(--background)] rounded-lg p-3 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[12.5px] text-[var(--foreground)]">Status</span>
+                <span className="text-[12.5px] text-[var(--foreground)]">状态</span>
                 <span
                   className={cn(
                     'text-[11px] font-medium',
@@ -696,15 +696,15 @@ export default function ChatPage() {
                   )}
                 >
                   {stream.isStreaming
-                    ? 'Running'
+                    ? '运行中'
                     : stream.error
-                      ? 'Error'
-                      : 'Ready'}
+                      ? '错误'
+                      : '就绪'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[12.5px] text-[var(--foreground)]">
-                  Active tools
+                  活跃工具
                 </span>
                 <span className="text-[11px] text-[var(--muted-foreground)]">
                   {stream.toolCalls.filter((tc) => tc.status === 'running').length}
@@ -712,7 +712,7 @@ export default function ChatPage() {
               </div>
               {stream.stage && (
                 <div className="flex items-center justify-between">
-                  <span className="text-[12.5px] text-[var(--foreground)]">Stage</span>
+                  <span className="text-[12.5px] text-[var(--foreground)]">阶段</span>
                   <span className="text-[11px] text-[var(--primary)] font-medium">
                     {stream.stage}
                   </span>
@@ -729,7 +729,7 @@ export default function ChatPage() {
                 className="flex items-center gap-1 w-full"
               >
                 <h3 className="text-[12px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
-                  Tool Calls ({stream.toolCalls.length})
+                  工具调用 ({stream.toolCalls.length})
                 </h3>
                 {toolCallsExpanded ? (
                   <ChevronUp className="h-3 w-3 text-[var(--muted-foreground)]" />
@@ -765,7 +765,7 @@ export default function ChatPage() {
           {knowledgeBases.length > 0 && (
             <div className="space-y-2">
               <h3 className="text-[12px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
-                Knowledge Bases
+                知识库
               </h3>
               <div className="space-y-1.5">
                 {knowledgeBases.map((kb) => {
@@ -790,7 +790,7 @@ export default function ChatPage() {
                           {kb.name}
                         </span>
                         <span className="text-[10px] text-[var(--muted-foreground)]">
-                          {kb.documentCount} docs · {kb.blockCount} blocks
+                          {kb.documentCount} 文档 · {kb.blockCount} 块
                         </span>
                       </div>
                       <span
@@ -801,7 +801,7 @@ export default function ChatPage() {
                             : 'text-[var(--warning)]',
                         )}
                       >
-                        {kb.indexStatus === 'ready' ? 'Ready' : kb.indexStatus}
+                        {kb.indexStatus === 'ready' ? '就绪' : kb.indexStatus}
                       </span>
                     </button>
                   );
@@ -830,7 +830,7 @@ export default function ChatPage() {
           <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-[16px] font-semibold text-[var(--foreground)]">
-                Import Chat History
+                导入对话记录
               </h2>
               <button
                 onClick={() => {
@@ -846,13 +846,13 @@ export default function ChatPage() {
             </div>
 
             <p className="text-[13px] text-[var(--muted-foreground)] mb-4">
-              Import conversations from ChatGPT, Claude, or other platforms. Upload an exported file or paste the text directly.
+              从 ChatGPT、Claude 或其他平台导入对话。上传导出文件或直接粘贴文本。
             </p>
 
             {/* File upload */}
             <div className="mb-4">
               <label className="block text-[12px] font-medium text-[var(--foreground)] mb-1.5">
-                Upload file
+                上传文件
               </label>
               <input
                 type="file"
@@ -868,12 +868,12 @@ export default function ChatPage() {
             {/* Text paste */}
             <div className="mb-4">
               <label className="block text-[12px] font-medium text-[var(--foreground)] mb-1.5">
-                Or paste chat text
+                或粘贴对话文本
               </label>
               <textarea
                 value={importText}
                 onChange={(e) => setImportText(e.target.value)}
-                placeholder="Paste exported chat history here..."
+                placeholder="在此粘贴导出的对话记录..."
                 rows={4}
                 className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--primary)] resize-none"
               />
@@ -883,11 +883,11 @@ export default function ChatPage() {
             {importPreview && (
               <div className="mb-4 p-3 bg-[var(--background)] border border-[var(--border)] rounded-lg">
                 <p className="text-[12px] font-medium text-[var(--foreground)] mb-1">
-                  Preview
+                  预览
                 </p>
                 {importPreview.conversations?.map((conv, i) => (
                   <div key={i} className="text-[12px] text-[var(--muted-foreground)]">
-                    {conv.title} — {conv.messageCount} messages ({conv.format})
+                    {conv.title} — {conv.messageCount} 条消息 ({conv.format})
                   </div>
                 ))}
               </div>
@@ -911,7 +911,7 @@ export default function ChatPage() {
                 }}
                 className="px-4 py-2 rounded-lg text-[13px] font-medium text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"
               >
-                Cancel
+                取消
               </button>
               <button
                 onClick={handleImportText}
@@ -924,7 +924,7 @@ export default function ChatPage() {
                 {importLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  'Import'
+                  '导入'
                 )}
               </button>
             </div>

@@ -46,7 +46,7 @@ import type { ProviderId } from '@/lib/types/provider';
 export class DeepResearchCapability extends LoopCapability {
   readonly manifest = createCapabilityManifest({
     name: 'deep_research',
-    description: 'Multi-phase deep research with sub-topic decomposition, citations, and structured reporting',
+    description: '多阶段深度研究 — 子主题分解、引用与结构化报告',
     stages: ['rephrasing', 'decomposing', 'researching', 'reporting'],
     toolsUsed: [
       'rag',
@@ -153,7 +153,7 @@ export class DeepResearchCapability extends LoopCapability {
     } catch (error) {
       endDecomposing();
       const errorMsg = error instanceof Error ? error.message : String(error);
-      bus.emitError(`Research failed: ${errorMsg}`, 'deep_research');
+      bus.emitError(`深度研究失败: ${errorMsg}`, 'deep_research');
       return;
     }
 

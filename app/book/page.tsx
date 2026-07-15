@@ -407,7 +407,7 @@ export default function BookPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h1 className="text-lg font-semibold text-[var(--foreground)]">
-                    {activeBook.book.proposal?.title ?? 'Untitled'}
+                    {activeBook.book.proposal?.title ?? '未命名'}
                   </h1>
                   <p className="text-[12px] text-[var(--muted-foreground)] mt-0.5">
                     {activeBook.book.proposal?.description}
@@ -590,13 +590,13 @@ export default function BookPage() {
                               ) : block.type === 'concept_graph' ? (
                                 <div className="bg-[var(--background)] rounded-lg p-4">
                                   <pre className="font-mono text-[11px] text-[var(--foreground)] leading-relaxed whitespace-pre-wrap">
-                                    {(block.payload.mermaid as string) || 'graph TD\n  A["No concepts"]'}
+                                    {(block.payload.mermaid as string) || 'graph TD\n  A["暂无概念"]'}
                                   </pre>
                                 </div>
                               ) : block.type === 'quiz' ? (
                                 <div className="space-y-2">
                                   <p className="text-[13.5px] font-medium text-[var(--foreground)]">
-                                    {(block.payload.question as string) || 'Quiz question'}
+                                    {(block.payload.question as string) || '测验题目'}
                                   </p>
                                   {Array.isArray(block.payload.options) &&
                                     (block.payload.options as string[]).map((opt, i) => (

@@ -18,8 +18,8 @@ interface SkillPack {
 const DEFAULT_SKILL_PACKS: SkillPack[] = [
   {
     id: 'code_interpreter',
-    name: 'Code Interpreter',
-    description: 'Execute Python, JavaScript, and TypeScript code in a sandboxed environment',
+    name: '代码解释器',
+    description: '在沙盒环境中执行 Python、JavaScript 和 TypeScript 代码',
     icon: Code,
     tools: ['python_exec', 'js_exec', 'ts_exec', 'shell_exec'],
     enabled: true,
@@ -27,8 +27,8 @@ const DEFAULT_SKILL_PACKS: SkillPack[] = [
   },
   {
     id: 'web_scraper',
-    name: 'Web Scraper',
-    description: 'Extract content from web pages, parse HTML, and follow links',
+    name: '网页抓取',
+    description: '从网页中提取内容、解析 HTML 和跟踪链接',
     icon: Globe,
     tools: ['fetch_url', 'parse_html', 'extract_tables', 'follow_links'],
     enabled: true,
@@ -36,8 +36,8 @@ const DEFAULT_SKILL_PACKS: SkillPack[] = [
   },
   {
     id: 'math_solver',
-    name: 'Math Solver',
-    description: 'Advanced mathematical computation, symbolic algebra, and equation solving',
+    name: '数学求解',
+    description: '高级数学计算、符号代数和方程求解',
     icon: Calculator,
     tools: ['symbolic_math', 'numeric_solve', 'plot_graph', 'matrix_ops'],
     enabled: true,
@@ -45,8 +45,8 @@ const DEFAULT_SKILL_PACKS: SkillPack[] = [
   },
   {
     id: 'document_reader',
-    name: 'Document Reader',
-    description: 'Parse and extract text from PDF, DOCX, PPTX, and other document formats',
+    name: '文档阅读器',
+    description: '解析和提取 PDF、DOCX、PPTX 等文档格式的文本',
     icon: FileText,
     tools: ['parse_pdf', 'parse_docx', 'parse_pptx', 'parse_csv'],
     enabled: true,
@@ -54,8 +54,8 @@ const DEFAULT_SKILL_PACKS: SkillPack[] = [
   },
   {
     id: 'image_analyzer',
-    name: 'Image Analyzer',
-    description: 'Analyze images with OCR, object detection, and visual description',
+    name: '图像分析',
+    description: '通过 OCR、目标检测和视觉描述分析图像',
     icon: Image,
     tools: ['ocr_extract', 'describe_image', 'detect_objects', 'compare_images'],
     enabled: false,
@@ -63,8 +63,8 @@ const DEFAULT_SKILL_PACKS: SkillPack[] = [
   },
   {
     id: 'knowledge_builder',
-    name: 'Knowledge Builder',
-    description: 'Build and maintain a personal knowledge graph from conversations',
+    name: '知识构建器',
+    description: '从对话中构建和维护个人知识图谱',
     icon: BookOpen,
     tools: ['extract_entities', 'build_graph', 'query_graph', 'merge_knowledge'],
     enabled: false,
@@ -72,8 +72,8 @@ const DEFAULT_SKILL_PACKS: SkillPack[] = [
   },
   {
     id: 'api_connector',
-    name: 'API Connector',
-    description: 'Make HTTP requests to external APIs with authentication support',
+    name: 'API 连接器',
+    description: '发起带认证支持的 HTTP 请求到外部 API',
     icon: Wrench,
     tools: ['http_get', 'http_post', 'auth_header', 'parse_json'],
     enabled: false,
@@ -105,10 +105,10 @@ export default function SkillsSettingsPage() {
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">
           <Puzzle className="inline h-5 w-5 mr-2 -mt-0.5" />
-          Skill Pack Management
+          技能包管理
         </h1>
         <p className="text-[13px] text-[var(--muted-foreground)]">
-          Enable or disable skill packs to customize the agent&apos;s capabilities. ({enabledCount}/{skillPacks.length} active)
+          启用或禁用技能包以自定义代理的能力。({enabledCount}/{skillPacks.length} 已激活)
         </p>
       </div>
 
@@ -125,7 +125,7 @@ export default function SkillsSettingsPage() {
                 : 'bg-[var(--muted)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]'
             )}
           >
-            {cat === 'all' ? 'All' : cat}
+            {cat === 'all' ? '全部' : cat}
           </button>
         ))}
       </div>
@@ -204,13 +204,13 @@ export default function SkillsSettingsPage() {
           onClick={() => setSkillPacks((packs) => packs.map((p) => ({ ...p, enabled: true })))}
           className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors"
         >
-          Enable All
+          全部启用
         </button>
         <button
           onClick={() => setSkillPacks((packs) => packs.map((p) => ({ ...p, enabled: false })))}
           className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors"
         >
-          Disable All
+          全部禁用
         </button>
       </div>
 
@@ -222,7 +222,7 @@ export default function SkillsSettingsPage() {
 
       <div className="mt-4 p-4 rounded-lg bg-[var(--card)] border border-[var(--border)]">
         <p className="text-[12px] text-[var(--muted-foreground)]">
-          Skill packs group related tools into reusable capability bundles. Disabled packs will not be available during conversations. Changes take effect on the next new conversation.
+          技能包将相关工具组合成可复用的能力模块。禁用的技能包在对话中不可用。更改将在下次新建对话时生效。
         </p>
       </div>
     </div>

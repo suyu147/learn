@@ -28,6 +28,8 @@ interface SessionState {
   setActiveSession: (id: string) => void;
   updateSession: (id: string, updates: Partial<Session>) => void;
   getSessionsByMode: (mode: string) => Session[];
+  /** Clear all sessions and reset sessionsLoaded so fetchSessions will re-fetch */
+  resetSessions: () => void;
   // Server sync methods (all non-blocking / fire-and-forget)
   fetchSessions: () => Promise<void>;
   createSessionOnServer: (session: Session) => Promise<void>;
@@ -67,6 +69,10 @@ export const useSessionStore = create<SessionState>()(
 
       getSessionsByMode: (mode) =>
         get().sessions.filter((s) => s.mode === mode),
+
+      resetSessions: () => {
+        set({ sessions: [], activeSessionId: null, sessionsLoaded: false });
+      },
 
       // ------------------------------------------------------------------
       // Server sync (all non-blocking — errors caught and logged silently)

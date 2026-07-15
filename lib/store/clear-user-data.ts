@@ -4,24 +4,25 @@
  */
 
 // List of all localStorage keys used by Zustand stores that need to be cleared on logout
+// IMPORTANT: Keep in sync with the `name` option in each store's persist() middleware
 const PERSISTED_STORE_KEYS = [
   'auth-jwt',
   'user-profile-storage',
   'learning-profile-storage',
   'chat-storage',
-  'session-storage',
+  'sl-session-storage',
+  'learning-sessions-storage',
+  'sl-settings-storage',
   'settings-storage',
-  'book-store',
-  'knowledge-store',
-  'memory-store',
-  'cowriter-store',
+  'sl-book-storage',
+  'sl-knowledge-storage',
+  'sl-memory-storage',
+  'sl-cowriter-storage',
   'resources-storage',
   'learning-path-storage',
-  'ui-store',
-  'settings',
-  'agent-activity',
-  'resource-decisions',
-  'sessions-storage',
+  'sl-ui-storage',
+  'agent-activity-storage',
+  'resource-decisions-storage',
 ] as const;
 
 export function clearAllUserData(): void {

@@ -67,7 +67,7 @@ export interface SummaryPayload {
 export class MathAnimatorCapability extends PipelineCapability {
   readonly manifest = createCapabilityManifest({
     name: 'math_animator',
-    description: 'Math concept animation with Manim code generation and rendering',
+    description: '数学概念动画 — Manim 代码生成与渲染',
     stages: ['concept_analysis', 'concept_design', 'code_generation', 'code_retry', 'summary', 'render_output'],
     toolsUsed: [],
     cliAliases: ['animate', 'math_animator'],
@@ -98,7 +98,7 @@ export class MathAnimatorCapability extends PipelineCapability {
     try {
       // Stage 1: Concept Analysis
       const endAnalysis = bus.enterStage('concept_analysis', 'math_animator');
-      bus.emitThinking('Analyzing the math concept...', 'math_animator');
+      bus.emitThinking('正在分析数学概念...', 'math_animator');
 
       const analysisResult = await generateText({
         model,
@@ -124,7 +124,7 @@ export class MathAnimatorCapability extends PipelineCapability {
 
       // Stage 2: Concept Design
       const endDesign = bus.enterStage('concept_design', 'math_animator');
-      bus.emitThinking('Designing the animation scene...', 'math_animator');
+      bus.emitThinking('正在设计动画场景...', 'math_animator');
 
       const designResult = await generateText({
         model,
@@ -150,7 +150,7 @@ export class MathAnimatorCapability extends PipelineCapability {
 
       // Stage 3: Code Generation
       const endCodeGen = bus.enterStage('code_generation', 'math_animator');
-      bus.emitThinking('Generating Manim code...', 'math_animator');
+      bus.emitThinking('正在生成 Manim 代码...', 'math_animator');
 
       const codeResult = await generateText({
         model,
@@ -173,7 +173,7 @@ export class MathAnimatorCapability extends PipelineCapability {
 
       // Stage 4: Code Retry (validate)
       const endRetry = bus.enterStage('code_retry', 'math_animator');
-      bus.emitThinking('Validating and preparing render...', 'math_animator');
+      bus.emitThinking('正在验证并准备渲染...', 'math_animator');
 
       let currentCode = generated.code;
       const hasMainScene = currentCode.includes('class MainScene');
@@ -194,7 +194,7 @@ export class MathAnimatorCapability extends PipelineCapability {
 
       // Stage 5: Summary
       const endSummary = bus.enterStage('summary', 'math_animator');
-      bus.emitThinking('Generating summary...', 'math_animator');
+      bus.emitThinking('正在生成摘要...', 'math_animator');
 
       const summaryResult = await generateText({
         model,
@@ -224,15 +224,15 @@ export class MathAnimatorCapability extends PipelineCapability {
         '',
         summary.summaryText,
         '',
-        '### Key Points',
+        '### 要点',
         ...summary.keyPoints.map((p) => `- ${p}`),
         '',
-        '### Manim Source',
+        '### Manim 源码',
         '```python',
         currentCode,
         '```',
         '',
-        `**Output:** ${outputMode} | **Quality:** ${quality}`,
+        `**输出：** ${outputMode} | **质量：** ${quality}`,
       ].join('\n');
 
       bus.emitContent(output, 'math_animator');
@@ -242,7 +242,7 @@ export class MathAnimatorCapability extends PipelineCapability {
       log.info('Math animator completed successfully');
     } catch (err) {
       log.error('Math animator failed:', err);
-      bus.emitError(`Math animation failed: ${err instanceof Error ? err.message : String(err)}`, 'math_animator');
+      bus.emitError(`数学动画失败: ${err instanceof Error ? err.message : String(err)}`, 'math_animator');
     }
   }
 }

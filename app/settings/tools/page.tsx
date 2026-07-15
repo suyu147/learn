@@ -46,38 +46,38 @@ function ToolToggle({ name, description, enabled, onToggle }: ToolToggleProps) {
 const DEFAULT_TOOLS = [
   {
     id: 'web_search',
-    name: 'Web Search',
-    description: 'Allow the agent to search the internet for up-to-date information',
+    name: '网络搜索',
+    description: '允许代理搜索互联网获取最新信息',
     enabled: true,
   },
   {
     id: 'code_execution',
-    name: 'Code Execution',
-    description: 'Allow the agent to run Python code for computation and validation',
+    name: '代码执行',
+    description: '允许代理运行 Python 代码进行计算和验证',
     enabled: true,
   },
   {
     id: 'reason',
-    name: 'Reasoning Chain',
-    description: 'Enable step-by-step reasoning with full thought process',
+    name: '推理链',
+    description: '启用带完整思考过程的逐步推理',
     enabled: true,
   },
   {
     id: 'rag',
-    name: 'Knowledge Retrieval',
-    description: 'Retrieve relevant document fragments from indexed knowledge bases',
+    name: '知识检索',
+    description: '从索引的知识库中检索相关文档片段',
     enabled: true,
   },
   {
     id: 'brainstorm',
-    name: 'Brainstorm',
-    description: 'Generate multiple creative ideas and directions',
+    name: '头脑风暴',
+    description: '生成多个创意想法和方向',
     enabled: true,
   },
   {
     id: 'paper_search',
-    name: 'Paper Search',
-    description: 'Search academic papers and research publications',
+    name: '论文搜索',
+    description: '搜索学术论文和研究成果',
     enabled: false,
   },
 ];
@@ -95,10 +95,10 @@ export default function ToolsPage() {
     <div className="p-6 max-w-2xl">
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-[var(--foreground)] mb-1">
-          Tools
+          工具
         </h1>
         <p className="text-[13px] text-[var(--muted-foreground)]">
-          Manage external tools available to the agent ({enabledCount}/{tools.length} enabled)
+          管理代理可用的外部工具（已启用 {enabledCount}/{tools.length} 项）
         </p>
       </div>
 
@@ -119,19 +119,19 @@ export default function ToolsPage() {
           onClick={() => setTools(tools.map((t) => ({ ...t, enabled: true })))}
           className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors"
         >
-          Enable All
+          全部启用
         </button>
         <button
           onClick={() => setTools(tools.map((t) => ({ ...t, enabled: false })))}
           className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors"
         >
-          Disable All
+          全部禁用
         </button>
       </div>
 
       <div className="mt-6 p-4 rounded-lg bg-[var(--card)] border border-[var(--border)]">
         <p className="text-[12px] text-[var(--muted-foreground)]">
-          Tool settings apply to new conversations. The enabled tool set is sent with each turn request.
+          工具设置适用于新对话。启用的工具集会随每次请求一起发送。
         </p>
       </div>
     </div>

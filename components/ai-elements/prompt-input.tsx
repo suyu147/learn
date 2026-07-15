@@ -279,7 +279,7 @@ export function PromptInputAttachment({ data, className, ...props }: PromptInput
   const mediaType = data.mediaType?.startsWith('image/') && data.url ? 'image' : 'file';
   const isImage = mediaType === 'image';
 
-  const attachmentLabel = filename || (isImage ? 'Image' : 'Attachment');
+  const attachmentLabel = filename || (isImage ? '图片' : '附件');
 
   return (
     <PromptInputHoverCard>
@@ -296,7 +296,7 @@ export function PromptInputAttachment({ data, className, ...props }: PromptInput
             <div className="absolute inset-0 flex size-5 items-center justify-center overflow-hidden rounded bg-background transition-opacity group-hover:opacity-0">
               {isImage ? (
                 <img
-                  alt={filename || 'attachment'}
+                  alt={filename || '附件'}
                   className="size-5 object-cover"
                   height={20}
                   src={data.url}
@@ -309,7 +309,7 @@ export function PromptInputAttachment({ data, className, ...props }: PromptInput
               )}
             </div>
             <Button
-              aria-label="Remove attachment"
+              aria-label="移除附件"
               className="absolute inset-0 size-5 cursor-pointer rounded p-0 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 [&>svg]:size-2.5"
               onClick={(e) => {
                 e.stopPropagation();
@@ -319,7 +319,7 @@ export function PromptInputAttachment({ data, className, ...props }: PromptInput
               variant="ghost"
             >
               <XIcon />
-              <span className="sr-only">Remove</span>
+              <span className="sr-only">移除</span>
             </Button>
           </div>
 
@@ -331,7 +331,7 @@ export function PromptInputAttachment({ data, className, ...props }: PromptInput
           {isImage && (
             <div className="flex max-h-96 w-96 items-center justify-center overflow-hidden rounded-md border">
               <img
-                alt={filename || 'attachment preview'}
+                alt={filename || '附件预览'}
                 className="max-h-full max-w-full object-contain"
                 height={384}
                 src={data.url}
@@ -342,7 +342,7 @@ export function PromptInputAttachment({ data, className, ...props }: PromptInput
           <div className="flex items-center gap-2.5">
             <div className="min-w-0 flex-1 space-y-1 px-0.5">
               <h4 className="truncate font-semibold text-sm leading-none">
-                {filename || (isImage ? 'Image' : 'Attachment')}
+                {filename || (isImage ? '图片' : '附件')}
               </h4>
               {data.mediaType && (
                 <p className="truncate font-mono text-muted-foreground text-xs">{data.mediaType}</p>
@@ -384,7 +384,7 @@ export type PromptInputActionAddAttachmentsProps = ComponentProps<typeof Dropdow
 };
 
 export const PromptInputActionAddAttachments = ({
-  label = 'Add photos or files',
+  label = '添加图片或文件',
   ...props
 }: PromptInputActionAddAttachmentsProps) => {
   const attachments = usePromptInputAttachments();
@@ -488,7 +488,7 @@ export const PromptInput = ({
       if (incoming.length && accepted.length === 0) {
         onError?.({
           code: 'accept',
-          message: 'No files match the accepted types.',
+          message: '没有匹配的文件类型。',
         });
         return;
       }
@@ -497,7 +497,7 @@ export const PromptInput = ({
       if (accepted.length > 0 && sized.length === 0) {
         onError?.({
           code: 'max_file_size',
-          message: 'All files exceed the maximum size.',
+          message: '所有文件均超出大小限制。',
         });
         return;
       }
@@ -509,7 +509,7 @@ export const PromptInput = ({
         if (typeof capacity === 'number' && sized.length > capacity) {
           onError?.({
             code: 'max_files',
-            message: 'Too many files. Some were not added.',
+            message: '文件数量过多，部分文件未添加。',
           });
         }
         const next: (FileUIPart & { id: string })[] = [];
@@ -740,12 +740,12 @@ export const PromptInput = ({
     <>
       <input
         accept={accept}
-        aria-label="Upload files"
+        aria-label="上传文件"
         className="hidden"
         multiple={multiple}
         onChange={handleChange}
         ref={inputRef}
-        title="Upload files"
+        title="上传文件"
         type="file"
       />
       <form className={cn('w-full', className)} onSubmit={handleSubmit} ref={formRef} {...props}>
@@ -772,7 +772,7 @@ export type PromptInputTextareaProps = ComponentProps<typeof InputGroupTextarea>
 export const PromptInputTextarea = ({
   onChange,
   className,
-  placeholder = 'What would you like to know?',
+  placeholder = '你想了解什么？',
   ...props
 }: PromptInputTextareaProps) => {
   const controller = useOptionalPromptInputController();
@@ -967,7 +967,7 @@ export const PromptInputSubmit = ({
 
   return (
     <InputGroupButton
-      aria-label="Submit"
+      aria-label="发送"
       className={cn(className)}
       size={size}
       type="submit"

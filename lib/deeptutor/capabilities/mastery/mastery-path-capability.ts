@@ -45,7 +45,7 @@ import type { ProviderId } from '@/lib/types/provider';
 export class MasteryPathCapability extends LoopCapability {
   readonly manifest = createCapabilityManifest({
     name: 'mastery_path',
-    description: 'Learning mastery cycle — assess, quiz, grade, and build study plans',
+    description: '学习掌握循环 — 评估、测验、评分和构建学习计划',
     stages: ['assess', 'quiz', 'grade', 'build_plan'],
     toolsUsed: [
       'mastery_status',
@@ -156,7 +156,7 @@ export class MasteryPathCapability extends LoopCapability {
     } catch (error) {
       endQuiz();
       const errorMsg = error instanceof Error ? error.message : String(error);
-      bus.emitError(`Mastery path failed: ${errorMsg}`, 'mastery_path');
+      bus.emitError(`掌握路径失败: ${errorMsg}`, 'mastery_path');
       return;
     }
 
