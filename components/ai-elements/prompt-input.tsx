@@ -1039,7 +1039,7 @@ export const PromptInputSpeechButton = ({
   ...props
 }: PromptInputSpeechButtonProps) => {
   const [isListening, setIsListening] = useState(false);
-  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+  const [isSupported, setIsSupported] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   useEffect(() => {
@@ -1047,6 +1047,28 @@ export const PromptInputSpeechButton = ({
       typeof window !== 'undefined' &&
       ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
     ) {
+      setIsSupported(true);
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+    };
+  }, []);
+
+  const toggleListening = useCallback(() => {
+    if (!isSupported) return;
+
+    if (isListening) {
+      // Stop and discard the current instance
+      recognitionRef.current?.stop();
+      recognitionRef.current = null;
+      setIsListening(false);
+    } else {
+      // Create a fresh SpeechRecognition instance each time to avoid
+      // stale results from previous sessions leaking into the textarea.
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       const speechRecognition = new SpeechRecognition();
 
@@ -1089,27 +1111,9 @@ export const PromptInputSpeechButton = ({
       };
 
       recognitionRef.current = speechRecognition;
-      setRecognition(speechRecognition);
+      speechRecognition.start();
     }
-
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    };
-  }, [textareaRef, onScriptionChange]);
-
-  const toggleListening = useCallback(() => {
-    if (!recognition) {
-      return;
-    }
-
-    if (isListening) {
-      recognition.stop();
-    } else {
-      recognition.start();
-    }
-  }, [recognition, isListening]);
+  }, [isSupported, isListening, textareaRef, onScriptionChange]);
 
   return (
     <PromptInputButton
@@ -1118,7 +1122,7 @@ export const PromptInputSpeechButton = ({
         isListening && 'animate-pulse bg-accent text-accent-foreground',
         className,
       )}
-      disabled={!recognition}
+      disabled={!isSupported}
       onClick={toggleListening}
       {...props}
     >

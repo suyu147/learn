@@ -22,7 +22,7 @@ import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api-client';
 
 interface Notebook {
   id: string;
-  title: string;
+  name: string;
   description: string;
   noteCount: number;
   createdAt: string;
@@ -98,7 +98,7 @@ export default function NotebookPage() {
     setCreating(true);
     try {
       const data = await apiPost<{ notebook: Notebook }>('/api/v1/notebook', {
-        title: newTitle.trim(),
+        name: newTitle.trim(),
         description: newDesc.trim(),
       });
       setNotebooks((prev) => [...prev, data.notebook]);
@@ -163,7 +163,7 @@ export default function NotebookPage() {
   // Filter notebooks by search
   const filteredNotebooks = notebooks.filter(
     (nb) =>
-      nb.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      nb.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       nb.description?.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
@@ -280,7 +280,7 @@ export default function NotebookPage() {
                   <div className="flex items-start justify-between">
                     <div className="min-w-0 flex-1">
                       <p className="text-[13px] font-medium text-[var(--foreground)] truncate">
-                        {nb.title}
+                        {nb.name}
                       </p>
                       {nb.description && (
                         <p className="text-[11px] text-[var(--muted-foreground)] truncate mt-0.5">
@@ -313,7 +313,7 @@ export default function NotebookPage() {
         <div className="p-4 border-b border-[var(--border)]">
           <h3 className="text-[13px] font-semibold text-[var(--foreground)]">
             {selectedNotebook
-              ? notebooks.find((nb) => nb.id === selectedNotebook)?.title ?? '笔记'
+              ? notebooks.find((nb) => nb.id === selectedNotebook)?.name ?? '笔记'
               : '选择笔记本'}
           </h3>
         </div>
