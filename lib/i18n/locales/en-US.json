@@ -1098,7 +1098,8 @@
     "lastUpdated": "Last updated: {{time}}",
     "confirmDelete": "Are you sure you want to delete this document?",
     "selectDocOrCreate": "Select a document or create a new one",
-    "cowriterDesc": "Co-Writer supports AI-assisted writing: rewrite, shorten, expand, summarize"
+    "cowriterDesc": "Co-Writer supports AI-assisted writing: rewrite, shorten, expand, summarize",
+    "apiError": "API request failed. Check your network and login status."
   },
   "playground": {
     "testTool": "Test Tool",

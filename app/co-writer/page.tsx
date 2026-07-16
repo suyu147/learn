@@ -85,6 +85,7 @@ export default function CoWriterPage() {
   const [showInstruction, setShowInstruction] = useState(false)
   const [viewMode, setViewMode] = useState<'split' | 'editor' | 'preview'>('split')
   const [dirty, setDirty] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Cleanup auto-save timer on unmount
@@ -101,8 +102,10 @@ export default function CoWriterPage() {
     try {
       const list = await apiGet<DocSummary[]>('/api/v1/co-writer')
       setDocs(list)
-    } catch {
-      // API might be down, use empty list
+      setError(null)
+    } catch (err: any) {
+      // API might be down or auth required
+      setError(err?.message ?? t('cowriter.apiError'))
       setDocs([])
     } finally {
       setLoading(false)
@@ -135,6 +138,7 @@ export default function CoWriterPage() {
       store.setActiveDoc(id)
       setActiveDoc(mapped)
       setDirty(false)
+      setError(null)
     } catch {
     }
   }, [store])
@@ -158,7 +162,8 @@ export default function CoWriterPage() {
       })
       await fetchDocs()
       await loadDoc(doc.id)
-    } catch {
+    } catch (err: any) {
+      setError(err?.message ?? t('cowriter.apiError'))
     }
   }, [store, fetchDocs, loadDoc])
 
@@ -252,8 +257,11 @@ export default function CoWriterPage() {
             prev ? { ...prev, content: result.editedText } : null,
           )
           store.updateDocContent(activeDoc.id, result.editedText)
+        } else if (result.editedText?.startsWith('[')) {
+          setError(result.editedText)
         }
-      } catch {
+      } catch (err: any) {
+        setError(err?.message ?? t('cowriter.apiError'))
       } finally {
         setEditing(false)
         setEditAction(null)
@@ -322,19 +330,22 @@ export default function CoWriterPage() {
                     {doc.title}
                   </div>
                   <div className="text-[11px] text-[var(--muted-foreground)] mt-0.5 line-clamp-2">
-                    {doc.preview.slice(0, 80)}
+                    {doc.preview?.slice(0, 80) || ''}
                   </div>
                   <div className="text-[10px] text-[var(--muted-foreground)] mt-1 flex items-center gap-1">
                     <Clock className="h-2.5 w-2.5" />
                     {new Date(doc.updatedAt).toLocaleDateString(locale)}
                   </div>
                 </div>
-                <button
+                <span
+                  role="button"
+                  tabIndex={0}
                   onClick={(e) => deleteDoc(doc.id, e)}
-                  className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[var(--destructive)]/10 transition-all"
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') deleteDoc(doc.id, e as any) }}
+                  className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[var(--destructive)]/10 transition-all cursor-pointer"
                 >
                   <Trash2 className="h-3 w-3 text-[var(--destructive)]" />
-                </button>
+                </span>
               </button>
             ))
           )}
@@ -499,6 +510,21 @@ export default function CoWriterPage() {
                     {t('common.cancel')}
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* Error banner */}
+            {error && (
+              <div className="border-b border-[var(--destructive)]/30 px-4 py-2 bg-[var(--destructive)]/10 flex items-center justify-between">
+                <span className="text-[12px] text-[var(--destructive)]">{error}</span>
+                <button
+                  onClick={() => setError(null)}
+                  className="p-1 rounded hover:bg-[var(--destructive)]/20 transition-colors"
+                >
+                  <svg className="h-3.5 w-3.5 text-[var(--destructive)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
             )}
 

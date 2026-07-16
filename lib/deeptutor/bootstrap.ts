@@ -66,6 +66,7 @@ import { MCPService } from '@/lib/deeptutor/services/mcp';
 import { CoWriterStorage, EditAgent, OperationHistory } from '@/lib/deeptutor/services/co-writer';
 // Phase 4b — Book Engine
 import { BookEngine, BookStorage } from '@/lib/deeptutor/services/book';
+import { resolveApiKey, resolveProviderId, resolveModelId, resolveBaseUrl } from '@/lib/server/resolve-model';
 // Phase 5 — Obsidian
 import { createObsidianTools, setObsidianToolContext } from '@/lib/deeptutor/tools/obsidian';
 import { ObsidianCapability } from '@/lib/deeptutor/capabilities/obsidian';
@@ -392,7 +393,14 @@ function bootstrap(): {
   // 5. Phase 4a — Co-Writer
   // -----------------------------------------------------------------------
   const coWriterStorage = new CoWriterStorage();
-  const editAgent = new EditAgent();
+  // Use the main AI provider for the EditAgent (same as the rest of the app)
+  const editProviderId = resolveProviderId();
+  const editAgent = new EditAgent({
+    providerId: editProviderId,
+    modelId: resolveModelId(),
+    apiKey: resolveApiKey(editProviderId),
+    baseUrl: resolveBaseUrl(),
+  });
   const operationHistory = new OperationHistory();
 
   log.info('Phase 4a: initialized CoWriterStorage, EditAgent, OperationHistory');
@@ -401,10 +409,12 @@ function bootstrap(): {
   // 6. Phase 4b — Book Engine
   // -----------------------------------------------------------------------
   const bookStorage = new BookStorage();
+  const pid = resolveProviderId();
   const bookEngine = new BookEngine(bookStorage, {
-    providerId: process.env.DT_DEFAULT_PROVIDER,
-    modelId: process.env.DT_DEFAULT_MODEL,
-    apiKey: process.env.DT_DEFAULT_API_KEY ?? process.env.OPENAI_API_KEY,
+    providerId: pid,
+    modelId: resolveModelId(),
+    apiKey: resolveApiKey(pid),
+    baseUrl: resolveBaseUrl(),
     language: 'zh',
   });
 
@@ -603,11 +613,12 @@ export function createBookEngineWithConfig(config?: {
   language?: string;
 }): BookEngine {
   const storage = bootstrap().bookStorage;
+  const pid = resolveProviderId(config?.providerId);
   return new BookEngine(storage, {
-    providerId: config?.providerId || process.env.DT_DEFAULT_PROVIDER,
-    modelId: config?.modelId || process.env.DT_DEFAULT_MODEL,
-    apiKey: config?.apiKey || process.env.DT_DEFAULT_API_KEY || process.env.OPENAI_API_KEY,
-    baseUrl: config?.baseUrl,
+    providerId: pid,
+    modelId: resolveModelId(config?.modelId),
+    apiKey: resolveApiKey(pid, config?.apiKey),
+    baseUrl: config?.baseUrl || resolveBaseUrl(),
     language: config?.language || 'zh',
   });
 }

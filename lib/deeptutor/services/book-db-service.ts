@@ -45,7 +45,7 @@ export class BookDbService {
     }
   }
 
-  async createBook(userId: string, data: { title: string; subtitle?: string; coverGradient?: string }): Promise<BookRecord | null> {
+  async createBook(userId: string, data: { id?: string; title: string; subtitle?: string; coverGradient?: string }): Promise<BookRecord | null> {
     try {
       await prisma.user.upsert({
         where: { id: userId },
@@ -53,14 +53,15 @@ export class BookDbService {
         create: { id: userId, name: 'anonymous' },
       });
 
-      return await prisma.book.create({
-        data: {
-          userId,
-          title: data.title,
-          subtitle: data.subtitle,
-          coverGradient: data.coverGradient,
-        },
-      }) as BookRecord;
+      const createData: Record<string, unknown> = {
+        userId,
+        title: data.title,
+        subtitle: data.subtitle,
+        coverGradient: data.coverGradient,
+      };
+      if (data.id) createData.id = data.id;
+
+      return await prisma.book.create({ data: createData as any }) as BookRecord;
     } catch (err) {
       log.error('createBook failed:', err);
       return null;

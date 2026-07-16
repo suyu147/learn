@@ -115,6 +115,14 @@ export function ProfileChat({ mode = 'embedded', onComplete, onDimensionsUpdate 
       if (token) {
         reqHeaders['Authorization'] = `Bearer ${token}`;
       }
+      // Only pass aiConfig when the user has actually configured a provider and API key.
+      // Passing empty defaults (providerId='spark', apiKey='') overrides the server's
+      // .env configuration and causes LLM calls to fail with "API key required".
+      const effectiveAiConfig =
+        providerId && apiKey
+          ? { providerId, modelId, apiKey, baseUrl }
+          : undefined;
+
       const response = await fetch('/api/profile/chat', {
         method: 'POST',
         headers: reqHeaders,
@@ -122,7 +130,7 @@ export function ProfileChat({ mode = 'embedded', onComplete, onDimensionsUpdate 
           message: userMessage.content,
           profile: profile,
           conversationHistory: messages,
-          aiConfig: { providerId, modelId, apiKey, baseUrl },
+          aiConfig: effectiveAiConfig,
         }),
       });
 
@@ -155,6 +163,18 @@ export function ProfileChat({ mode = 'embedded', onComplete, onDimensionsUpdate 
               prev.map((m) =>
                 m.id === assistantMessage.id
                   ? { ...m, content: assistantContent }
+                  : m,
+              ),
+            );
+          } else if (data.type === 'error') {
+            // Handle error events from the learning graph (e.g. LLM call failures)
+            const errorMsg = (data.content as string) ?? '未知错误';
+            console.error('[profile-chat SSE] Error event:', errorMsg);
+            assistantContent = errorMsg;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantMessage.id
+                  ? { ...m, content: `抱歉，请求出错：${errorMsg}` }
                   : m,
               ),
             );

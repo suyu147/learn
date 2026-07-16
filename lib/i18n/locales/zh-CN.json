@@ -1098,7 +1098,8 @@
     "lastUpdated": "最近更新：{{time}}",
     "confirmDelete": "确定删除此文档？",
     "selectDocOrCreate": "选择一个文档或创建新文档",
-    "cowriterDesc": "Co-Writer 支持 AI 辅助写作：改写、精简、扩展、总结"
+    "cowriterDesc": "Co-Writer 支持 AI 辅助写作：改写、精简、扩展、总结",
+    "apiError": "API 请求失败，请检查网络连接和登录状态"
   },
   "playground": {
     "testTool": "测试工具",

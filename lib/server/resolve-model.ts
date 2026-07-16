@@ -2,6 +2,50 @@ import { getModel } from '@/lib/ai/providers';
 import type { ModelConfig, ProviderId } from '@/lib/types/provider';
 import type { NextRequest } from 'next/server';
 
+/**
+ * Resolve API key with proper provider-specific environment variable fallback.
+ *
+ * Priority: explicitApiKey > DT_DEFAULT_API_KEY > provider-specific env var > OPENAI_API_KEY
+ *
+ * This is the canonical API key resolution shared across the Book Engine
+ * agents and bootstrap. It mirrors the logic in resolveModel().
+ */
+export function resolveApiKey(providerId?: string, explicitApiKey?: string): string {
+  if (explicitApiKey) return explicitApiKey;
+  if (process.env.DT_DEFAULT_API_KEY) return process.env.DT_DEFAULT_API_KEY;
+
+  switch (providerId) {
+    case 'spark':       return process.env.SPARK_API_KEY || '';
+    case 'openai':      return process.env.OPENAI_API_KEY || '';
+    case 'deepseek':    return process.env.DEEPSEEK_API_KEY || '';
+    case 'kimi':        return process.env.KIMI_API_KEY || '';
+    case 'glm':         return process.env.GLM_API_KEY || '';
+    case 'qwen':        return process.env.QWEN_API_KEY || '';
+    case 'minimax':     return process.env.MINIMAX_API_KEY || '';
+    case 'siliconflow': return process.env.SILICONFLOW_API_KEY || '';
+    case 'doubao':      return process.env.DOUBAO_API_KEY || '';
+    case 'grok':        return process.env.GROK_API_KEY || '';
+    case 'anthropic':   return process.env.ANTHROPIC_API_KEY || '';
+    case 'google':      return process.env.GOOGLE_API_KEY || '';
+    default:            return process.env.OPENAI_API_KEY || '';
+  }
+}
+
+/** Resolve provider ID, falling back to DT_DEFAULT_PROVIDER > AI_PROVIDER > openai */
+export function resolveProviderId(explicitId?: string): string {
+  return explicitId || process.env.DT_DEFAULT_PROVIDER || process.env.AI_PROVIDER || 'openai';
+}
+
+/** Resolve model ID, falling back to DT_DEFAULT_MODEL > AI_MODEL > gpt-4o-mini */
+export function resolveModelId(explicitId?: string): string {
+  return explicitId || process.env.DT_DEFAULT_MODEL || process.env.AI_MODEL || 'gpt-4o-mini';
+}
+
+/** Resolve base URL from env (no explicit override beyond what caller provides) */
+export function resolveBaseUrl(): string | undefined {
+  return process.env.AI_BASE_URL || undefined;
+}
+
 interface ResolveModelOptions {
   modelString?: string;
   modelId?: string;

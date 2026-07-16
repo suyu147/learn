@@ -11,6 +11,7 @@ import type { ProviderId } from '@/lib/types/provider';
 import { createLogger } from '@/lib/logger';
 import type { BookProposal, BookInputs } from '../models';
 import { createBookProposal } from '../models';
+import { resolveApiKey, resolveProviderId, resolveModelId, resolveBaseUrl } from '@/lib/server/resolve-model';
 
 const log = createLogger('IdeationAgent');
 
@@ -52,17 +53,11 @@ export class IdeationAgent {
     apiKey?: string;
     baseUrl?: string;
   }) {
-    this.providerId = (config?.providerId ??
-      process.env.DT_DEFAULT_PROVIDER ??
-      'openai') as ProviderId;
-    this.modelId =
-      config?.modelId ?? process.env.DT_DEFAULT_MODEL ?? 'gpt-4o-mini';
-    this.apiKey =
-      config?.apiKey ??
-      process.env.DT_DEFAULT_API_KEY ??
-      process.env.OPENAI_API_KEY ??
-      '';
-    this.baseUrl = config?.baseUrl;
+    const pid = resolveProviderId(config?.providerId);
+    this.providerId = pid as ProviderId;
+    this.modelId = resolveModelId(config?.modelId);
+    this.apiKey = resolveApiKey(pid, config?.apiKey);
+    this.baseUrl = config?.baseUrl || resolveBaseUrl();
   }
 
   async generate(

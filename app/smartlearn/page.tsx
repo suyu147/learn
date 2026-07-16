@@ -15,6 +15,7 @@ import {
   CheckSquare,
   Loader2,
   AlertCircle,
+  Send,
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -29,7 +30,7 @@ import type { LearningPathNode } from '@/lib/types/learning-path'
 import type { Resource, ResourceType } from '@/lib/types/resource'
 import { RESOURCE_TYPE_LABELS } from '@/lib/types/resource'
 import type { ProfileDimensions } from '@/lib/types/profile'
-import { PROFILE_DIMENSION_LABELS } from '@/lib/types/profile'
+import { PROFILE_DIMENSION_LABELS, DEFAULT_DIMENSIONS } from '@/lib/types/profile'
 import { ResourceViewer } from '@/components/workspace/resource-viewer'
 import { useResourceDecisionsStore } from '@/lib/store/resource-decisions'
 
@@ -49,29 +50,77 @@ const RESOURCE_ICON_MAP: Record<ResourceType, React.ComponentType<{ className?: 
   ppt: Presentation,
 }
 
-/** Map profile dimension keys to a 0-100 score for display. */
-function computeDimensionScores(dimensions: ProfileDimensions): { label: string; value: number }[] {
-  const levelMap = { beginner: 33, intermediate: 66, advanced: 100 }
-  const speedMap = { slow: 33, moderate: 66, fast: 100 }
+/** Map all 8 profile dimensions to 0-100 scores based on actual data. */
+function computeDimensionScores(dimensions: ProfileDimensions): { label: string; value: number; detail?: string }[] {
+  const levelMap: Record<string, number> = { beginner: 33, intermediate: 66, advanced: 100 }
+  const speedMap: Record<string, number> = { slow: 33, moderate: 66, fast: 100 }
+
+  // 1. knowledgeBase — average subject mastery, fallback to declared level
+  const subjects = dimensions.knowledgeBase.subjects
+  const kbScore = subjects.length > 0
+    ? Math.round(subjects.reduce((a, s) => a + s.mastery * 100, 0) / subjects.length)
+    : (levelMap[dimensions.knowledgeBase.level] ?? 33)
+
+  // 2. cognitiveStyle — whether type + preference are configured
+  const cogScore = dimensions.cognitiveStyle.preference
+    ? 80
+    : (dimensions.cognitiveStyle.type !== DEFAULT_DIMENSIONS.cognitiveStyle.type ? 50 : 30)
+
+  // 3. learningGoals — completeness of short-term + long-term goals
+  const hasLong = !!dimensions.learningGoals.longTerm
+  const stCount = dimensions.learningGoals.shortTerm.length
+  const goalScore = hasLong
+    ? (stCount >= 2 ? 90 : stCount === 1 ? 70 : 50)
+    : (stCount > 0 ? 50 : 20)
+
+  // 4. weakPoints — inverted: fewer weak points = healthier
+  const wpCount = dimensions.weakPoints.topics.length
+  const weakScore = wpCount === 0 ? 60 : Math.max(10, 60 - wpCount * 10)
+
+  // 5. timePreference — whether duration + slot are configured
+  const tp = dimensions.timePreference
+  const timeScore = tp.preferredDuration > 0
+    ? (tp.preferredTimeSlot ? 85 : 60)
+    : (tp.preferredTimeSlot ? 50 : 25)
+
+  // 6. interests — whether domains + preferred formats are configured
+  const intScore = dimensions.interests.domains.length > 0
+    ? (dimensions.interests.preferredFormats.length > 0 ? 85 : 60)
+    : (dimensions.interests.preferredFormats.length > 0 ? 45 : 20)
+
+  // 7. learningPace — speed setting
+  const paceScore = speedMap[dimensions.learningPace.speed] ?? 50
+
+  // 8. errorPatterns — inverted: fewer recorded errors = better
+  const errTotal = dimensions.errorPatterns.commonMistakes.length + dimensions.errorPatterns.difficultAreas.length
+  const errScore = errTotal === 0 ? 50 : Math.max(10, 50 - errTotal * 5)
 
   return [
-    {
-      label: PROFILE_DIMENSION_LABELS.knowledgeBase,
-      value: levelMap[dimensions.knowledgeBase.level] ?? 33,
-    },
-    {
-      label: PROFILE_DIMENSION_LABELS.cognitiveStyle,
-      value: dimensions.cognitiveStyle.preference ? 70 : 40,
-    },
-    {
-      label: PROFILE_DIMENSION_LABELS.learningGoals,
-      value: dimensions.learningGoals.shortTerm.length > 0 ? 75 : 30,
-    },
-    {
-      label: PROFILE_DIMENSION_LABELS.learningPace,
-      value: speedMap[dimensions.learningPace.speed] ?? 50,
-    },
+    { label: PROFILE_DIMENSION_LABELS.knowledgeBase, value: kbScore, detail: subjects.length > 0 ? `${subjects.length}科` : dimensions.knowledgeBase.level },
+    { label: PROFILE_DIMENSION_LABELS.cognitiveStyle, value: cogScore, detail: dimensions.cognitiveStyle.preference || dimensions.cognitiveStyle.type },
+    { label: PROFILE_DIMENSION_LABELS.learningGoals, value: goalScore, detail: stCount > 0 ? `${stCount}个目标` : (hasLong ? '仅有长期' : '未设置') },
+    { label: PROFILE_DIMENSION_LABELS.weakPoints, value: weakScore, detail: `${wpCount}项` },
+    { label: PROFILE_DIMENSION_LABELS.timePreference, value: timeScore, detail: tp.preferredDuration > 0 ? `${tp.preferredDuration}分钟` : '未设置' },
+    { label: PROFILE_DIMENSION_LABELS.interests, value: intScore, detail: dimensions.interests.domains.length > 0 ? `${dimensions.interests.domains.length}个领域` : '未设置' },
+    { label: PROFILE_DIMENSION_LABELS.learningPace, value: paceScore, detail: dimensions.learningPace.speed },
+    { label: PROFILE_DIMENSION_LABELS.errorPatterns, value: errScore, detail: `${errTotal}项` },
   ]
+}
+
+// ---------------------------------------------------------------------------
+// Learner snapshot shape (subset from /api/v1/smartlearn/profile)
+// ---------------------------------------------------------------------------
+
+interface LearnerSnapshot {
+  analytics?: {
+    weakTopics: string[]
+    strongTopics: string[]
+  }
+  weakPoints?: Array<{ topic: string; mastery: number; priority: number }>
+  errors?: Array<{ topic: string; count: number }>
+  recentSessions?: Array<{
+    quizResults: Array<{ correct: boolean }>
+  }>
 }
 
 // ---------------------------------------------------------------------------
@@ -129,6 +178,9 @@ export default function SmartLearnPage() {
   const [currentPhase, setCurrentPhase] = useState('')
   const [agentStatus, setAgentStatus] = useState('')
   const [profileError, setProfileError] = useState<string | null>(null)
+  const [goalInput, setGoalInput] = useState('')
+  const [showGoalInput, setShowGoalInput] = useState(false)
+  const [snapshot, setSnapshot] = useState<LearnerSnapshot | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
 
@@ -205,12 +257,22 @@ export default function SmartLearnPage() {
     ? computeDimensionScores(profile.dimensions)
     : []
 
+  // -- Derived analytics from snapshot --
+  const snapshotAccuracy = (() => {
+    const sessions = snapshot?.recentSessions ?? []
+    const allResults = sessions.flatMap((s) => s.quizResults)
+    if (allResults.length === 0) return null
+    const correct = allResults.filter((r) => r.correct).length
+    return Math.round((correct / allResults.length) * 100)
+  })()
+  const weakTopicCount = snapshot?.analytics?.weakTopics?.length ?? 0
+
   // -- Computed stats --
   const stats = [
     { label: '掌握度', value: `${progressPercent}%`, color: 'text-[var(--success)]' },
-    { label: '学习会话', value: sessions.length, color: 'text-[var(--primary)]' },
+    { label: '答题正确率', value: snapshotAccuracy != null ? `${snapshotAccuracy}%` : '暂无', color: 'text-[var(--primary)]' },
     { label: '已完成节点', value: completedCount, color: 'text-[var(--info)]' },
-    { label: '学习资源', value: resources.length, color: 'text-[var(--warning)]' },
+    { label: '薄弱知识点', value: weakTopicCount, color: 'text-[var(--warning)]' },
   ]
 
   // =========================================================================
@@ -224,7 +286,7 @@ export default function SmartLearnPage() {
       setIsProfileLoading(true)
       setProfileError(null)
       try {
-        const data = await apiGet<{
+        const data = await apiGet<LearnerSnapshot & {
           profile: {
             id: string | null
             userId: string
@@ -243,6 +305,7 @@ export default function SmartLearnPage() {
             updatedAt: new Date().toISOString(),
             conversationHistory: [],
           })
+          setSnapshot(data)
         }
       } catch (err) {
         if (!cancelled) {
@@ -374,16 +437,20 @@ export default function SmartLearnPage() {
       return
     }
 
+    // Use user input as goal, fall back to profile learning goals
+    const goal = goalInput.trim()
+      || profileDimensions.learningGoals.shortTerm[0]
+      || profileDimensions.learningGoals.longTerm
+      || '学习'
+
     // Create or reuse session
     let sessionId = currentSessionId
     if (!sessionId) {
-      const goal = profileDimensions.learningGoals.shortTerm[0]
-        ?? profileDimensions.learningGoals.longTerm
-        ?? '学习'
       const session = createSession(profile?.id ?? USER_ID, goal)
       sessionId = session.id
     }
 
+    setGoalInput('')
     setIsStreaming(true)
     setPlanning(true)
     setStreamingText('')
@@ -401,7 +468,7 @@ export default function SmartLearnPage() {
           action: 'start',
           sessionId,
           profile: profileDimensions,
-          goal: currentSession?.goal ?? profileDimensions.learningGoals.longTerm ?? '学习',
+          goal,
           completedNodes,
           currentNodeId: activeNode?.id ?? null,
         }),
@@ -724,10 +791,18 @@ export default function SmartLearnPage() {
                   ? `${completedCount}/${totalCount} 节点完成 · 进度 ${progressPercent}%`
                   : isPlanning
                     ? '正在规划学习路径...'
-                    : '点击下方按钮开始学习'}
+                    : '输入你想学的内容，开始智能学习'}
               </p>
             </div>
             <div className="flex gap-2">
+              {totalCount > 0 && !isStreaming && (
+                <button
+                  onClick={() => setShowGoalInput(!showGoalInput)}
+                  className="px-3 py-1.5 rounded-lg text-[13px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors flex items-center gap-1.5"
+                >
+                  学点别的
+                </button>
+              )}
               <button
                 onClick={handleReset}
                 disabled={isStreaming}
@@ -750,6 +825,40 @@ export default function SmartLearnPage() {
               </button>
             </div>
           </div>
+
+          {/* New goal input — shown when "学点别的" is clicked and there's an existing path */}
+          {showGoalInput && totalCount > 0 && !isStreaming && (
+            <div className="flex gap-2 mt-3">
+              <input
+                type="text"
+                value={goalInput}
+                onChange={(e) => setGoalInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && goalInput.trim()) {
+                    handleReset()
+                    setTimeout(() => handleStartLearning(), 0)
+                    setShowGoalInput(false)
+                  }
+                }}
+                placeholder="输入新的学习目标..."
+                className="flex-1 px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] text-[13px] focus:outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] transition-colors"
+              />
+              <button
+                onClick={() => {
+                  if (goalInput.trim()) {
+                    handleReset()
+                    setTimeout(() => handleStartLearning(), 0)
+                    setShowGoalInput(false)
+                  }
+                }}
+                disabled={!goalInput.trim()}
+                className="px-3 py-1.5 rounded-lg text-[13px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Send className="h-3.5 w-3.5" />
+                开始新学习
+              </button>
+            </div>
+          )}
 
           {/* Agent status bar */}
           {agentStatus && (
@@ -811,10 +920,10 @@ export default function SmartLearnPage() {
           </div>
         )}
 
-        {/* Empty state — no path yet */}
+        {/* Empty state — no path yet: show goal input */}
         {!isProfileLoading && nodes.length === 0 && !isStreaming && (
           <div className="flex-1 flex items-center justify-center px-6">
-            <div className="text-center space-y-4 max-w-md">
+            <div className="text-center space-y-4 max-w-md w-full">
               {profileError ? (
                 <>
                   <AlertCircle className="h-12 w-12 mx-auto text-[var(--warning)]" />
@@ -833,13 +942,34 @@ export default function SmartLearnPage() {
                 </>
               ) : (
                 <>
-                  <Play className="h-12 w-12 mx-auto text-[var(--muted-foreground)]" />
                   <h2 className="text-lg font-semibold text-[var(--foreground)]">
-                    准备开始学习
+                    你想学什么？
                   </h2>
                   <p className="text-[13px] text-[var(--muted-foreground)]">
-                    点击上方「开始学习」按钮，AI 将根据您的学习画像规划学习路径并生成个性化学习资源。
+                    AI 将根据你的学习画像，为你规划个性化学习路径并生成学习资源。
                   </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={goalInput}
+                      onChange={(e) => setGoalInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && goalInput.trim()) {
+                          handleStartLearning()
+                        }
+                      }}
+                      placeholder="例如：Python 机器学习、React 前端开发、高等数学..."
+                      className="flex-1 px-4 py-2.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] text-[14px] focus:outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] transition-colors"
+                    />
+                    <button
+                      onClick={handleStartLearning}
+                      disabled={!goalInput.trim() || isProfileLoading}
+                      className="px-4 py-2.5 rounded-lg text-[14px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Send className="h-4 w-4" />
+                      开始
+                    </button>
+                  </div>
                 </>
               )}
             </div>
@@ -975,26 +1105,35 @@ export default function SmartLearnPage() {
             ))}
           </div>
 
-          {/* Learning Dimensions */}
+          {/* All 8 Learning Dimensions */}
           {displayDimensions.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <h3 className="text-[12px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
-                学习维度
+                学习画像 (8维)
               </h3>
-              {displayDimensions.map((dim) => (
-                <div key={dim.label} className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[12.5px] text-[var(--foreground)]">{dim.label}</span>
-                    <span className="text-[11px] text-[var(--muted-foreground)]">{dim.value}%</span>
+              {displayDimensions.map((dim) => {
+                const barColor = dim.value >= 70
+                  ? 'bg-[var(--success)]'
+                  : dim.value >= 40
+                    ? 'bg-[var(--primary)]'
+                    : 'bg-[var(--warning)]'
+                return (
+                  <div key={dim.label} className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-[var(--foreground)]">{dim.label}</span>
+                      <span className="text-[11px] text-[var(--muted-foreground)]">
+                        {dim.value}%{dim.detail ? ` · ${dim.detail}` : ''}
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-[var(--muted)] rounded-full overflow-hidden">
+                      <div
+                        className={cn('h-full rounded-full transition-all', barColor)}
+                        style={{ width: `${dim.value}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-1.5 bg-[var(--muted)] rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-[var(--primary)] rounded-full transition-all"
-                      style={{ width: `${dim.value}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
 
@@ -1034,6 +1173,25 @@ export default function SmartLearnPage() {
                   <span
                     key={topic}
                     className="px-2 py-0.5 rounded-full bg-[var(--warning)]/10 text-[var(--warning)] text-[11px]"
+                  >
+                    {topic}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Analytics weak topics from skillMap */}
+          {snapshot?.analytics?.weakTopics && snapshot.analytics.weakTopics.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-[12px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
+                需加强 (基于练习)
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {snapshot.analytics.weakTopics.map((topic) => (
+                  <span
+                    key={topic}
+                    className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-[11px]"
                   >
                     {topic}
                   </span>

@@ -43,7 +43,7 @@ export class CowriterDbService {
     }
   }
 
-  async createDocument(userId: string, data: { title: string; content?: string }): Promise<CowriterDocRecord | null> {
+  async createDocument(userId: string, data: { id?: string; title: string; content?: string }): Promise<CowriterDocRecord | null> {
     try {
       await prisma.user.upsert({
         where: { id: userId },
@@ -51,34 +51,34 @@ export class CowriterDbService {
         create: { id: userId, name: 'anonymous' },
       });
 
-      return await prisma.cowriterDocument.create({
-        data: {
-          userId,
-          title: data.title,
-          content: data.content ?? '',
-        },
-      }) as CowriterDocRecord;
+      const createData: Record<string, unknown> = {
+        userId,
+        title: data.title,
+        content: data.content ?? '',
+      };
+      if (data.id) createData.id = data.id;
+
+      return await prisma.cowriterDocument.create({ data: createData as any }) as CowriterDocRecord;
     } catch (err) {
       log.error('createDocument failed:', err);
       return null;
     }
   }
 
-  async updateDocument(docId: string, data: Partial<{ title: string; content: string; status: string; metadata: Record<string, unknown> }>): Promise<boolean> {
+  async updateDocument(docId: string, data: Partial<{ title: string; content: string; status: string; metadata: Record<string, unknown> }>): Promise<CowriterDocRecord | null> {
     try {
       const updateData: Record<string, unknown> = { version: { increment: 1 }, lastEdited: new Date() };
       if (data.title !== undefined) updateData.title = data.title;
       if (data.content !== undefined) updateData.content = data.content;
       if (data.status !== undefined) updateData.status = data.status;
       if (data.metadata !== undefined) updateData.metadata = JSON.parse(JSON.stringify(data.metadata));
-      await prisma.cowriterDocument.update({
+      return await prisma.cowriterDocument.update({
         where: { id: docId },
         data: updateData as Prisma.CowriterDocumentUpdateInput,
-      });
-      return true;
+      }) as CowriterDocRecord;
     } catch (err) {
       log.error('updateDocument failed:', err);
-      return false;
+      return null;
     }
   }
 
