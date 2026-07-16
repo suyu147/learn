@@ -77,7 +77,8 @@ export default function ChatPage() {
   const knowledgeBases = useKnowledgeStore((s) => s.knowledgeBases);
 
   // Resolve effective provider/model/apiKey: smartlearn* fields take priority,
-  // then fall back to v1 settings store values
+  // then fall back to v1 settings store values.
+  // IMPORTANT: only pass non-empty values — falsy values will fall back to env vars on the server
   const effectiveProviderId = settings.smartlearnProviderId || v1Settings.providerId || undefined;
   const effectiveModelId = settings.smartlearnModelId || v1Settings.modelId || undefined;
   const effectiveApiKey = settings.smartlearnApiKey || v1Settings.apiKey || undefined;

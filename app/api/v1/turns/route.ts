@@ -78,8 +78,14 @@ export async function POST(req: NextRequest) {
   const userId = req.headers.get('x-user-id') ?? 'anonymous';
 
   // --- Resolve model config (from request → DT_ env → AI_ env → defaults) ---
+  // If the frontend sends a deprecated/non-vision model (deepseek-chat/reasoner),
+  // prefer the env var AI_MODEL so new v4-flash takes priority.
+  const nonVisionModels = ['deepseek-chat', 'deepseek-reasoner', 'spark-4.0-turbo'];
+  const resolvedModelId = (nonVisionModels.includes(modelId ?? '') || !modelId)
+    ? (process.env.AI_MODEL || modelId || 'gpt-4o-mini')
+    : modelId;
   const effectiveProviderId = providerId || process.env.DT_DEFAULT_PROVIDER || process.env.AI_PROVIDER || 'openai';
-  const effectiveModelId = modelId || process.env.DT_DEFAULT_MODEL || process.env.AI_MODEL || 'gpt-4o-mini';
+  const effectiveModelId = resolvedModelId || process.env.DT_DEFAULT_MODEL || process.env.AI_MODEL || 'gpt-4o-mini';
   const effectiveApiKey = apiKey || process.env.DT_DEFAULT_API_KEY || process.env.AI_API_KEY || process.env.OPENAI_API_KEY || '';
   const effectiveBaseUrl = baseUrl || process.env.AI_BASE_URL || undefined;
 
@@ -122,6 +128,8 @@ export async function POST(req: NextRequest) {
           }),
         )
     : [];
+
+  log.info(`[Turns] Attachments received: ${contextAttachments.length} (types: ${contextAttachments.map(a => a.type).join(',') || 'none'})`);
 
   // --- Build UnifiedContext ---
   const context = createUnifiedContext({

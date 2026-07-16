@@ -22,6 +22,7 @@ import type { UnifiedContext } from '@/lib/deeptutor/core/types';
 import { generateText } from 'ai';
 import { StreamBusImpl } from '@/lib/deeptutor/core/stream-bus';
 import { assembleVisualizePrompt } from './prompt-assembler';
+import { augmentUserMessageText } from '../shared/vision-helper';
 
 import type { ProviderId } from '@/lib/types/provider';
 
@@ -40,6 +41,9 @@ export class VisualizeCapability extends PipelineCapability {
     const renderMode = (context.metadata.renderMode as string) ?? 'auto';
     const quality = (context.metadata.quality as string) ?? 'medium';
     const styleHint = context.metadata.styleHint as string | undefined;
+
+    // Augment user message with image descriptions from vision proxy (if any)
+    const userMessage = await augmentUserMessageText(context);
 
     // ------------------------------------------------------------------
     // Stage 1: Analyze — determine visualization approach
@@ -60,7 +64,7 @@ export class VisualizeCapability extends PipelineCapability {
       const analysisResult = await generateText({
         model,
         system: systemPrompt,
-        prompt: `Analyze the following visualization request and determine the best approach. Respond with a brief analysis of: 1) What type of visualization to use, 2) Key elements to include, 3) Recommended format.\n\nRequest: ${context.userMessage}`,
+        prompt: `Analyze the following visualization request and determine the best approach. Respond with a brief analysis of: 1) What type of visualization to use, 2) Key elements to include, 3) Recommended format.\n\nRequest: ${userMessage}`,
         temperature: 0.1,
         maxOutputTokens: 1024,
       });
@@ -89,7 +93,7 @@ export class VisualizeCapability extends PipelineCapability {
       const codeResult = await generateText({
         model,
         system: systemPrompt,
-        prompt: `Based on this analysis, generate the complete visualization code.\n\nAnalysis:\n${analysis}\n\nOriginal request: ${context.userMessage}\n\nReturn ONLY the visualization code. No markdown fences, no explanation.`,
+        prompt: `Based on this analysis, generate the complete visualization code.\n\nAnalysis:\n${analysis}\n\nOriginal request: ${userMessage}\n\nReturn ONLY the visualization code. No markdown fences, no explanation.`,
         temperature: 0.2,
         maxOutputTokens: 8192,
       });

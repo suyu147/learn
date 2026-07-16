@@ -30,6 +30,7 @@ import { StreamBusImpl } from '@/lib/deeptutor/core/stream-bus';
 import { assembleSolvePrompt } from './prompt-assembler';
 import { guardContextWindow, truncateHistory } from '../chat/context-guard';
 import { cleanThinkingTags } from '../chat/think-filter';
+import { buildUserMessage } from '../shared/vision-helper';
 import { clearSolveStepResults } from '@/lib/deeptutor/tools/solve-finish-step';
 import { resetReplanState } from '@/lib/deeptutor/tools/solve-replan';
 
@@ -131,7 +132,7 @@ export class DeepSolveCapability extends LoopCapability {
     messages = [
       new SystemMessage({ content: systemPrompt }),
       ...messages,
-      new HumanMessage({ content: context.userMessage }),
+      await buildUserMessage(context),
     ];
 
     const contextWindowTokens =

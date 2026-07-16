@@ -29,6 +29,7 @@ import { StreamBusImpl } from '@/lib/deeptutor/core/stream-bus';
 import { assembleSystemPrompt } from './prompt-assembler';
 import { guardContextWindow, truncateHistory } from './context-guard';
 import { cleanThinkingTags } from './think-filter';
+import { buildUserMessage } from '../shared/vision-helper';
 
 import {
   SystemMessage,
@@ -39,8 +40,6 @@ import {
 } from '@langchain/core/messages';
 
 import type { ProviderId } from '@/lib/types/provider';
-import { getModelInfo } from '@/lib/ai/providers';
-import { generateText } from 'ai';
 
 // ---------------------------------------------------------------------------
 // ChatCapability
@@ -111,49 +110,8 @@ export class ChatCapability extends LoopCapability {
     // 3. Convert conversation history to BaseMessage[]
     let messages = this.convertHistoryToMessages(context.conversationHistory);
 
-    // 4. Prepend system prompt and append user message (with image support)
-    const imageAttachments = context.attachments.filter(
-      (a) => a.type === 'image' && (a.base64 || a.url),
-    );
-
-    // Resolve the main model's provider/model IDs for vision capability check
-    const overrides = context.configOverrides ?? {};
-    const meta = context.metadata ?? {};
-    const mainProviderId = (overrides.providerId as string) || (meta.providerId as string) || process.env.AI_PROVIDER || 'openai';
-    const mainModelId = (overrides.modelId as string) || (meta.modelId as string) || process.env.AI_MODEL || 'gpt-4o';
-    const mainModelInfo = getModelInfo(mainProviderId as ProviderId, mainModelId);
-
-    let userMessage: HumanMessage;
-    if (imageAttachments.length > 0) {
-      if (mainModelInfo?.capabilities.vision) {
-        // --- Native vision: build multimodal message ---
-        const contentParts: Array<
-          { type: 'text'; text: string } | { type: 'image'; image: string }
-        > = [
-          { type: 'text', text: context.userMessage },
-          ...imageAttachments.map((a) => ({
-            type: 'image' as const,
-            image: a.base64 || a.url,
-          })),
-        ];
-        userMessage = new HumanMessage({ content: contentParts });
-      } else {
-        // --- Vision proxy: call vision model to describe images, inject as text ---
-
-        const imageDescriptions = await this.describeImagesViaVisionModel(
-          imageAttachments,
-          context.userMessage,
-        );
-
-        let augmentedText = context.userMessage;
-        if (imageDescriptions) {
-          augmentedText = `以下是用户发送的图片内容描述，请结合这些视觉信息回答问题：\n\n${imageDescriptions}\n\n用户的问题：${context.userMessage}`;
-        }
-        userMessage = new HumanMessage({ content: augmentedText });
-      }
-    } else {
-      userMessage = new HumanMessage({ content: context.userMessage });
-    }
+    // 4. Prepend system prompt and append user message (image handling via shared helper)
+    const userMessage = await buildUserMessage(context);
 
     messages = [
       new SystemMessage({ content: systemPrompt }),
@@ -345,61 +303,5 @@ export class ChatCapability extends LoopCapability {
     }
 
     return messages;
-  }
-
-  /**
-   * Call a vision-capable model to describe images, returning a text summary.
-   * Uses VISION_PROVIDER / VISION_MODEL / VISION_API_KEY env vars.
-   */
-  private async describeImagesViaVisionModel(
-    imageAttachments: Array<{ type: string; base64: string; url: string; filename?: string }>,
-    userMessage: string,
-  ): Promise<string> {
-    // Resolve vision model config from env
-    const visionProvider = process.env.VISION_PROVIDER || 'openai';
-    const visionModel = process.env.VISION_MODEL || 'gpt-4o-mini';
-    const visionApiKey = process.env.VISION_API_KEY || '';
-
-    if (!visionApiKey) {
-      return ''; // No vision model configured, skip silently
-    }
-
-    try {
-      const { getModel } = await import('@/lib/ai/providers');
-
-      const { model } = getModel({
-        providerId: visionProvider as ProviderId,
-        modelId: visionModel,
-        apiKey: visionApiKey,
-        baseUrl: process.env.VISION_BASE_URL || undefined,
-      });
-
-      // Build multimodal message for the vision model
-      const promptText = userMessage
-        ? `请逐一详细描述这张/这些图片的内容。用户附带的问题是："${userMessage}"。请着重描述图片中与用户问题相关的视觉元素。用中文回答。`
-        : `请逐一详细描述这张/这些图片的内容。用中文回答。`;
-
-      const contentParts: Array<{ type: 'text'; text: string } | { type: 'image'; image: string }> =
-        [
-          { type: 'text', text: promptText },
-          ...imageAttachments.map((a) => ({
-            type: 'image' as const,
-            image: a.base64 || a.url,
-          })),
-        ];
-
-      const result = await generateText({
-        model,
-        messages: [{ role: 'user', content: contentParts }],
-        maxOutputTokens: 2000,
-      });
-
-      return result.text;
-    } catch (error) {
-      // Vision proxy failure is non-fatal — proceed with text-only
-      const errMsg = error instanceof Error ? error.message : String(error);
-      console.warn(`[ChatCapability] Vision proxy failed (${visionProvider}/${visionModel}):`, errMsg);
-      return '';
-    }
   }
 }

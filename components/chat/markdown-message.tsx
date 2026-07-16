@@ -110,6 +110,23 @@ const LANGUAGE_LABELS: Record<string, string> = {
   tsx: 'TSX',
 };
 
+/**
+ * Convert LaTeX math delimiters to remark-math compatible format.
+ * remark-math supports $...$ (inline) and $$...$$ (display) by default,
+ * but many LLMs output \[...\] and \(...\) instead.
+ *
+ * Strategy:
+ *   \[ ... \] → $$ ... $$  (display math)
+ *   \( ... \) → $ ... $    (inline math)
+ */
+function preprocessMathDelimiters(text: string): string {
+  // Display math: \[ ... \] → $$ ... $$
+  text = text.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => `$$ ${math.trim()} $$`);
+  // Inline math: \( ... \) → $ ... $
+  text = text.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => `$${math.trim()}$`);
+  return text;
+}
+
 /** Enhanced code block with optional visualization rendering */
 function CodeComponent({ className, children, ...props }: ComponentPropsWithoutRef<'code'>) {
   const match = /language-(\w+)/.exec(className || '');
@@ -561,12 +578,21 @@ export function EnhancedMarkdownMessage({
 }: EnhancedMarkdownMessageProps) {
   // Pre-process callout blocks: convert "> [!TYPE]\n> content" to custom syntax
   // that the markdown parser can handle as a blockquote with our custom rendering
-  const processedContent = useMemo(() => preprocessCallouts(content), [content]);
+  const processedContent = useMemo(() => {
+    let text = content;
+    // Convert LaTeX math delimiters to remark-math compatible format
+    // \[ ... \] → $$...$$ (display math)
+    // \( ... \) → $...$ (inline math)
+    text = preprocessMathDelimiters(text);
+    // Convert callout blocks
+    text = preprocessCallouts(text);
+    return text;
+  }, [content]);
 
   return (
     <div className={cn('min-w-0 break-words', proseClass, className)}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
+        remarkPlugins={[remarkMath, remarkGfm]}
         rehypePlugins={[rehypeKatex]}
         components={{
           pre: ({ children }) => <>{children}</>,

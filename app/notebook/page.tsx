@@ -24,14 +24,16 @@ interface Notebook {
   id: string;
   name: string;
   description: string;
-  noteCount: number;
+  recordCount: number;
   createdAt: string;
   updatedAt: string;
 }
 
-interface Note {
+interface NoteRecord {
   id: string;
+  type: string;
   title: string;
+  summary: string;
   content: string;
   createdAt: string;
   updatedAt: string;
@@ -44,8 +46,8 @@ interface Note {
 export default function NotebookPage() {
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
   const [selectedNotebook, setSelectedNotebook] = useState<string | null>(null);
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [notes, setNotes] = useState<NoteRecord[]>([]);
+  const [selectedNote, setSelectedNote] = useState<NoteRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [notesLoading, setNotesLoading] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -56,6 +58,7 @@ export default function NotebookPage() {
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch notebooks on mount
@@ -63,8 +66,8 @@ export default function NotebookPage() {
     const fetchNotebooks = async () => {
       setLoading(true);
       try {
-        const data = await apiGet<{ notebooks: Notebook[] }>('/api/v1/notebook');
-        setNotebooks(data.notebooks ?? []);
+        const data = await apiGet<Notebook[]>('/api/v1/notebook');
+        setNotebooks(data ?? []);
       } catch (err) {
         setError(err instanceof Error ? err.message : '加载笔记本失败');
         setNotebooks([]);
@@ -80,10 +83,10 @@ export default function NotebookPage() {
   const fetchNotes = async (notebookId: string) => {
     setNotesLoading(true);
     try {
-      const data = await apiGet<{ notes: Note[] }>(
+      const data = await apiGet<{ notebook: Notebook; records: NoteRecord[] }>(
         `/api/v1/notebook/${notebookId}`,
       );
-      setNotes(data.notes ?? []);
+      setNotes(data.records ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载笔记列表失败');
       setNotes([]);
@@ -97,11 +100,11 @@ export default function NotebookPage() {
     if (!newTitle.trim()) return;
     setCreating(true);
     try {
-      const data = await apiPost<{ notebook: Notebook }>('/api/v1/notebook', {
+      const data = await apiPost<Notebook>('/api/v1/notebook', {
         name: newTitle.trim(),
         description: newDesc.trim(),
       });
-      setNotebooks((prev) => [...prev, data.notebook]);
+      setNotebooks((prev) => [...prev, data]);
       setNewTitle('');
       setNewDesc('');
       setShowCreateForm(false);
@@ -135,28 +138,52 @@ export default function NotebookPage() {
     setSelectedNote(null);
   };
 
-  // Save note
+  // Create new note
+  const handleNewNote = () => {
+    setSelectedNote(null);
+    setEditTitle('');
+    setEditContent('');
+    setEditing(true);
+  };
+
+  // Save note (create or update)
   const handleSaveNote = async () => {
-    if (!selectedNote || !selectedNotebook) return;
+    if (!selectedNotebook || !editContent.trim()) return;
+    setSaving(true);
     try {
-      await apiPut(`/api/v1/notebook/${selectedNotebook}`, {
-        noteId: selectedNote.id,
-        title: editTitle,
-        content: editContent,
-      });
-      setNotes((prev) =>
-        prev.map((n) =>
-          n.id === selectedNote.id
-            ? { ...n, title: editTitle, content: editContent }
-            : n,
-        ),
-      );
-      setSelectedNote((prev) =>
-        prev ? { ...prev, title: editTitle, content: editContent } : null,
-      );
+      if (!selectedNote) {
+        // Create new note
+        const record = await apiPut<NoteRecord>(`/api/v1/notebook/${selectedNotebook}`, {
+          title: editTitle.trim() || '未命名笔记',
+          content: editContent,
+        });
+        setNotes((prev) => [record, ...prev]);
+        setSelectedNote(record);
+        // Update notebook recordCount
+        setNotebooks((prev) =>
+          prev.map((nb) =>
+            nb.id === selectedNotebook
+              ? { ...nb, recordCount: nb.recordCount + 1, updatedAt: new Date().toISOString() }
+              : nb,
+          ),
+        );
+      } else {
+        // Update existing note — currently PUT creates a new record as the API doesn't support update yet.
+        // For now, create a new record and replace the old one in local state.
+        const record = await apiPut<NoteRecord>(`/api/v1/notebook/${selectedNotebook}`, {
+          title: editTitle,
+          content: editContent,
+        });
+        setNotes((prev) =>
+          prev.map((n) => (n.id === selectedNote.id ? record : n)),
+        );
+        setSelectedNote(record);
+      }
       setEditing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存笔记失败');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -288,7 +315,7 @@ export default function NotebookPage() {
                         </p>
                       )}
                       <p className="text-[10px] text-[var(--muted-foreground)] mt-1">
-                        {nb.noteCount} 条笔记
+                        {nb.recordCount} 条笔记
                       </p>
                     </div>
                     <button
@@ -311,11 +338,22 @@ export default function NotebookPage() {
       {/* Middle Panel — Notes List */}
       <div className="w-64 border-r border-[var(--border)] bg-[var(--background)] flex flex-col">
         <div className="p-4 border-b border-[var(--border)]">
-          <h3 className="text-[13px] font-semibold text-[var(--foreground)]">
-            {selectedNotebook
-              ? notebooks.find((nb) => nb.id === selectedNotebook)?.name ?? '笔记'
-              : '选择笔记本'}
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-[13px] font-semibold text-[var(--foreground)]">
+              {selectedNotebook
+                ? notebooks.find((nb) => nb.id === selectedNotebook)?.name ?? '笔记'
+                : '选择笔记本'}
+            </h3>
+            {selectedNotebook && (
+              <button
+                onClick={handleNewNote}
+                className="p-1.5 rounded-lg hover:bg-[var(--muted)] transition-colors"
+                title="新建笔记"
+              >
+                <Plus className="h-4 w-4 text-[var(--muted-foreground)]" />
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -373,67 +411,76 @@ export default function NotebookPage() {
 
       {/* Right Panel — Note Editor */}
       <div className="flex-1 flex flex-col bg-[var(--background)]">
-        {selectedNote ? (
+        {editing ? (
           <>
             {/* Editor Header */}
             <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-3">
-              {editing ? (
-                <input
-                  type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  className="text-lg font-semibold text-[var(--foreground)] bg-transparent outline-none flex-1 border-b border-[var(--primary)]"
-                />
-              ) : (
-                <h1 className="text-lg font-semibold text-[var(--foreground)]">
-                  {selectedNote.title}
-                </h1>
-              )}
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="text-lg font-semibold text-[var(--foreground)] bg-transparent outline-none flex-1 border-b border-[var(--primary)]"
+                placeholder="笔记标题"
+              />
               <div className="flex items-center gap-2">
-                {editing ? (
-                  <>
-                    <button
-                      onClick={handleSaveNote}
-                      className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 flex items-center gap-1.5"
-                    >
-                      <Save className="h-3.5 w-3.5" />
-                      保存
-                    </button>
-                    <button
-                      onClick={() => setEditing(false)}
-                      className="p-1.5 rounded-lg hover:bg-[var(--muted)] transition-colors"
-                    >
-                      <X className="h-4 w-4 text-[var(--muted-foreground)]" />
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => setEditing(true)}
-                    className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors flex items-center gap-1.5"
-                  >
-                    <Edit3 className="h-3.5 w-3.5" />
-                    编辑
-                  </button>
-                )}
+                <button
+                  onClick={handleSaveNote}
+                  disabled={saving || !editContent.trim()}
+                  className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  保存
+                </button>
+                <button
+                  onClick={() => {
+                    setEditing(false);
+                    if (!selectedNote) {
+                      setEditTitle('');
+                      setEditContent('');
+                    }
+                  }}
+                  className="p-1.5 rounded-lg hover:bg-[var(--muted)] transition-colors"
+                >
+                  <X className="h-4 w-4 text-[var(--muted-foreground)]" />
+                </button>
               </div>
             </div>
 
             {/* Editor Body */}
             <div className="flex-1 overflow-y-auto p-6">
-              {editing ? (
-                <textarea
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  className="w-full h-full bg-transparent text-[14px] text-[var(--foreground)] leading-relaxed outline-none resize-none"
-                  placeholder="编写笔记..."
-                />
-              ) : (
-                <div className="prose prose-sm max-w-none text-[var(--foreground)]">
-                  <div className="text-[14px] leading-relaxed whitespace-pre-wrap">
-                    {selectedNote.content}
-                  </div>
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="w-full h-full bg-transparent text-[14px] text-[var(--foreground)] leading-relaxed outline-none resize-none"
+                placeholder="编写笔记..."
+              />
+            </div>
+          </>
+        ) : selectedNote ? (
+          <>
+            {/* Editor Header */}
+            <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-3">
+              <h1 className="text-lg font-semibold text-[var(--foreground)]">
+                {selectedNote.title}
+              </h1>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setEditing(true)}
+                  className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--accent)] transition-colors flex items-center gap-1.5"
+                >
+                  <Edit3 className="h-3.5 w-3.5" />
+                  编辑
+                </button>
+              </div>
+            </div>
+
+            {/* View Body */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="prose prose-sm max-w-none text-[var(--foreground)]">
+                <div className="text-[14px] leading-relaxed whitespace-pre-wrap">
+                  {selectedNote.content}
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Footer */}

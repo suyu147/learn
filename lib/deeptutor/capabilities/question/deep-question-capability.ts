@@ -30,6 +30,7 @@ import { StreamBusImpl } from '@/lib/deeptutor/core/stream-bus';
 import { assembleQuestionPrompt } from './prompt-assembler';
 import { guardContextWindow, truncateHistory } from '../chat/context-guard';
 import { cleanThinkingTags } from '../chat/think-filter';
+import { buildUserMessage } from '../shared/vision-helper';
 
 import {
   SystemMessage,
@@ -104,7 +105,7 @@ export class DeepQuestionCapability extends LoopCapability {
     messages = [
       new SystemMessage({ content: systemPrompt }),
       ...messages,
-      new HumanMessage({ content: context.userMessage }),
+      await buildUserMessage(context),
     ];
 
     const contextWindowTokens =

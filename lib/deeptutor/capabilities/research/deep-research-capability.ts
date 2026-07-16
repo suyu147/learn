@@ -32,6 +32,7 @@ import { StreamBusImpl } from '@/lib/deeptutor/core/stream-bus';
 import { assembleResearchPrompt } from './prompt-assembler';
 import { guardContextWindow, truncateHistory } from '../chat/context-guard';
 import { cleanThinkingTags } from '../chat/think-filter';
+import { buildUserMessage } from '../shared/vision-helper';
 
 import {
   SystemMessage,
@@ -105,7 +106,7 @@ export class DeepResearchCapability extends LoopCapability {
     messages = [
       new SystemMessage({ content: systemPrompt }),
       ...messages,
-      new HumanMessage({ content: context.userMessage }),
+      await buildUserMessage(context),
     ];
 
     const contextWindowTokens =

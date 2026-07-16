@@ -311,6 +311,24 @@ function isHumanMessageLike(msg: BaseMessage): boolean {
  * NOTE: AI SDK v5 AssistantModelMessage does NOT have a top-level `toolCalls`
  * field. Tool calls go inside the `content` array as ToolCallPart objects.
  */
+
+/**
+ * Convert LangChain message content to AI SDK v5 compatible format.
+ * LangChain uses {type:'image_url', image_url:{url:'...'}} — AI SDK v5 uses {type:'image', image:'...'}.
+ */
+function convertContentToAISDK(
+  content: string | Array<Record<string, unknown>>,
+): string | Array<Record<string, unknown>> {
+  if (typeof content === 'string') return content;
+  return content.map((part) => {
+    if (part.type === 'image_url') {
+      const imageUrl = (part as { image_url?: { url?: string } }).image_url;
+      return { type: 'image', image: imageUrl?.url || '' };
+    }
+    return part;
+  });
+}
+
 function toModelMessages(messages: BaseMessage[]): ModelMessage[] {
   const result: ModelMessage[] = [];
 
@@ -331,8 +349,10 @@ function toModelMessages(messages: BaseMessage[]): ModelMessage[] {
   }
 
   for (const msg of messages) {
+    // Extract string content for logging and for orphaned-tool / unknown-type fallbacks
     const content =
       typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+    const logContent = content;
 
     const msgType = getMessageType(msg);
     const toolCallInfo =
@@ -341,12 +361,15 @@ function toModelMessages(messages: BaseMessage[]): ModelMessage[] {
         : msgType === 'tool'
         ? ` tcid=${(msg as unknown as Record<string, unknown>).tool_call_id}`
         : '';
-    logger.warn(`[toModelMessages] #${messages.indexOf(msg)} type="${msgType}"${toolCallInfo} preview="${content.slice(0, 80)}"`);
+    logger.warn(`[toModelMessages] #${messages.indexOf(msg)} type="${msgType}"${toolCallInfo} preview="${logContent.slice(0, 80)}"`);
 
     if (isSystemMessageLike(msg)) {
-      result.push({ role: 'system', content });
+      result.push({ role: 'system', content: logContent });
     } else if (isHumanMessageLike(msg)) {
-      result.push({ role: 'user', content });
+      // Convert LangChain content format to AI SDK format.
+      // LangChain uses {type:'image_url', image_url:{url}} — AI SDK v5 uses {type:'image', image}.
+      const sdkContent = convertContentToAISDK(msg.content);
+      result.push({ role: 'user', content: sdkContent });
     } else if (isAIMessageLike(msg)) {
       // Read tool_calls from LangChain standard property first,
       // then fall back to additional_kwargs.tool_calls (OpenAI format)
@@ -400,8 +423,9 @@ function toModelMessages(messages: BaseMessage[]): ModelMessage[] {
           toolName?: string;
           input?: unknown;
         }> = [];
-        if (content) {
-          parts.push({ type: 'text', text: content });
+        const aiTextContent = typeof msg.content === 'string' ? msg.content : '';
+        if (aiTextContent) {
+          parts.push({ type: 'text', text: aiTextContent });
         }
         for (const tc of toolCalls) {
           parts.push({
@@ -416,7 +440,7 @@ function toModelMessages(messages: BaseMessage[]): ModelMessage[] {
           content: parts,
         } as ModelMessage);
       } else {
-        result.push({ role: 'assistant', content });
+        result.push({ role: 'assistant', content: msg.content });
       }
     } else if (isToolMessageLike(msg)) {
       const hasPrev = lastMsgHasToolCalls();
@@ -447,6 +471,58 @@ function toModelMessages(messages: BaseMessage[]): ModelMessage[] {
     } else {
       logger.debug(`toModelMessages: Unknown msg type, treating as user`);
       result.push({ role: 'user', content });
+    }
+  }
+
+  // Post-process: sanitize orphaned tool-call assistant messages.
+  // AI SDK v5 requires every tool-call content part to have a matching
+  // tool-result content part in a subsequent message. If tool execution
+  // partially fails (some tools succeed, some don't), the orphaned
+  // tool-calls will cause "insufficient tool messages" errors.
+  // We remove orphaned tool-call parts, and convert the assistant
+  // message to plain text if all tool-calls are orphaned.
+  for (let i = 0; i < result.length; i++) {
+    const msg = result[i] as Record<string, unknown>;
+    if (msg.role !== 'assistant' || !Array.isArray(msg.content)) continue;
+
+    const contentParts = msg.content as Array<Record<string, unknown>>;
+    const toolCallParts = contentParts.filter((p) => p.type === 'tool-call');
+    if (toolCallParts.length === 0) continue;
+
+    // Collect all tool-call IDs from this assistant message
+    const toolCallIds = toolCallParts.map((p) => p.toolCallId as string).filter(Boolean);
+
+    // Check subsequent messages for matching tool-result parts
+    const matched = new Set<string>();
+    for (let j = i + 1; j < result.length; j++) {
+      const next = result[j] as Record<string, unknown>;
+      if (next.role !== 'tool' || !Array.isArray(next.content)) break; // non-tool message ends the chain
+
+      const nextParts = next.content as Array<Record<string, unknown>>;
+      for (const np of nextParts) {
+        if (np.type === 'tool-result') {
+          matched.add(np.toolCallId as string);
+        }
+      }
+    }
+
+    const orphaned = toolCallIds.filter((id) => !matched.has(id));
+    if (orphaned.length === 0) continue;
+
+    logger.warn(`[toModelMessages] Removing ${orphaned.length} orphaned tool-call(s): [${orphaned.join(',')}]`);
+
+    if (orphaned.length === toolCallParts.length) {
+      // All tool-calls are orphaned — convert to plain user message
+      const textParts = contentParts.filter((p) => p.type === 'text');
+      const fallbackText = textParts.length > 0
+        ? textParts.map((p) => p.text).join('')
+        : '[工具调用结果不可用]';
+      result[i] = { role: 'user', content: fallbackText } as unknown as ModelMessage;
+    } else {
+      // Some tool-calls matched, some orphaned — keep only matched
+      msg.content = contentParts.filter(
+        (p) => p.type !== 'tool-call' || !orphaned.includes(p.toolCallId as string),
+      );
     }
   }
 
