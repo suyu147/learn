@@ -23,8 +23,6 @@ import {
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/lib/store/ui-store';
 import { useAuthStore } from '@/lib/store/auth-store';
-import { useSessionStore } from '@/lib/store/session-store';
-
 const navGroups = [
   {
     label: '工作台',
@@ -61,8 +59,6 @@ export function Sidebar() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const mode = useAuthStore((s) => s.mode);
-  const sessions = useSessionStore((s) => s.sessions);
-
   return (
     <aside
       className={cn(
@@ -140,46 +136,6 @@ export function Sidebar() {
           </div>
         ))}
       </nav>
-
-      {/* Recents section */}
-      {!collapsed && (() => {
-        const recentSessions = [...sessions]
-          .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-          .slice(0, 5);
-        const dotColor: Record<string, string> = {
-          active: 'bg-success',
-          completed: 'bg-white/30',
-          failed: 'bg-destructive',
-        };
-        return (
-          <div className="border-t border-sidebar-border px-3 py-3">
-            <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-white/55 mb-2">
-              Recent
-            </div>
-            <div className="flex flex-col gap-0.5">
-              {recentSessions.length === 0 ? (
-                <div className="px-2 py-1.5 text-[12.5px] text-white/40">
-                  暂无最近会话
-                </div>
-              ) : (
-                recentSessions.map((session) => (
-                  <button
-                    key={session.id}
-                    onClick={() => {
-                      useSessionStore.getState().setActiveSession(session.id);
-                      router.push('/chat');
-                    }}
-                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-[12.5px] text-white/70 hover:bg-sidebar-accent/50 hover:text-white cursor-pointer transition-colors text-left w-full"
-                  >
-                    <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', dotColor[session.status] ?? 'bg-white/30')} />
-                    <span className="truncate">{session.title}</span>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Footer */}
       <div className="border-t border-sidebar-border px-3 py-3">

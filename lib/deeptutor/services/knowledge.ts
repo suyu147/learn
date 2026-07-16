@@ -7,7 +7,7 @@
  * - Chunking and embedding pipeline
  * - pgvector native vector storage via $executeRaw with ::vector cast
  *
- * Embeddings are stored as vector(1536) using pgvector extension.
+ * Embeddings are stored as vector(1024) using pgvector extension.
  * See prisma/migrations/20260708_pgvector_embeddings/migration.sql.
  */
 

@@ -476,7 +476,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[var(--background)]">
+    <div className="h-full overflow-y-auto bg-[var(--background)]">
       {/* ── Header ── */}
       <div className="border-b border-[var(--border)] px-8 py-6">
         <div className="flex items-start gap-5">

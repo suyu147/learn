@@ -459,10 +459,10 @@ model DtDocumentChunk {
   id         String   @id @default(cuid())
   documentId String   @map("document_id")
   content    String
-  /// Native pgvector column: vector(1536) for OpenAI text-embedding-3-small.
+  /// Native pgvector column: vector(1024) for bge-m3 embedding model.
   /// Requires CREATE EXTENSION vector; — see prisma/migrations.
   /// Use $executeRaw / $queryRaw for reads and writes (cast with ::vector).
-  embedding  Unsupported("vector(1536)")?
+  embedding  Unsupported("vector(1024)")?
   chunkIndex Int      @map("chunk_index")
   metadata   Json?    // { page, source, title, charCount }
   createdAt  DateTime @default(now()) @map("created_at")

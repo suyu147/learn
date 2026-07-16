@@ -44,7 +44,7 @@ export default function EmbeddingPage() {
           <label className="text-[13px] font-medium text-[var(--foreground)]">向量维度</label>
           <input
             type="text"
-            defaultValue="1536"
+            defaultValue="1024"
             className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
           />
         </div>

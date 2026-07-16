@@ -3,7 +3,7 @@
  *
  * Performs semantic search across knowledge base documents using
  * pgvector's <=> cosine distance operator for efficient ranking.
- * Embeddings are stored as native vector(1536) columns.
+ * Embeddings are stored as native vector(1024) columns.
  *
  * BM25 hybrid retrieval is handled by HybridSearchService (Phase 5).
  */
