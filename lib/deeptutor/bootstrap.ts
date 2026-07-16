@@ -589,6 +589,29 @@ export function getBookEngine() {
   return bootstrap().bookEngine;
 }
 
+/**
+ * Create a BookEngine with per-request config overrides.
+ * Reuses the singleton BookStorage but applies the given provider/model/apiKey/baseUrl.
+ * This allows Book API routes to use the user's configured API key from the request
+ * instead of relying solely on environment variables.
+ */
+export function createBookEngineWithConfig(config?: {
+  providerId?: string;
+  modelId?: string;
+  apiKey?: string;
+  baseUrl?: string;
+  language?: string;
+}): BookEngine {
+  const storage = bootstrap().bookStorage;
+  return new BookEngine(storage, {
+    providerId: config?.providerId || process.env.DT_DEFAULT_PROVIDER,
+    modelId: config?.modelId || process.env.DT_DEFAULT_MODEL,
+    apiKey: config?.apiKey || process.env.DT_DEFAULT_API_KEY || process.env.OPENAI_API_KEY,
+    baseUrl: config?.baseUrl,
+    language: config?.language || 'zh',
+  });
+}
+
 // Phase 5 service accessors
 export function getChatImportService() {
   return bootstrap().chatImportService;

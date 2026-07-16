@@ -6,8 +6,14 @@ import { DEFAULT_DIMENSIONS } from '@/lib/types/profile';
 import { fetchProfile, saveProfile } from '@/lib/api/learning-profile-api';
 import { createLogger } from '@/lib/logger';
 import { getApiToken } from '@/lib/auth-token';
+import { useAuthStore } from './auth-store';
 
 const log = createLogger('LearningProfileStore');
+
+/** 获取当前登录用户的真实 ID，兜底 'anonymous' */
+function getCurrentUserId(): string {
+  return useAuthStore.getState().user?.id ?? 'anonymous';
+}
 
 interface LearningProfileState {
   profile: LearningProfile | null;
@@ -17,6 +23,8 @@ interface LearningProfileState {
   isChatOpen: boolean;
   isGenerating: boolean;
   synced: boolean;
+  /** 上次同步时的用户 ID，用于检测用户切换 */
+  lastSyncedUserId: string | null;
   saveError: string | null;
   setProfile: (profile: LearningProfile | null) => void;
   restoreArchivedProfile: (profileId: string) => LearningProfile | null;
@@ -48,6 +56,7 @@ export const useLearningProfileStore = create<LearningProfileState>()(
       isChatOpen: false,
       isGenerating: false,
       synced: false,
+      lastSyncedUserId: null,
       saveError: null,
 
       setProfile: (profile) => {
@@ -118,7 +127,7 @@ export const useLearningProfileStore = create<LearningProfileState>()(
 
           state.profile = {
             id: state.profile?.id ?? crypto.randomUUID(),
-            userId: 'current',
+            userId: getCurrentUserId(),
             updatedAt: new Date().toISOString(),
             version: (state.profile?.version ?? 0) + 1,
             dimensions: mergedDimensions,
@@ -128,7 +137,7 @@ export const useLearningProfileStore = create<LearningProfileState>()(
 
         // 数据库写入（仅客户端，静默失败不影响本地使用）
         if (typeof window !== 'undefined') {
-          const userId = get().profile?.userId ?? 'anonymous';
+          const userId = getCurrentUserId();
           const headers: Record<string, string> = { 'Content-Type': 'application/json', 'x-user-id': userId };
           const token = getApiToken();
           if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -171,7 +180,7 @@ export const useLearningProfileStore = create<LearningProfileState>()(
             updatedAt: new Date().toISOString(),
           } : {
             id: crypto.randomUUID(),
-            userId: 'current',
+            userId: getCurrentUserId(),
             updatedAt: new Date().toISOString(),
             version: 1,
             dimensions: { ...DEFAULT_DIMENSIONS },
@@ -207,10 +216,17 @@ export const useLearningProfileStore = create<LearningProfileState>()(
       reset: () => set({ profile: null, profileHistory: [], isChatOpen: false, isGenerating: false }),
 
       resetForNewUser: () => {
-        set({ profile: null, profileHistory: [], archivedProfiles: {}, isChatOpen: false, isGenerating: false, synced: false, saveError: null });
+        set({ profile: null, profileHistory: [], archivedProfiles: {}, isChatOpen: false, isGenerating: false, synced: false, lastSyncedUserId: null, saveError: null });
       },
 
       syncFromServer: async (userId: string) => {
+        // 检测用户切换：如果上次同步的用户与当前用户不同，清除旧数据并强制重新同步
+        const lastUserId = get().lastSyncedUserId;
+        if (lastUserId && lastUserId !== userId) {
+          log.info(`User changed (${lastUserId} → ${userId}), clearing old profile data`);
+          set({ profile: null, profileHistory: [], archivedProfiles: {}, synced: false });
+        }
+
         if (get().synced) return;
         try {
           const response = await fetchProfile(userId);
@@ -226,16 +242,19 @@ export const useLearningProfileStore = create<LearningProfileState>()(
                 conversationHistory: state.profile?.conversationHistory ?? [],
               };
               state.synced = true;
+              state.lastSyncedUserId = userId;
             });
           } else {
             set((state) => {
               state.synced = true;
+              state.lastSyncedUserId = userId;
             });
           }
         } catch (err) {
           log.error('syncFromServer failed:', err);
           set((state) => {
             state.synced = true;
+            state.lastSyncedUserId = userId;
           });
         }
       },
@@ -252,13 +271,13 @@ export const useLearningProfileStore = create<LearningProfileState>()(
     })),
     {
       name: 'learning-profile-storage',
-      version: 1,
+      version: 2,
       migrate: (persistedState: unknown, version: number) => {
+        const state = persistedState as Record<string, unknown>;
         if (version === 0) {
           // v0→v1: Reset old defaults that caused inflated completeness
           // (preferredDuration 30→0, preferredTimeSlot 'evening'→'',
           //  depthPreference 'broad'→'', preferredFormats ['document']→[])
-          const state = persistedState as Record<string, unknown>;
           const profile = state.profile as Record<string, unknown> | null;
           if (profile?.dimensions) {
             const dims = profile.dimensions as Record<string, unknown>;
@@ -271,11 +290,24 @@ export const useLearningProfileStore = create<LearningProfileState>()(
             const pf = ints?.preferredFormats as unknown[] | undefined;
             if (pf?.length === 1 && pf[0] === 'document') ints!.preferredFormats = [];
           }
-          return state;
         }
-        return persistedState;
+        // v1→v2: Clear stale 'current' userId and add lastSyncedUserId
+        {
+          const profile = state.profile as Record<string, unknown> | null;
+          if (profile?.userId === 'current') {
+            // userId='current' 无法确定属于哪个用户，强制清空让 syncFromServer 重新拉取
+            state.profile = null;
+          }
+          state.lastSyncedUserId = null;
+        }
+        return state;
       },
-      partialize: (state) => ({ profile: state.profile, archivedProfiles: state.archivedProfiles, profileHistory: state.profileHistory }),
+      partialize: (state) => ({
+        profile: state.profile,
+        archivedProfiles: state.archivedProfiles,
+        profileHistory: state.profileHistory,
+        lastSyncedUserId: state.lastSyncedUserId,
+      }),
     },
   ),
 );

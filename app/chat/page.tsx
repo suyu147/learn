@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Search,
   Settings,
-  Paperclip,
   BookOpen,
   Send,
   MessageSquare,
@@ -22,6 +21,9 @@ import {
   Sparkles,
   RefreshCw,
   Upload,
+  ImageIcon,
+  Mic,
+  MicOff,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useChatStore } from '@/lib/store/chat-store';
@@ -90,9 +92,19 @@ export default function ChatPage() {
   const [toolCallsExpanded, setToolCallsExpanded] = useState(true);
   const [selectedKBs, setSelectedKBs] = useState<string[]>([]);
 
+  // 图片附件状态：每项为 { dataUrl, mimeType, filename }
+  const [pendingImages, setPendingImages] = useState<
+    Array<{ dataUrl: string; mimeType: string; filename: string }>
+  >([]);
+  // 语音输入状态
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(true);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const userInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<unknown>(null);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -115,12 +127,202 @@ export default function ChatPage() {
     }
   }, [activeSessionId, addSession, setActiveSession]);
 
+  // --- 图片处理 ---
+
+  // 将图片文件压缩为 data URL（最大宽度 1024px，保持比例）
+  const compressImage = useCallback(
+    (file: File, maxWidth = 1024): Promise<{ dataUrl: string; mimeType: string }> => {
+      return new Promise((resolve, reject) => {
+        if (!file.type.startsWith('image/')) {
+          reject(new Error('仅支持图片文件'));
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let { width, height } = img;
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              reject(new Error('Canvas 上下文不可用'));
+              return;
+            }
+            ctx.drawImage(img, 0, 0, width, height);
+            // 统一输出为 JPEG 以减小体积
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            resolve({ dataUrl, mimeType: 'image/jpeg' });
+          };
+          img.onerror = () => reject(new Error('图片加载失败'));
+          img.src = reader.result as string;
+        };
+        reader.onerror = () => reject(new Error('文件读取失败'));
+        reader.readAsDataURL(file);
+      });
+    },
+    [],
+  );
+
+  // 处理选中的图片文件
+  const handleImageSelect = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return;
+      const maxImages = 4;
+      const remaining = maxImages - pendingImages.length;
+      if (remaining <= 0) return;
+      const toProcess = Array.from(files)
+        .filter((f) => f.type.startsWith('image/'))
+        .slice(0, remaining);
+
+      for (const file of toProcess) {
+        try {
+          const { dataUrl, mimeType } = await compressImage(file);
+          setPendingImages((prev) => [
+            ...prev,
+            { dataUrl, mimeType, filename: file.name },
+          ]);
+        } catch (err) {
+          console.error('图片处理失败:', err);
+        }
+      }
+    },
+    [compressImage, pendingImages.length],
+  );
+
+  // 从 data URL 中提取 base64 部分（去掉 data:image/jpeg;base64, 前缀）
+  const extractBase64 = useCallback((dataUrl: string): string => {
+    const commaIdx = dataUrl.indexOf(',');
+    return commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : dataUrl;
+  }, []);
+
+  // 粘贴图片支持
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const imageFiles: File[] = [];
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) imageFiles.push(file);
+        }
+      }
+      if (imageFiles.length > 0) {
+        e.preventDefault();
+        const dt = new DataTransfer();
+        imageFiles.forEach((f) => dt.items.add(f));
+        handleImageSelect(dt.files);
+      }
+    };
+    textarea.addEventListener('paste', handlePaste);
+    return () => textarea.removeEventListener('paste', handlePaste);
+  }, [handleImageSelect]);
+
+  // --- 语音识别 ---
+
+  // 初始化 Web Speech API
+  useEffect(() => {
+    const SpeechRecognitionImpl =
+      (window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition ||
+      (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition;
+
+    if (!SpeechRecognitionImpl) {
+      setSpeechSupported(false);
+      return;
+    }
+
+    const recognition = new (SpeechRecognitionImpl as new () => {
+      lang: string;
+      continuous: boolean;
+      interimResults: boolean;
+      onresult: (event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void;
+      onend: () => void;
+      onerror: (event: { error: string }) => void;
+      start: () => void;
+      stop: () => void;
+    })();
+    recognition.lang = 'zh-CN';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    let finalTranscript = '';
+
+    recognition.onresult = (event) => {
+      let interim = '';
+      for (let i = 0; i < event.results.length; i++) {
+        const result = event.results[i];
+        const transcript = result[0].transcript;
+        // results 项没有 isFinal 属性在类型中，用 0/1 判断
+        if (i === event.results.length - 1 && (result as unknown as { isFinal?: boolean }).isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interim += transcript;
+        }
+      }
+      // 实时显示中间结果
+      const current = finalTranscript + interim;
+      setMessageInput(current);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.onerror = (event) => {
+      console.error('语音识别错误:', event.error);
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+  }, []);
+
+  const toggleVoiceInput = useCallback(() => {
+    const recognition = recognitionRef.current as {
+      start: () => void;
+      stop: () => void;
+    } | null;
+    if (!recognition) return;
+
+    if (isListening) {
+      recognition.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognition.start();
+        setIsListening(true);
+      } catch (err) {
+        console.error('启动语音识别失败:', err);
+        setIsListening(false);
+      }
+    }
+  }, [isListening]);
+
   // Handle send
   const handleSend = useCallback(async () => {
     const text = messageInput.trim();
-    if (!text || stream.isStreaming) return;
+    // 允许只有图片无文字时也发送（只要有图片就可以）
+    if ((!text && pendingImages.length === 0) || stream.isStreaming) return;
+
+    const sentImages = pendingImages;
+    const attachments = sentImages.map((img, idx) => ({
+      type: 'image',
+      base64: extractBase64(img.dataUrl),
+      mimeType: img.mimeType,
+      filename: img.filename || `image-${idx + 1}.jpg`,
+      id: `img-${Date.now()}-${idx}`,
+    }));
+    const imageUrls = sentImages.map((img) => img.dataUrl);
 
     setMessageInput('');
+    setPendingImages([]);
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
@@ -135,7 +337,7 @@ export default function ChatPage() {
 
     await stream.send({
       sessionId: activeSessionId ?? `session-${Date.now()}`,
-      message: text,
+      message: text || '请分析这张图片',
       capability: cap?.capabilityName,
       knowledgeBases: selectedKBs.length > 0 ? selectedKBs : undefined,
       language: settings.language,
@@ -144,9 +346,12 @@ export default function ChatPage() {
       apiKey: effectiveApiKey,
       baseUrl: effectiveBaseUrl,
       conversationHistory: history,
+      attachments: attachments.length > 0 ? attachments : undefined,
+      imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
     });
   }, [
     messageInput,
+    pendingImages,
     stream,
     messages,
     activeCapability,
@@ -157,6 +362,7 @@ export default function ChatPage() {
     effectiveModelId,
     effectiveApiKey,
     effectiveBaseUrl,
+    extractBase64,
   ]);
 
   // Handle regenerate
@@ -363,6 +569,19 @@ export default function ChatPage() {
               return (
                 <div key={msg.id} className="flex justify-end">
                   <div className="max-w-[70%] bg-[var(--secondary)] text-[var(--secondary-foreground)] rounded-2xl rounded-tr-sm px-4 py-3">
+                    {/* 显示附带的图片 */}
+                    {msg.imageUrls && msg.imageUrls.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {msg.imageUrls.map((url, idx) => (
+                          <img
+                            key={idx}
+                            src={url}
+                            alt={`附件 ${idx + 1}`}
+                            className="rounded-lg max-h-32 object-cover"
+                          />
+                        ))}
+                      </div>
+                    )}
                     <p className="text-[13.5px] leading-relaxed">{msg.content}</p>
                     <p className="text-[11px] text-[var(--muted-foreground)] mt-1 text-right">
                       {new Date(msg.timestamp).toLocaleTimeString([], {
@@ -629,10 +848,71 @@ export default function ChatPage() {
 
         {/* Composer */}
         <div className="border-t border-[var(--border)] px-6 py-4">
+          {/* 图片预览区 */}
+          {pendingImages.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {pendingImages.map((img, idx) => (
+                <div
+                  key={idx}
+                  className="relative group"
+                >
+                  <img
+                    src={img.dataUrl}
+                    alt={img.filename}
+                    className="rounded-lg h-20 w-20 object-cover border border-[var(--border)]"
+                  />
+                  <button
+                    onClick={() =>
+                      setPendingImages((prev) => prev.filter((_, i) => i !== idx))
+                    }
+                    className="absolute -top-1.5 -right-1.5 bg-[var(--destructive)] text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="移除"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              handleImageSelect(e.target.files);
+              if (imageInputRef.current) imageInputRef.current.value = '';
+            }}
+          />
+
           <div className="flex gap-2 items-end">
-            <button className="p-2 rounded-lg hover:bg-[var(--muted)] transition-colors">
-              <Paperclip className="h-[18px] w-[18px] text-[var(--muted-foreground)]" />
+            <button
+              onClick={() => imageInputRef.current?.click()}
+              className="p-2 rounded-lg hover:bg-[var(--muted)] transition-colors"
+              title="上传图片"
+            >
+              <ImageIcon className="h-[18px] w-[18px] text-[var(--muted-foreground)]" />
             </button>
+            {speechSupported && (
+              <button
+                onClick={toggleVoiceInput}
+                className={cn(
+                  'p-2 rounded-lg transition-colors',
+                  isListening
+                    ? 'bg-[var(--destructive)]/10 text-[var(--destructive)]'
+                    : 'hover:bg-[var(--muted)] text-[var(--muted-foreground)]',
+                )}
+                title={isListening ? '停止录音' : '语音输入'}
+              >
+                {isListening ? (
+                  <MicOff className="h-[18px] w-[18px]" />
+                ) : (
+                  <Mic className="h-[18px] w-[18px]" />
+                )}
+              </button>
+            )}
             <button className="p-2 rounded-lg hover:bg-[var(--muted)] transition-colors">
               <BookOpen className="h-[18px] w-[18px] text-[var(--muted-foreground)]" />
             </button>
@@ -642,8 +922,13 @@ export default function ChatPage() {
                 value={messageInput}
                 onChange={handleTextareaChange}
                 onKeyDown={handleKeyDown}
-                placeholder="输入消息..."
-                className="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-[13.5px] text-[var(--foreground)] outline-none focus:border-[var(--primary)] resize-none min-h-[44px] max-h-[120px]"
+                placeholder={isListening ? '正在聆听...' : '输入消息或粘贴图片...'}
+                className={cn(
+                  'w-full bg-[var(--card)] border rounded-lg px-4 py-2.5 text-[13.5px] text-[var(--foreground)] outline-none resize-none min-h-[44px] max-h-[120px]',
+                  isListening
+                    ? 'border-[var(--destructive)] animate-pulse'
+                    : 'border-[var(--border)] focus:border-[var(--primary)]',
+                )}
                 rows={1}
                 disabled={stream.isStreaming}
               />
@@ -658,10 +943,10 @@ export default function ChatPage() {
             ) : (
               <button
                 onClick={handleSend}
-                disabled={!messageInput.trim()}
+                disabled={!messageInput.trim() && pendingImages.length === 0}
                 className={cn(
                   'px-4 py-2.5 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity',
-                  !messageInput.trim() && 'opacity-50 cursor-not-allowed',
+                  !messageInput.trim() && pendingImages.length === 0 && 'opacity-50 cursor-not-allowed',
                 )}
               >
                 <Send className="h-[18px] w-[18px]" />
@@ -669,7 +954,7 @@ export default function ChatPage() {
             )}
           </div>
           <p className="text-[11px] text-[var(--muted-foreground)] mt-2 text-center">
-            回车发送 · Shift+回车换行
+            回车发送 · Shift+回车换行 · 可粘贴或上传图片 · {speechSupported ? '点击麦克风语音输入' : '当前浏览器不支持语音输入'}
           </p>
         </div>
       </div>

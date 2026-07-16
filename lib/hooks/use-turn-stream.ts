@@ -68,6 +68,16 @@ interface TurnParams {
   apiKey?: string;
   baseUrl?: string;
   conversationHistory?: Record<string, unknown>[];
+  attachments?: Array<{
+    type: string;
+    base64?: string;
+    url?: string;
+    filename?: string;
+    mimeType?: string;
+    id?: string;
+  }>;
+  /** Image data URLs for local display in the user message bubble */
+  imageUrls?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -271,6 +281,9 @@ export function useTurnStream() {
         role: 'user',
         content: params.message,
         timestamp: new Date().toISOString(),
+        ...(params.imageUrls && params.imageUrls.length > 0
+          ? { imageUrls: params.imageUrls }
+          : {}),
       });
 
       await _startStream(params);

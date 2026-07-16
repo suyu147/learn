@@ -18,6 +18,8 @@ export interface ChatMessage {
   turnId?: string;
   /** Visualization render mode: svg | chartjs | mermaid | html */
   renderMode?: string;
+  /** Image attachments sent with this message (data URLs for display) */
+  imageUrls?: string[];
 }
 
 interface ChatState {

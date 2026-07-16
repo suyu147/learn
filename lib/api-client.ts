@@ -232,6 +232,14 @@ export async function submitTurn(
     apiKey?: string;
     baseUrl?: string;
     conversationHistory?: Record<string, unknown>[];
+    attachments?: Array<{
+      type: string;
+      base64?: string;
+      url?: string;
+      filename?: string;
+      mimeType?: string;
+      id?: string;
+    }>;
   },
   options: SSEStreamOptions,
 ): Promise<void> {

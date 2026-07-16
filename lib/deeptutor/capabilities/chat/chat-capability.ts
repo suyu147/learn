@@ -109,11 +109,29 @@ export class ChatCapability extends LoopCapability {
     // 3. Convert conversation history to BaseMessage[]
     let messages = this.convertHistoryToMessages(context.conversationHistory);
 
-    // 4. Prepend system prompt and append user message
+    // 4. Prepend system prompt and append user message (with image attachments)
+    const imageAttachments = context.attachments.filter(
+      (a) => a.type === 'image' && (a.base64 || a.url),
+    );
+
+    let userMessage: HumanMessage;
+    if (imageAttachments.length > 0) {
+      const contentParts: Array<{ type: 'text'; text: string } | { type: 'image'; image: string }> = [
+        { type: 'text', text: context.userMessage },
+        ...imageAttachments.map((a) => ({
+          type: 'image' as const,
+          image: a.base64 || a.url,
+        })),
+      ];
+      userMessage = new HumanMessage({ content: contentParts });
+    } else {
+      userMessage = new HumanMessage({ content: context.userMessage });
+    }
+
     messages = [
       new SystemMessage({ content: systemPrompt }),
       ...messages,
-      new HumanMessage({ content: context.userMessage }),
+      userMessage,
     ];
 
     // 5. Apply context window guard
@@ -261,19 +279,19 @@ export class ChatCapability extends LoopCapability {
             | undefined;
 
           if (toolCalls && toolCalls.length > 0) {
+            // Use LangChain standard tool_calls property so toModelMessages
+            // can read them correctly (additional_kwargs is not read by AI SDK)
             messages.push(
               new AIMessage({
                 content,
-                additional_kwargs: {
-                  tool_calls: toolCalls.map((tc) => ({
-                    id: tc.id,
-                    type: 'function' as const,
-                    function: {
-                      name: tc.function.name,
-                      arguments: tc.function.arguments,
-                    },
-                  })),
-                },
+                tool_calls: toolCalls.map((tc) => ({
+                  id: tc.id,
+                  name: tc.function.name,
+                  args: tc.function.arguments
+                    ? (JSON.parse(tc.function.arguments) as Record<string, unknown>)
+                    : {},
+                  type: 'tool_call' as const,
+                })),
               }),
             );
           } else {

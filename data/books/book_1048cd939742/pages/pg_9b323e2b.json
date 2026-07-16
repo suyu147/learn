@@ -1,22 +1,22 @@
 {
-  "id": "pg_5eca5883",
+  "id": "pg_9b323e2b",
   "chapterOrder": -1,
   "title": "Overview",
   "status": "ready",
   "blocks": [
     {
-      "id": "pg_ef45905e",
+      "id": "pg_2f476d63",
       "type": "text",
       "status": "ready",
       "params": {},
       "payload": {
-        "content": "# 机器学习\n\nWelcome to this book. Use the chapter navigation to explore each topic."
+        "content": "# 机器学习入门：从原理到实践\n\nWelcome to this book. Use the chapter navigation to explore each topic."
       },
       "sourceAnchors": [],
       "metadata": {}
     },
     {
-      "id": "pg_e160f9be",
+      "id": "pg_8548f5ae",
       "type": "concept_graph",
       "status": "ready",
       "params": {},
@@ -29,12 +29,12 @@
       "metadata": {}
     },
     {
-      "id": "pg_7eea719d",
+      "id": "pg_79ddd6c0",
       "type": "text",
       "status": "ready",
       "params": {},
       "payload": {
-        "content": "## Chapters\n\n1. **Chapter 1** — Chapter 1 of 机器学习\n2. **Chapter 2** — Chapter 2 of 机器学习\n3. **Chapter 3** — Chapter 3 of 机器学习\n4. **Chapter 4** — Chapter 4 of 机器学习\n5. **Chapter 5** — Chapter 5 of 机器学习"
+        "content": "## Chapters\n\n1. **Chapter 1** — \n2. **Chapter 2** — Additional chapter"
       },
       "sourceAnchors": [],
       "metadata": {}

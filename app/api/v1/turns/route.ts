@@ -10,8 +10,8 @@
 import { NextRequest } from 'next/server';
 import { createLogger } from '@/lib/logger';
 import { StreamBusImpl } from '@/lib/deeptutor/core/stream-bus';
-import type { StreamEvent } from '@/lib/deeptutor/core/types';
-import { createUnifiedContext } from '@/lib/deeptutor/core/types';
+import type { StreamEvent, Attachment } from '@/lib/deeptutor/core/types';
+import { createUnifiedContext, createAttachment } from '@/lib/deeptutor/core/types';
 import {
   createTurn,
   addMessage,
@@ -106,6 +106,23 @@ export async function POST(req: NextRequest) {
   const turnId = await createTurn(sessionId, { capability });
   log.info(`Turn ${turnId} created for session ${sessionId}`);
 
+  // --- Build attachments from request body ---
+  const contextAttachments: Attachment[] = Array.isArray(attachments)
+    ? attachments
+        .filter((a): a is Record<string, unknown> => a != null && typeof a === 'object')
+        .map((a) =>
+          createAttachment({
+            type: (a.type as string) ?? '',
+            base64: (a.base64 as string) ?? '',
+            url: (a.url as string) ?? '',
+            filename: (a.filename as string) ?? '',
+            mime_type: (a.mimeType as string) ?? (a.mime_type as string) ?? '',
+            id: (a.id as string) ?? '',
+            extracted_text: (a.extractedText as string) ?? (a.extracted_text as string) ?? '',
+          }),
+        )
+    : [];
+
   // --- Build UnifiedContext ---
   const context = createUnifiedContext({
     sessionId,
@@ -114,6 +131,7 @@ export async function POST(req: NextRequest) {
     enabledTools: enabledTools ?? null,
     activeCapability: capability ?? null,
     knowledgeBases: knowledgeBases ?? [],
+    attachments: contextAttachments,
     language: language ?? 'en',
     configOverrides: {
       providerId: effectiveProviderId,

@@ -246,16 +246,14 @@ export class MasteryPathCapability extends LoopCapability {
             messages.push(
               new AIMessage({
                 content,
-                additional_kwargs: {
-                  tool_calls: toolCalls.map((tc) => ({
-                    id: tc.id,
-                    type: 'function' as const,
-                    function: {
-                      name: tc.function.name,
-                      arguments: tc.function.arguments,
-                    },
-                  })),
-                },
+                tool_calls: toolCalls.map((tc) => ({
+                  id: tc.id,
+                  name: tc.function.name,
+                  args: tc.function.arguments
+                    ? (JSON.parse(tc.function.arguments) as Record<string, unknown>)
+                    : {},
+                  type: 'tool_call' as const,
+                })),
               }),
             );
           } else {

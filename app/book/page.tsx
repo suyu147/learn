@@ -27,9 +27,13 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { apiGet, apiPost, apiDelete } from '@/lib/api-client'
+import { apiGet, apiDelete, apiFetch } from '@/lib/api-client'
 import { useBookStore } from '@/lib/store/book-store'
+import { useSettingsStoreV2 } from '@/lib/store/settings-store'
 import { useI18n } from '@/lib/hooks/use-i18n'
+import { EnhancedMarkdownMessage } from '@/components/chat/markdown-message'
+import { QuizCard, type QuizQuestion } from '@/components/chat/quiz-card'
+import { CalloutBlock, type CalloutType } from '@/components/chat/callout-block'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -113,6 +117,18 @@ const STATUS_COLORS: Record<string, string> = {
   partial: 'text-[var(--warning)]',
 }
 
+/** Map book callout types to CalloutBlock CalloutType */
+function mapCalloutType(type?: string): CalloutType {
+  if (!type) return 'note'
+  const t = type.toLowerCase().trim()
+  if (t === 'tip' || t === 'hint') return 'tip'
+  if (t === 'warning' || t === 'pitfall' || t === 'caution') return 'warning'
+  if (t === 'danger') return 'danger'
+  if (t === 'info' || t === 'key_idea') return 'info'
+  if (t === 'success' || t === 'summary' || t === 'check') return 'success'
+  return 'note'
+}
+
 const STATUS_LABEL_KEYS: Record<string, string> = {
   draft: 'book.status.draft',
   spine_ready: 'book.status.spineReady',
@@ -131,6 +147,7 @@ const STATUS_LABEL_KEYS: Record<string, string> = {
 export default function BookPage() {
   const { t } = useI18n()
   const statusLabel = (s: string) => STATUS_LABEL_KEYS[s] ? t(STATUS_LABEL_KEYS[s]) : s
+  const settings = useSettingsStoreV2()
   const [books, setBooks] = useState<BookSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [activeBook, setActiveBook] = useState<BookDetail | null>(null)
@@ -140,6 +157,23 @@ export default function BookPage() {
   const [processStep, setProcessStep] = useState('')
   const [newIntent, setNewIntent] = useState('')
   const [showCreateForm, setShowCreateForm] = useState(false)
+
+  // ---------------------------------------------------------------------------
+  // SmartLearn-aware API helpers (inject LLM config as headers)
+  // ---------------------------------------------------------------------------
+  const llmHeaders: Record<string, string> = {}
+  if (settings.smartlearnApiKey) llmHeaders['x-api-key'] = settings.smartlearnApiKey
+  if (settings.smartlearnProviderId) llmHeaders['x-provider'] = settings.smartlearnProviderId
+  if (settings.smartlearnModelId) llmHeaders['x-model'] = settings.smartlearnModelId
+  if (settings.smartlearnBaseUrl) llmHeaders['x-base-url'] = settings.smartlearnBaseUrl
+
+  const bookPost = useCallback(<T,>(path: string, body?: unknown): Promise<T> => {
+    return apiFetch<T>(path, {
+      method: 'POST',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      headers: llmHeaders,
+    })
+  }, [llmHeaders['x-api-key'], llmHeaders['x-provider'], llmHeaders['x-model'], llmHeaders['x-base-url']])
 
   // ---------------------------------------------------------------------------
   // Fetch book list
@@ -182,7 +216,7 @@ export default function BookPage() {
     if (!newIntent.trim()) return
     setCreating(true)
     try {
-      const book = await apiPost<{ id: string }>('/api/v1/book', {
+      const book = await bookPost<{ id: string }>('/api/v1/book', {
         userIntent: newIntent.trim(),
       })
       setNewIntent('')
@@ -193,7 +227,7 @@ export default function BookPage() {
     } finally {
       setCreating(false)
     }
-  }, [newIntent, fetchBooks, loadBook])
+  }, [newIntent, fetchBooks, loadBook, bookPost])
 
   // ---------------------------------------------------------------------------
   // Confirm proposal (Stage 2)
@@ -203,14 +237,14 @@ export default function BookPage() {
     setProcessing(true)
     setProcessStep(t('book.creatingSpine'))
     try {
-      await apiPost('/api/v1/book/confirm-proposal', { bookId: activeBook.book.id })
+      await bookPost('/api/v1/book/confirm-proposal', { bookId: activeBook.book.id })
       await loadBook(activeBook.book.id)
     } catch {
     } finally {
       setProcessing(false)
       setProcessStep('')
     }
-  }, [activeBook, loadBook])
+  }, [activeBook, loadBook, bookPost])
 
   // ---------------------------------------------------------------------------
   // Confirm spine (Stage 2.5)
@@ -220,14 +254,14 @@ export default function BookPage() {
     setProcessing(true)
     setProcessStep(t('book.creatingPageStructure'))
     try {
-      await apiPost('/api/v1/book/confirm-spine', { bookId: activeBook.book.id })
+      await bookPost('/api/v1/book/confirm-spine', { bookId: activeBook.book.id })
       await loadBook(activeBook.book.id)
     } catch {
     } finally {
       setProcessing(false)
       setProcessStep('')
     }
-  }, [activeBook, loadBook])
+  }, [activeBook, loadBook, bookPost])
 
   // ---------------------------------------------------------------------------
   // Compile page (Stage 3-4)
@@ -237,7 +271,7 @@ export default function BookPage() {
     setProcessing(true)
     setProcessStep(t('book.compilingPage'))
     try {
-      await apiPost('/api/v1/book/compile-page', {
+      await bookPost('/api/v1/book/compile-page', {
         bookId: activeBook.book.id,
         pageId,
       })
@@ -247,7 +281,7 @@ export default function BookPage() {
       setProcessing(false)
       setProcessStep('')
     }
-  }, [activeBook, loadBook])
+  }, [activeBook, loadBook, bookPost])
 
   // ---------------------------------------------------------------------------
   // Compile all
@@ -257,14 +291,14 @@ export default function BookPage() {
     setProcessing(true)
     setProcessStep(t('book.compilingAll'))
     try {
-      await apiPost('/api/v1/book/compile-all', { bookId: activeBook.book.id })
+      await bookPost('/api/v1/book/compile-all', { bookId: activeBook.book.id })
       await loadBook(activeBook.book.id)
     } catch {
     } finally {
       setProcessing(false)
       setProcessStep('')
     }
-  }, [activeBook, loadBook])
+  }, [activeBook, loadBook, bookPost])
 
   // ---------------------------------------------------------------------------
   // Delete book
@@ -561,9 +595,6 @@ export default function BookPage() {
                             className={cn(
                               'rounded-xl border border-[var(--border)] overflow-hidden',
                               block.status === 'error' && 'border-[var(--destructive)]/30',
-                              block.type === 'callout' && 'bg-[var(--primary)]/5 border-[var(--primary)]/20',
-                              block.type === 'code' && 'bg-[var(--card)]',
-                              block.type === 'quiz' && 'bg-[var(--muted)]/50',
                             )}
                           >
                             {/* Block header */}
@@ -581,39 +612,130 @@ export default function BookPage() {
                               )}
                             </div>
 
-                            {/* Block content */}
+                            {/* Block content — rich rendering by type */}
                             <div className="p-4">
-                              {block.type === 'code' ? (
-                                <pre className="font-mono text-[12px] text-[var(--foreground)] leading-relaxed whitespace-pre-wrap bg-[var(--background)] rounded-lg p-3">
-                                  {(block.payload.code as string) || content}
-                                </pre>
-                              ) : block.type === 'concept_graph' ? (
-                                <div className="bg-[var(--background)] rounded-lg p-4">
-                                  <pre className="font-mono text-[11px] text-[var(--foreground)] leading-relaxed whitespace-pre-wrap">
-                                    {(block.payload.mermaid as string) || 'graph TD\n  A["暂无概念"]'}
-                                  </pre>
-                                </div>
+                              {block.type === 'text' || block.type === 'section' ? (
+                                <EnhancedMarkdownMessage content={content} proseClass="prose prose-sm dark:prose-invert max-w-none" />
+                              ) : block.type === 'callout' ? (
+                                <CalloutBlock
+                                  type={mapCalloutType(calloutType)}
+                                  title={calloutType}
+                                >
+                                  <EnhancedMarkdownMessage content={content} proseClass="prose prose-sm dark:prose-invert max-w-none [&_p]:m-0 [&_ul]:m-0 [&_ol]:m-0" />
+                                </CalloutBlock>
+                              ) : block.type === 'code' ? (
+                                <EnhancedMarkdownMessage
+                                  content={`\`\`\`${(block.payload.language as string) || 'python'}\n${(block.payload.code as string) || content}\n\`\`\``}
+                                  proseClass="prose prose-sm dark:prose-invert max-w-none [&_pre]:m-0"
+                                />
                               ) : block.type === 'quiz' ? (
-                                <div className="space-y-2">
-                                  <p className="text-[13.5px] font-medium text-[var(--foreground)]">
-                                    {(block.payload.question as string) || '测验题目'}
-                                  </p>
-                                  {Array.isArray(block.payload.options) &&
-                                    (block.payload.options as string[]).map((opt, i) => (
-                                      <div key={i} className="px-3 py-2 rounded-lg bg-[var(--background)] text-[13px] text-[var(--foreground)] border border-[var(--border)]">
-                                        {opt}
+                                <QuizCard quiz={{
+                                  question: (block.payload.question as string) || '',
+                                  options: Array.isArray(block.payload.options) ? (block.payload.options as string[]) : [],
+                                  correctIndex: block.payload.correctIndex as number | undefined,
+                                  explanation: (block.payload.explanation as string) || undefined,
+                                } satisfies QuizQuestion} />
+                              ) : block.type === 'concept_graph' ? (
+                                <div className="rounded-lg border bg-[var(--background)] p-4">
+                                  <EnhancedMarkdownMessage
+                                    content={`\`\`\`mermaid\n${(block.payload.mermaid as string) || 'graph TD\n  A["暂无概念"]'}\n\`\`\``}
+                                    renderMode="mermaid"
+                                    proseClass="[&_pre]:m-0"
+                                  />
+                                </div>
+                              ) : block.type === 'timeline' ? (
+                                <div className="space-y-3">
+                                  {Array.isArray(block.payload.events) &&
+                                    (block.payload.events as Array<{ date?: string; title?: string; description?: string }>).map((evt, i) => (
+                                      <div key={i} className="flex gap-3">
+                                        <div className="flex flex-col items-center">
+                                          <div className="h-2.5 w-2.5 rounded-full bg-[var(--primary)] shrink-0 mt-1.5" />
+                                          {i < ((block.payload.events as unknown[]).length - 1) && (
+                                            <div className="w-px flex-1 bg-[var(--border)] mt-1" />
+                                          )}
+                                        </div>
+                                        <div className="pb-3 min-w-0">
+                                          <div className="text-[11px] font-medium text-[var(--primary)] mb-0.5">{evt.date}</div>
+                                          <div className="text-[13px] font-medium text-[var(--foreground)]">{evt.title}</div>
+                                          {evt.description && (
+                                            <div className="text-[12px] text-[var(--muted-foreground)] mt-0.5">{evt.description}</div>
+                                          )}
+                                        </div>
                                       </div>
                                     ))}
-                                  {(block.payload.explanation as string) && (
-                                    <p className="text-[12px] text-[var(--muted-foreground)] mt-2 italic">
-                                      {block.payload.explanation as string}
-                                    </p>
+                                </div>
+                              ) : block.type === 'flash_cards' ? (
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                  {Array.isArray(block.payload.cards) &&
+                                    (block.payload.cards as Array<{ front?: string; back?: string; hint?: string }>).map((card, i) => (
+                                      <details key={i} className="rounded-lg border border-[var(--border)] overflow-hidden group">
+                                        <summary className="px-3 py-2.5 text-[13px] font-medium text-[var(--foreground)] cursor-pointer hover:bg-[var(--muted)]/50 transition-colors">
+                                          {card.front}
+                                        </summary>
+                                        <div className="px-3 py-2.5 border-t border-[var(--border)] text-[12.5px] text-[var(--muted-foreground)]">
+                                          {card.back}
+                                          {card.hint && <p className="mt-1 text-[11px] italic opacity-70">💡 {card.hint}</p>}
+                                        </div>
+                                      </details>
+                                    ))}
+                                </div>
+                              ) : block.type === 'deep_dive' ? (
+                                <div className="space-y-2">
+                                  {Array.isArray(block.payload.suggestions) &&
+                                    (block.payload.suggestions as Array<{ topic?: string; rationale?: string }>).map((s, i) => (
+                                      <div key={i} className="flex items-start gap-2 p-2.5 rounded-lg bg-[var(--muted)]/30">
+                                        <Sparkles className="h-3.5 w-3.5 text-[var(--primary)] mt-0.5 shrink-0" />
+                                        <div>
+                                          <div className="text-[13px] font-medium text-[var(--foreground)]">{s.topic}</div>
+                                          {s.rationale && <div className="text-[12px] text-[var(--muted-foreground)] mt-0.5">{s.rationale}</div>}
+                                        </div>
+                                      </div>
+                                    ))}
+                                </div>
+                              ) : block.type === 'figure' ? (
+                                <div className="rounded-lg border overflow-hidden">
+                                  {(block.payload.render_type as string) === 'mermaid' ? (
+                                    <EnhancedMarkdownMessage
+                                      content={`\`\`\`mermaid\n${(block.payload.code as string) || ''}\n\`\`\``}
+                                      renderMode="mermaid"
+                                      proseClass="[&_pre]:m-0"
+                                    />
+                                  ) : (block.payload.render_type as string) === 'svg' ? (
+                                    <EnhancedMarkdownMessage
+                                      content={`\`\`\`svg\n${(block.payload.code as string) || ''}\n\`\`\``}
+                                      renderMode="svg"
+                                      proseClass="[&_pre]:m-0"
+                                    />
+                                  ) : (block.payload.render_type as string) === 'html' || (block.payload.render_type as string) === 'chartjs' ? (
+                                    <EnhancedMarkdownMessage
+                                      content={`\`\`\`html\n${(block.payload.code as string) || ''}\n\`\`\``}
+                                      renderMode={(block.payload.render_type as string) || 'html'}
+                                      proseClass="[&_pre]:m-0"
+                                    />
+                                  ) : (
+                                    <div className="p-3 text-[12px] text-[var(--muted-foreground)]">{(block.payload.description as string) || ''}</div>
                                   )}
                                 </div>
-                              ) : (
-                                <div className="text-[13.5px] text-[var(--foreground)] leading-relaxed whitespace-pre-wrap">
-                                  {content || JSON.stringify(block.payload, null, 2).slice(0, 500)}
+                              ) : block.type === 'interactive' || block.type === 'animation' ? (
+                                <div className="rounded-lg border overflow-hidden bg-white">
+                                  <iframe
+                                    srcDoc={(block.payload.code as string) || ''}
+                                    className="w-full min-h-[300px] border-0"
+                                    sandbox="allow-scripts allow-same-origin"
+                                    title={(block.payload.description as string) || block.type}
+                                  />
                                 </div>
+                              ) : block.type === 'user_note' ? (
+                                <textarea
+                                  className="w-full min-h-[80px] bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-2 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--primary)] resize-y"
+                                  placeholder="在此写下你的笔记..."
+                                  defaultValue={content}
+                                />
+                              ) : (
+                                <EnhancedMarkdownMessage
+                                  content={content || JSON.stringify(block.payload, null, 2).slice(0, 500)}
+                                  proseClass="prose prose-sm dark:prose-invert max-w-none"
+                                />
                               )}
                             </div>
                           </div>

@@ -265,68 +265,206 @@ export function toAISDKTools(definitions: ToolDefinition[]): ToolSet {
 // ---------------------------------------------------------------------------
 
 /**
+ * Type-safe helpers for message identification.
+ * Falls back to _getType() / constructor.name when instanceof fails
+ * (e.g. across module instances, ESM hoisting).
+ */
+function getMessageType(msg: BaseMessage): string {
+  return (
+    (msg as unknown as Record<string, unknown>)._getType as (() => string) | undefined
+  )?.() ?? msg.constructor?.name ?? 'unknown';
+}
+
+function isToolMessageLike(msg: BaseMessage): boolean {
+  if (msg instanceof ToolMessage) return true;
+  return getMessageType(msg) === 'tool';
+}
+
+function isAIMessageLike(msg: BaseMessage): boolean {
+  if (msg instanceof AIMessage) return true;
+  return getMessageType(msg) === 'ai';
+}
+
+function isSystemMessageLike(msg: BaseMessage): boolean {
+  if (msg instanceof SystemMessage) return true;
+  return getMessageType(msg) === 'system';
+}
+
+function isHumanMessageLike(msg: BaseMessage): boolean {
+  if (msg instanceof HumanMessage) return true;
+  return getMessageType(msg) === 'human';
+}
+
+/**
  * Convert LangChain BaseMessage[] to AI SDK ModelMessage[] for the LLM call.
  *
  * AI SDK v5 requires ModelMessage (CoreMessage) format, NOT UIMessage format:
  * - Assistant tool calls go in `toolCalls` array (type: 'tool-call'), not `content` parts
- * - Tool results use `result` (not `output`), with `{ type: 'tool-result', result }` parts
+ * - Tool results use `output`, with `{ type: 'tool-result', toolCallId, toolName, output }` parts
  *
  * Mapping:
  * - SystemMessage → { role: 'system', content }
  * - HumanMessage  → { role: 'user', content }
- * - AIMessage     → { role: 'assistant', content, toolCalls? }
+ * - AIMessage     → { role: 'assistant', content: [...textPart, ...toolCallParts] }
  * - ToolMessage   → { role: 'tool', content: [{ type: 'tool-result', ... }] }
+ *
+ * NOTE: AI SDK v5 AssistantModelMessage does NOT have a top-level `toolCalls`
+ * field. Tool calls go inside the `content` array as ToolCallPart objects.
  */
 function toModelMessages(messages: BaseMessage[]): ModelMessage[] {
   const result: ModelMessage[] = [];
+
+  /**
+   * Check if the last message in result has role 'assistant' containing
+   * tool-call parts in its content array.
+   * AI SDK v5 requires every role:'tool' message to be preceded by an
+   * assistant message that carries matching tool-call content parts.
+   */
+  function lastMsgHasToolCalls(): boolean {
+    const last = result[result.length - 1];
+    if (!last || last.role !== 'assistant') return false;
+    const c = (last as Record<string, unknown>).content;
+    if (!Array.isArray(c)) return false;
+    return (c as Array<Record<string, unknown>>).some(
+      (part) => part.type === 'tool-call',
+    );
+  }
 
   for (const msg of messages) {
     const content =
       typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
 
-    if (msg instanceof SystemMessage) {
+    const msgType = getMessageType(msg);
+    const toolCallInfo =
+      msgType === 'ai'
+        ? ` tc=[${((msg as unknown as Record<string, unknown>).tool_calls as unknown[] | undefined)?.length ?? 0}] kw=[${Array.isArray(((msg as unknown as Record<string, unknown>).additional_kwargs as Record<string, unknown> | undefined)?.tool_calls) ? 'Y' : 'N'}]`
+        : msgType === 'tool'
+        ? ` tcid=${(msg as unknown as Record<string, unknown>).tool_call_id}`
+        : '';
+    logger.warn(`[toModelMessages] #${messages.indexOf(msg)} type="${msgType}"${toolCallInfo} preview="${content.slice(0, 80)}"`);
+
+    if (isSystemMessageLike(msg)) {
       result.push({ role: 'system', content });
-    } else if (msg instanceof HumanMessage) {
+    } else if (isHumanMessageLike(msg)) {
       result.push({ role: 'user', content });
-    } else if (msg instanceof AIMessage) {
-      const toolCalls = msg.tool_calls ?? [];
+    } else if (isAIMessageLike(msg)) {
+      // Read tool_calls from LangChain standard property first,
+      // then fall back to additional_kwargs.tool_calls (OpenAI format)
+      const lcCalls = (msg as unknown as Record<string, unknown>).tool_calls;
+      let toolCalls: Array<{ id?: string; name?: string; args?: Record<string, unknown>; type?: string }> =
+        Array.isArray(lcCalls) ? lcCalls as typeof toolCalls : [];
+
+      if (toolCalls.length === 0) {
+        const kwCalls = (msg as unknown as Record<string, unknown>).additional_kwargs as Record<string, unknown> | undefined;
+        const kwToolCalls = kwCalls?.tool_calls;
+        if (Array.isArray(kwToolCalls)) {
+          toolCalls = (kwToolCalls as Array<{
+            id?: string;
+            type?: string;
+            function?: { name?: string; arguments?: string | Record<string, unknown> };
+          }>)
+            .filter((tc) => tc.function?.name)
+            .map((tc) => {
+              let args: Record<string, unknown> = {};
+              const raw = tc.function!.arguments;
+              if (raw) {
+                if (typeof raw === 'object') {
+                  args = raw as Record<string, unknown>;
+                } else {
+                  try {
+                    args = JSON.parse(raw) as Record<string, unknown>;
+                  } catch {
+                    args = {};
+                  }
+                }
+              }
+              return {
+                id: tc.id ?? `call_${Math.random().toString(36).slice(2, 10)}`,
+                name: tc.function!.name!,
+                args,
+                type: 'tool_call' as const,
+              };
+            });
+        }
+      }
+
+      logger.warn(`[toModelMessages] AIMessage resolved toolCalls=${toolCalls.length}, names=[${toolCalls.map(t => t.name).join(',')}]`);
+
       if (toolCalls.length > 0) {
-        // AI SDK v5 ModelMessage format: toolCalls in separate array
-        result.push({
-          role: 'assistant',
-          content,
-          toolCalls: toolCalls.map((tc) => ({
+        // AI SDK v5: tool calls go inside content array as ToolCallPart,
+        // NOT as a top-level `toolCalls` field (which is stripped by Zod).
+        const parts: Array<{
+          type: string;
+          text?: string;
+          toolCallId?: string;
+          toolName?: string;
+          input?: unknown;
+        }> = [];
+        if (content) {
+          parts.push({ type: 'text', text: content });
+        }
+        for (const tc of toolCalls) {
+          parts.push({
             type: 'tool-call' as const,
             toolCallId: tc.id ?? `call_${Math.random().toString(36).slice(2, 10)}`,
-            toolName: tc.name,
-            args: tc.args as Record<string, unknown>,
-          })),
+            toolName: tc.name ?? 'unknown_tool',
+            input: tc.args ?? {},
+          });
+        }
+        result.push({
+          role: 'assistant',
+          content: parts,
         } as ModelMessage);
       } else {
         result.push({ role: 'assistant', content });
       }
-    } else if (msg instanceof ToolMessage) {
-      // AI SDK v5 ToolModelMessage format: tool-result with `output` field
-      // output: { type: 'text', value: string } | { type: 'json', value: JSONValue } | ...
+    } else if (isToolMessageLike(msg)) {
+      const hasPrev = lastMsgHasToolCalls();
+      logger.warn(`[toModelMessages] ToolMessage tcid="${(msg as unknown as Record<string, unknown>).tool_call_id}", lastMsgHasToolCalls=${hasPrev}`);
+
+      if (!hasPrev) {
+        // Orphaned tool result — convert to user message to preserve context
+        logger.warn('toModelMessages: Skipping orphaned ToolMessage (no preceding assistant with toolCalls)');
+        result.push({ role: 'user', content: `[Tool result: ${content.slice(0, 500)}]` });
+        continue;
+      }
+
       const toolCallId =
-        msg.tool_call_id ?? `call_${Math.random().toString(36).slice(2, 10)}`;
+        (msg as unknown as Record<string, unknown>).tool_call_id as string | undefined ??
+        `call_${Math.random().toString(36).slice(2, 10)}`;
+
       result.push({
         role: 'tool',
         content: [
           {
             type: 'tool-result' as const,
             toolCallId,
-            toolName: msg.name ?? 'unknown',
+            toolName: ((msg as unknown as Record<string, unknown>).name as string) ?? 'unknown',
             output: { type: 'text' as const, value: content },
           },
         ],
       } satisfies ModelMessage);
     } else {
-      // Fallback: treat as user message
+      logger.debug(`toModelMessages: Unknown msg type, treating as user`);
       result.push({ role: 'user', content });
     }
   }
 
+  // Summary: log roles + tool-call content parts of produced messages
+  const summary = result.map((m) => {
+    const r = m as Record<string, unknown>;
+    let tcInfo = '';
+    if (Array.isArray(r.content)) {
+      const tcParts = (r.content as Array<Record<string, unknown>>).filter(
+        (p) => p.type === 'tool-call',
+      );
+      if (tcParts.length > 0) {
+        tcInfo = `(tc:${tcParts.map((p) => p.toolName).join(',')})`;
+      }
+    }
+    return `${r.role}${tcInfo}`;
+  }).join(' → ');
+  logger.warn(`[toModelMessages] OUTPUT (${result.length} msgs): ${summary}`);
   return result;
 }
 
@@ -641,7 +779,9 @@ function createAgentNode(config: AgentLoopConfig) {
         // Build an AIMessage with tool_calls in the LangChain format
         const langChainToolCalls = validToolCalls.map((tc) => ({
           name: tc.toolName,
-          args: tc.input as Record<string, unknown>,
+          args: typeof tc.input === 'string'
+            ? (JSON.parse(tc.input) as Record<string, unknown>)
+            : ((tc.input ?? {}) as Record<string, unknown>),
           id: tc.toolCallId,
           type: 'tool_call' as const,
         }));

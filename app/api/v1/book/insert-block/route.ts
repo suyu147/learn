@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/server/api-response';
-import { getBookEngine } from '@/lib/deeptutor/bootstrap';
+import { createBookEngineWithConfig } from '@/lib/deeptutor/bootstrap';
+import { resolveBookEngineConfigFromHeaders } from '@/lib/server/resolve-model';
 import { validatedBody, errorToMessage, isValidationError, isSyntaxError } from '@/lib/server/validate';
 import { BookInsertBlockSchema } from '@/lib/server/schemas';
 import type { BlockType } from '@/lib/deeptutor/services/book/models';
@@ -17,7 +18,8 @@ export async function POST(req: NextRequest) {
     const { bookId, pageId, index, type, params } =
       await validatedBody(BookInsertBlockSchema, req);
 
-    const engine = getBookEngine();
+    const config = resolveBookEngineConfigFromHeaders(req);
+    const engine = createBookEngineWithConfig(config);
     const page = await engine.insertBlock(
       bookId,
       pageId,

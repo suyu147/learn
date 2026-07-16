@@ -91,3 +91,29 @@ export function resolveModelFromHeaders(req: NextRequest) {
     providerType: providerType as ModelConfig['providerType'] | undefined,
   });
 }
+
+/**
+ * Resolve BookEngine config from request headers.
+ * Reads x-api-key, x-provider, x-model, x-base-url headers
+ * and falls back to environment variables.
+ * Used by Book API routes to pass the user's configured LLM credentials
+ * to the BookEngine so it can actually call the LLM.
+ */
+export function resolveBookEngineConfigFromHeaders(req: NextRequest): {
+  providerId?: string;
+  modelId?: string;
+  apiKey?: string;
+  baseUrl?: string;
+} {
+  const apiKey = req.headers.get('x-api-key') || undefined;
+  const providerId = req.headers.get('x-provider') || undefined;
+  const modelId = req.headers.get('x-model') || undefined;
+  const baseUrl = req.headers.get('x-base-url') || undefined;
+
+  return {
+    providerId,
+    modelId,
+    apiKey,
+    baseUrl,
+  };
+}

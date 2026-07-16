@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/server/api-response';
-import { getBookEngine } from '@/lib/deeptutor/bootstrap';
+import { createBookEngineWithConfig } from '@/lib/deeptutor/bootstrap';
+import { resolveBookEngineConfigFromHeaders } from '@/lib/server/resolve-model';
 import { validatedBody, errorToMessage, isValidationError, isSyntaxError } from '@/lib/server/validate';
 import { BookIdBodySchema } from '@/lib/server/schemas';
 import { createLogger } from '@/lib/logger';
@@ -16,7 +17,8 @@ export async function POST(req: NextRequest) {
   try {
     const { bookId } = await validatedBody(BookIdBodySchema, req);
 
-    const engine = getBookEngine();
+    const config = resolveBookEngineConfigFromHeaders(req);
+    const engine = createBookEngineWithConfig(config);
     const result = await engine.confirmSpine(bookId);
 
     return apiSuccess({

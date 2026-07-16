@@ -210,7 +210,7 @@ export class DeepResearchCapability extends LoopCapability {
         case 'assistant': {
           const toolCalls = entry.tool_calls as Array<{ id: string; type: string; function: { name: string; arguments: string } }> | undefined;
           if (toolCalls?.length) {
-            messages.push(new AIMessage({ content, additional_kwargs: { tool_calls: toolCalls.map((tc) => ({ id: tc.id, type: 'function' as const, function: { name: tc.function.name, arguments: tc.function.arguments } })) } }));
+            messages.push(new AIMessage({ content, tool_calls: toolCalls.map((tc) => ({ id: tc.id, name: tc.function.name, args: tc.function.arguments ? (JSON.parse(tc.function.arguments) as Record<string, unknown>) : {}, type: 'tool_call' as const })) }));
           } else {
             messages.push(new AIMessage({ content }));
           }

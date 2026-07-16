@@ -9,6 +9,7 @@
  */
 
 import type { BaseMessage } from '@langchain/core/messages';
+import { AIMessage, ToolMessage } from '@langchain/core/messages';
 
 const CONTEXT_WINDOW_GUARD_RATIO = 0.9;
 
@@ -114,5 +115,25 @@ export function truncateHistory(
     usedTokens += msgTokens;
   }
 
-  return [systemMsg, ...kept];
+  // Post-process: remove orphaned ToolMessages that have no preceding
+  // AIMessage with tool_calls (AI SDK v5 requires role:'tool' to be
+  // preceded by an assistant with toolCalls).
+  const clean: BaseMessage[] = [];
+  for (const msg of kept) {
+    if (msg instanceof ToolMessage) {
+      const prev = clean[clean.length - 1];
+      const hasToolCalls =
+        prev instanceof AIMessage &&
+        ((prev.tool_calls && prev.tool_calls.length > 0) ||
+          (prev.additional_kwargs?.tool_calls &&
+            Array.isArray(prev.additional_kwargs.tool_calls) &&
+            prev.additional_kwargs.tool_calls.length > 0));
+      if (!hasToolCalls) {
+        continue; // skip orphaned ToolMessage
+      }
+    }
+    clean.push(msg);
+  }
+
+  return [systemMsg, ...clean];
 }
