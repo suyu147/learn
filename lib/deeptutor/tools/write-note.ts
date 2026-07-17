@@ -15,13 +15,14 @@ import {
   createToolPromptHints,
 } from '@/lib/deeptutor/core/tool-protocol';
 import type { NotebookServiceImpl } from '@/lib/deeptutor/services/notebook';
+import { getCurrentUserId } from '@/lib/deeptutor/context/tool-context';
 
 let _notebookService: NotebookServiceImpl | null = null;
-let _userId: string = 'anonymous';
 
-export function setWriteNoteContext(nb: NotebookServiceImpl, userId: string): void {
+export function setWriteNoteContext(nb: NotebookServiceImpl, _userId?: string): void {
   _notebookService = nb;
-  _userId = userId;
+  // userId is now provided via AsyncLocalStorage; the parameter is kept
+  // for backward compat but ignored.
 }
 
 export class WriteNoteTool extends BaseTool {
@@ -75,19 +76,21 @@ export class WriteNoteTool extends BaseTool {
     }
 
     try {
+      const userId = getCurrentUserId();
+
       // Auto-create default notebook if not specified
       if (!notebookId) {
-        const notebooks = await _notebookService.listNotebooks(_userId);
+        const notebooks = await _notebookService.listNotebooks(userId);
         const defaultNb = notebooks.find((nb) => nb.name === 'Default');
         if (defaultNb) {
           notebookId = defaultNb.id;
         } else {
-          const newNb = await _notebookService.createNotebook(_userId, 'Default');
+          const newNb = await _notebookService.createNotebook(userId, 'Default');
           notebookId = newNb.id;
         }
       }
 
-      const record = await _notebookService.addRecord(_userId, notebookId, {
+      const record = await _notebookService.addRecord(userId, notebookId, {
         type: 'note',
         title,
         summary: content.slice(0, 200),

@@ -249,13 +249,13 @@ function bootstrap(): {
   // Register memory consolidation subscriber (CAPABILITY_COMPLETE → consolidate)
   registerMemorySubscriber(memoryService);
 
-  // Set tool contexts (user defaults to 'anonymous' — overridden per-turn by agent loop)
-  const defaultUserId = 'anonymous';
+  // Set tool contexts (userId is now provided per-request via AsyncLocalStorage,
+  // so we no longer pass a defaultUserId here)
   setSandboxToolContext(sandboxService);
-  setReadMemoryContext(memoryService, defaultUserId);
-  setWriteMemoryContext(memoryService, defaultUserId);
-  setListNotebookContext(notebookService, defaultUserId);
-  setWriteNoteContext(notebookService, defaultUserId);
+  setReadMemoryContext(memoryService);
+  setWriteMemoryContext(memoryService);
+  setListNotebookContext(notebookService);
+  setWriteNoteContext(notebookService);
 
   // Register Phase 2c tools
   const codeExecutionTool = new CodeExecutionTool();
@@ -288,7 +288,7 @@ function bootstrap(): {
   setGithubToolContext();
   setReadSkillContext(skillService);
   setSolvePlanContext(llmCall);
-  setMasteryToolsContext(learningService, defaultUserId, llmCall);
+  setMasteryToolsContext(learningService, 'anonymous', llmCall);
 
   // Register Phase 3a tools
   const githubTool = new GithubTool();

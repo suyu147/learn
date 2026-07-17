@@ -11,13 +11,14 @@ import {
   createToolPromptHints,
 } from '@/lib/deeptutor/core/tool-protocol';
 import type { NotebookServiceImpl } from '@/lib/deeptutor/services/notebook';
+import { getCurrentUserId } from '@/lib/deeptutor/context/tool-context';
 
 let _notebookService: NotebookServiceImpl | null = null;
-let _userId: string = 'anonymous';
 
-export function setListNotebookContext(nb: NotebookServiceImpl, userId: string): void {
+export function setListNotebookContext(nb: NotebookServiceImpl, _userId?: string): void {
   _notebookService = nb;
-  _userId = userId;
+  // userId is now provided via AsyncLocalStorage; the parameter is kept
+  // for backward compat but ignored.
 }
 
 export class ListNotebookTool extends BaseTool {
@@ -42,7 +43,8 @@ export class ListNotebookTool extends BaseTool {
       return createToolResult({ content: 'Notebook service not available.', success: false });
     }
 
-    const notebooks = await _notebookService.listNotebooks(_userId);
+    const userId = getCurrentUserId();
+    const notebooks = await _notebookService.listNotebooks(userId);
 
     if (notebooks.length === 0) {
       return createToolResult({

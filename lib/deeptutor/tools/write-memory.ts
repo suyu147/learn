@@ -15,13 +15,14 @@ import {
   createToolPromptHints,
 } from '@/lib/deeptutor/core/tool-protocol';
 import type { MemoryServiceImpl } from '@/lib/deeptutor/services/memory';
+import { getCurrentUserId } from '@/lib/deeptutor/context/tool-context';
 
 let _memoryService: MemoryServiceImpl | null = null;
-let _userId: string = 'anonymous';
 
-export function setWriteMemoryContext(memory: MemoryServiceImpl, userId: string): void {
+export function setWriteMemoryContext(memory: MemoryServiceImpl, _userId?: string): void {
   _memoryService = memory;
-  _userId = userId;
+  // userId is now provided via AsyncLocalStorage; the parameter is kept
+  // for backward compat but ignored.
 }
 
 export class WriteMemoryTool extends BaseTool {
@@ -83,8 +84,10 @@ export class WriteMemoryTool extends BaseTool {
     }
 
     try {
+      const userId = getCurrentUserId();
+
       // Emit L1 trace
-      await _memoryService.emitTrace(_userId, {
+      await _memoryService.emitTrace(userId, {
         surface: 'chat',
         kind: 'preference_stated',
         payload: { op, text, target_id: targetId },
@@ -92,7 +95,7 @@ export class WriteMemoryTool extends BaseTool {
 
       // Write to L3 preferences
       const result = await _memoryService.writePreference(
-        _userId,
+        userId,
         op as 'add' | 'edit',
         text,
         targetId,

@@ -139,7 +139,13 @@ export async function ensureSession(
   await ensureUser(userId);
 
   const existing = await prisma.dtSession.findUnique({ where: { id: sessionId } });
-  if (existing) return existing;
+  if (existing) {
+    // Touch updatedAt so incremental snapshot queries detect this session
+    return prisma.dtSession.update({
+      where: { id: sessionId },
+      data: { title: existing.title }, // no-op write triggers @updatedAt
+    });
+  }
 
   return prisma.dtSession.create({
     data: { id: sessionId, userId, title: 'New Chat' },

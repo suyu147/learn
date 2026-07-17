@@ -18,7 +18,8 @@ import {
   updateTurnStatus,
   ensureSession,
 } from '@/lib/deeptutor/services/session';
-import { getOrchestrator } from '@/lib/deeptutor/bootstrap';
+import { getOrchestrator, getMemoryService } from '@/lib/deeptutor/bootstrap';
+import { runWithToolContext } from '@/lib/deeptutor/context/tool-context';
 
 const log = createLogger('TurnsRoute');
 
@@ -132,6 +133,15 @@ export async function POST(req: NextRequest) {
   log.info(`[Turns] Attachments received: ${contextAttachments.length} (types: ${contextAttachments.map(a => a.type).join(',') || 'none'})`);
 
   // --- Build UnifiedContext ---
+  // Pre-read L3 memory to inject into system prompt for personalization
+  let memoryContext: string | undefined;
+  try {
+    const memoryService = getMemoryService();
+    memoryContext = (await memoryService.readAllL3(userId)) || undefined;
+  } catch (err) {
+    log.warn('Failed to read L3 memory for context injection:', err);
+  }
+
   const context = createUnifiedContext({
     sessionId,
     userMessage: message,
@@ -141,6 +151,7 @@ export async function POST(req: NextRequest) {
     knowledgeBases: knowledgeBases ?? [],
     attachments: contextAttachments,
     language: language ?? 'en',
+    memoryContext,
     configOverrides: {
       providerId: effectiveProviderId,
       modelId: effectiveModelId,
@@ -178,13 +189,16 @@ export async function POST(req: NextRequest) {
           metadata: { language: language ?? 'en' },
         });
 
-        // Execute turn via orchestrator
+        // Execute turn via orchestrator (wrapped in AsyncLocalStorage for userId isolation)
         const orchestrator = getOrchestrator();
-        const result = await orchestrator.executeTurn(
-          context,
-          wrappedPush,
-          sessionId,
-          userId,
+        const result = await runWithToolContext(
+          { userId, sessionId, turnId },
+          () => orchestrator.executeTurn(
+            context,
+            wrappedPush,
+            sessionId,
+            userId,
+          ),
         );
 
         // Persist assistant message

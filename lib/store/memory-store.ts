@@ -66,9 +66,13 @@ export const useMemoryStore = create<MemoryState>()(
           );
 
           if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-            console.error('[MemoryStore] consolidate failed:', err);
-            return { consolidated: false, reason: err.error ?? `HTTP ${res.status}` };
+            const errText = await res.text().catch(() => '');
+            let err: Record<string, unknown> = { error: `HTTP ${res.status}` };
+            if (errText) {
+              try { err = JSON.parse(errText); } catch { err = { error: errText.slice(0, 500) }; }
+            }
+            console.error(`[MemoryStore] consolidate failed: HTTP ${res.status}`, err);
+            return { consolidated: false, reason: String(err.error ?? err.message ?? `HTTP ${res.status}`) };
           }
 
           const json = (await res.json()) as { success: boolean; data: ConsolidateResult };

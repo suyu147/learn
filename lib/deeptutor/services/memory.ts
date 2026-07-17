@@ -19,9 +19,10 @@
  */
 
 import { createLogger } from '@/lib/logger';
-import { readFile, writeFile, mkdir } from 'fs/promises';
+import { readFile, writeFile, mkdir, rm } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import { runUpdateL2, runUpdateL3 } from '@/lib/deeptutor/services/memory/consolidator';
 
 const log = createLogger('MemoryService');
 
@@ -221,22 +222,47 @@ export class MemoryServiceImpl {
 
   /**
    * Consolidate memory for a user after a capability completes.
-   * 1. Roll up recent L1 traces into L2 surface summary
-   * 2. Merge L2 summaries into L3/recent slot
    *
-   * Called by EventBus subscriber on CAPABILITY_COMPLETE.
+   * Uses LLM-based fact extraction (runUpdateL2/runUpdateL3) by default.
+   * Falls back to simple text rollup if MEMORY_CONSOLIDATOR=v1 is set
+   * or if DT_TOOL_API_KEY/OPENAI_API_KEY is not configured.
    */
   async consolidate(userId: string, surface: Surface): Promise<void> {
     try {
-      // Step 1: L1 → L2 rollup
-      await this.rollupL1ToL2(userId, surface);
+      const useV1 = process.env.MEMORY_CONSOLIDATOR === 'v1'
+        || (!process.env.DT_TOOL_API_KEY && !process.env.OPENAI_API_KEY);
 
-      // Step 2: L2 → L3 synthesis
-      await this.synthesizeL3Recent(userId);
+      if (useV1) {
+        log.info(`Using v1 (simple text) consolidator for ${userId}/${surface}`);
+        // Step 1: L1 → L2 rollup
+        await this.rollupL1ToL2(userId, surface);
+        // Step 2: L2 → L3 synthesis
+        await this.synthesizeL3Recent(userId);
+      } else {
+        log.info(`Using v2 (LLM) consolidator for ${userId}/${surface}`);
+        // Step 1: L2 update (LLM fact extraction from snapshot)
+        await runUpdateL2(
+          userId,
+          surface,
+          this.readL2.bind(this),
+          this.writeL2.bind(this),
+          this.readTrace.bind(this),
+          { language: 'zh' },
+        );
+        // Step 2: L3 update (LLM cross-surface synthesis)
+        await runUpdateL3(
+          userId,
+          this.readL2.bind(this),
+          (u, s) => this.readL3(u, s as L3Slot),
+          (u, s, c) => this.writeL3(u, s as L3Slot, c),
+          { language: 'zh' },
+        );
+      }
 
       log.info(`Memory consolidated for user ${userId}, surface: ${surface}`);
     } catch (err) {
-      log.warn(`Memory consolidation failed for ${userId}/${surface}:`, err);
+      log.error(`Memory consolidation failed for ${userId}/${surface}:`, err);
+      throw err; // Re-throw so the API route can return proper error response
     }
   }
 
@@ -359,6 +385,20 @@ export class MemoryServiceImpl {
     }
 
     return { l1Events, l2Surfaces, l3Slots, totalChars };
+  }
+
+  /**
+   * Delete all memory data for a user.
+   * Useful for testing and data hygiene.
+   */
+  async cleanup(userId: string): Promise<{ deleted: boolean; path: string }> {
+    const dir = join(this.baseDir, userId);
+    if (existsSync(dir)) {
+      await rm(dir, { recursive: true, force: true });
+      log.info(`Memory cleanup: deleted ${dir}`);
+      return { deleted: true, path: dir };
+    }
+    return { deleted: false, path: dir };
   }
 
   // -------------------------------------------------------------------------

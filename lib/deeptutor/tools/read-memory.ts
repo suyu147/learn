@@ -15,13 +15,14 @@ import {
   createToolPromptHints,
 } from '@/lib/deeptutor/core/tool-protocol';
 import type { MemoryServiceImpl } from '@/lib/deeptutor/services/memory';
+import { getCurrentUserId } from '@/lib/deeptutor/context/tool-context';
 
 let _memoryService: MemoryServiceImpl | null = null;
-let _userId: string = 'anonymous';
 
-export function setReadMemoryContext(memory: MemoryServiceImpl, userId: string): void {
+export function setReadMemoryContext(memory: MemoryServiceImpl, _userId?: string): void {
   _memoryService = memory;
-  _userId = userId;
+  // userId is now provided via AsyncLocalStorage; the parameter is kept
+  // for backward compat but ignored.
 }
 
 export class ReadMemoryTool extends BaseTool {
@@ -49,7 +50,8 @@ export class ReadMemoryTool extends BaseTool {
       });
     }
 
-    const content = await _memoryService.readAllL3(_userId);
+    const userId = getCurrentUserId();
+    const content = await _memoryService.readAllL3(userId);
 
     if (!content) {
       return createToolResult({

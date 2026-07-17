@@ -93,7 +93,7 @@ Snapshot Entity[] (新增的)
     │
     ├── loadPrompt('update_l2', language)    ← 加载 YAML 提示词
     ├── 构建 system + user prompt
-    │     system: "你是用户 {userLabel} 的记忆管理员..."
+    │     system: "你是 SmartLearn 用户 {userLabel} 的记忆管理员..."
     │     user: "现有 L2 文档: {existing}\n新数据块: {chunk}"
     │
     ├── callLLM(system, user, temperature=0.2, maxTokens=1500)
@@ -111,7 +111,7 @@ Snapshot Entity[] (新增的)
 
 ```yaml
 system: |
-  你是 DeepTutor 用户 {userLabel} 的记忆管理员。
+  你是 SmartLearn 用户 {userLabel} 的记忆管理员。
 
   角色：阅读用户近期的 {surface} 活动（原始、未截断），提取关于用户的持久事实。
 
@@ -145,6 +145,21 @@ user: |
   返回 JSON。只引用上方列表中或本块中可见的 ref。
 ```
 
+### `{focus}` 占位符定义
+
+每个 surface 的 `{focus}` 值在调用 Consolidator 时注入，定义如下：
+
+| Surface | `{focus}` 值 |
+|---------|-------------|
+| `chat` | 用户的学习话题、遇到的困难、提问模式、理解进展 |
+| `quiz` | 答题正确率、薄弱知识点、答题速度变化 |
+| `notebook` | 用户记录的笔记主题、知识结构、关注重点 |
+| `kb` | 用户上传/收藏的知识材料主题和覆盖范围 |
+| `book` | 阅读进度、关注的章节和内容偏好 |
+| `cowriter` | 写作主题、文风偏好、修改历史中的关注点 |
+
+第一阶段仅使用 `chat` 的 focus 值。
+
 ## 4.5 L3 Update 流程
 
 L3 Update 从所有 L2 文档的新条目中合成：
@@ -177,18 +192,53 @@ L3 Update 从所有 L2 文档的新条目中合成：
           └── writeDocAtomic(l3Path, doc)
 ```
 
-**L3/preferences 特殊处理**: preferences slot 不由 Consolidator 自动更新，仍由 `write_memory` 工具写入。这与 DeepTutor Python 版一致。
+### L3/preferences 自动引导机制
+
+**问题**：`preferences` slot 不由 Consolidator 自动更新，仍由 `write_memory` 工具写入。但断点 2 已论证 LLM 几乎不主动调用 `write_memory`，这将导致 preferences 长期为空。
+
+**解决方案**：在 system prompt 中注入 L3 memoryContext 时，追加一段引导文本，提示 LLM 在适当时机调用 `write_memory`：
+
+```typescript
+// chat-capability.ts 中组装 memoryContext 时
+const memoryContext = await memoryService.readAllL3(userId);
+const preferenceGuidance = memoryContext?.length
+  ? `\n\n[记忆提示] 以上是用户的已有记忆。如果用户在本轮对话中表达了新的学习偏好、习惯或长期目标，请调用 write_memory 工具更新记忆。`
+  : `\n\n[记忆提示] 这是用户的首次对话。如果用户分享了学习偏好（如喜欢的方式、关注的领域、学习目标），请调用 write_memory 工具记录。`;
+```
+
+这不是强制调用，而是在 LLM 看到用户表达偏好时给予温和提示。如果用户没有表达偏好，LLM 不会无意义地调用工具。
 
 ## 4.6 Meta 管理（增量追踪）
 
-每次 Consolidator 运行后，需要记录"已处理到哪些 Entity/Entry"，下次只处理新增部分：
+每次 Consolidator 运行后，需要记录"已处理到哪些 Entity/Entry"，下次只处理新增部分。
 
+### L2 Meta（`data/memory/{userId}/L2/l2-meta.json`）
+
+```json
+{
+  "seenEntityRefs": ["chat:sess_abc", "chat:sess_def"],
+  "lastUpdateAt": "2026-07-16T12:00:00Z"
+}
 ```
-data/memory/{userId}/snapshot/chat/
-  meta.json           ← L2 meta: { seenEntityRefs: Set<string>, lastUpdateAt: string }
-data/memory/{userId}/
-  L3-meta.json         ← L3 meta: { seenL2EntryIds: { chat: Set<string> }, lastUpdateAt }
+
+L2 Consolidator 每次运行时：
+1. 读取 `l2-meta.json` 中的 `seenEntityRefs`
+2. 从 Snapshot 新 Entity 中过滤出未处理的部分
+3. 处理完成后，将新的 entity refs 追加到 `seenEntityRefs`
+4. 更新 `lastUpdateAt`
+
+### L3 Meta（`data/memory/{userId}/L3/l3-meta.json`）
+
+```json
+{
+  "seenL2EntryIds": {
+    "chat": ["m_01HZK4...", "m_01HZK5..."]
+  },
+  "lastUpdateAt": "2026-07-16T12:30:00Z"
+}
 ```
+
+L3 Consolidator 类似，追踪已处理的 L2 entry IDs（按 surface 分组）。
 
 ## 4.7 Dedup（去重）
 
@@ -216,8 +266,14 @@ L2/L3 文档
 | model | 用户配置的模型 (同 chat) | 复用 turns route 的模型选择 |
 | temperature | 0.2 | 低温度确保输出稳定 |
 | maxTokens | 1500 | 每块输出限制 |
-| 备选模型 | gpt-4o-mini | 可配置 DT_TOOL_MODEL 环境变量 |
+| 备选模型 | 由 `DT_TOOL_MODEL` 环境变量配置 | 已在 `bootstrap.ts:132` 使用，默认 `gpt-4o-mini` |
 | stream | 支持 | 通过 SSE 传给前端 Workbench |
+
+`DT_TOOL_MODEL` 环境变量**已存在**于 `bootstrap.ts:132`：
+```typescript
+const modelId = process.env.DT_TOOL_MODEL ?? 'gpt-4o-mini';
+```
+Consolidator 复用此配置即可，无需新增环境变量。
 
 ## 4.9 文件清单
 
@@ -228,7 +284,10 @@ L2/L3 文档
 | `lib/deeptutor/services/memory/ids.ts` | ULID 生成 + entry_id/trace_id 验证 |
 | `lib/deeptutor/services/memory/consolidator.ts` | runUpdateL2 + runUpdateL3 + callLLM 封装 |
 | `lib/deeptutor/services/memory/chunker.ts` | 字符级分块 + 边界扩展 |
-| `lib/deeptutor/services/memory/prompts/en/update_l2.yaml` | L2 英文提示词 |
-| `lib/deeptutor/services/memory/prompts/en/update_l3.yaml` | L3 英文提示词 |
-| `lib/deeptutor/services/memory/prompts/zh/update_l2.yaml` | L2 中文提示词 |
-| `lib/deeptutor/services/memory/prompts/zh/update_l3.yaml` | L3 中文提示词 |
+| `lib/deeptutor/services/memory/meta.ts` | l2-meta.json / l3-meta.json 的读写与增量判断 |
+| `lib/deeptutor/services/memory/prompts/zh/update_l2.yaml` | L2 中文提示词（第一阶段主用） |
+| `lib/deeptutor/services/memory/prompts/zh/update_l3.yaml` | L3 中文提示词（第一阶段主用） |
+| `lib/deeptutor/services/memory/prompts/en/update_l2.yaml` | L2 英文提示词（第二阶段补充） |
+| `lib/deeptutor/services/memory/prompts/en/update_l3.yaml` | L3 英文提示词（第二阶段补充） |
+
+**提示词语言策略**：第一阶段仅实现中文版（SmartLearn 默认语言为 zh-CN），英文版在第二阶段补充。提示词模板中的品牌名统一使用 "SmartLearn"。

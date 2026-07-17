@@ -141,9 +141,23 @@ function buildPartnerTurnPolicyBlock(): string {
 
 /**
  * memory — User memory context from long-term memory store.
+ * Includes a gentle nudge to use write_memory when appropriate.
  */
 function buildMemoryBlock(memoryContext: string): string {
-  return `User memory context:\n${memoryContext}`;
+  const parts: string[] = [`User memory context:\n${memoryContext}`];
+
+  // Gentle guidance for write_memory usage
+  if (memoryContext.trim()) {
+    parts.push(
+      '[Memory hint] The above is the user\'s existing memory. If the user expresses new learning preferences, habits, or long-term goals in this conversation, use the write_memory tool to save them.',
+    );
+  } else {
+    parts.push(
+      '[Memory hint] This is the user\'s first conversation with memory. If the user shares learning preferences (preferred style, topics of interest, learning goals), use the write_memory tool to record them.',
+    );
+  }
+
+  return parts.join('\n\n');
 }
 
 /**
