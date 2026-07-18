@@ -1,29 +1,9 @@
 {
   "fingerprints": {
-    "session-1784213050828": "2d5a3045e623adc2eec82380981e637917241865",
-    "session-1784215644830": "11d52066697cfdaf0e362092ec0b489ea5804313",
-    "profile-1784212999692": "8ffe0a4a6a4fec0ffa55db57a7e5e08503b6e089",
-    "profile-1784212968017": "626d1a92ffce031c0c83115a802dd059e0656754",
-    "profile-1784212946341": "dc1b1472ed0eb2e235aa4cc7c8e3c13e0a08a6d5",
-    "profile-1784212915963": "a0865325808e52fb4ace7db67fc4dab2fa3900d8",
-    "profile-1784212874419": "515b7b181bc17100322e7b72cecae6d87c77f3f1",
-    "profile-1784212848367": "0076ea21182044eba6ea39abbf56bce811617683",
-    "profile-1784212809033": "a36a4471c3bf3655691ea44879d33e6e04ea590a",
-    "profile-1784212783695": "83a823387856805e3e2b50bbbd1d140ed67c7247",
-    "profile-1784212746829": "9d1a5cdc56ba36ec03944d1499e9be30a48a3205"
+    "session-1784213050828": "bb3fd0cd7b77cd98967c8fbb4e25dae38e60eb4b"
   },
   "labels": {
-    "session-1784213050828": "New Chat",
-    "session-1784215644830": "New Chat",
-    "profile-1784212999692": "New Chat",
-    "profile-1784212968017": "New Chat",
-    "profile-1784212946341": "New Chat",
-    "profile-1784212915963": "New Chat",
-    "profile-1784212874419": "New Chat",
-    "profile-1784212848367": "New Chat",
-    "profile-1784212809033": "New Chat",
-    "profile-1784212783695": "New Chat",
-    "profile-1784212746829": "New Chat"
+    "session-1784213050828": "New Chat"
   },
-  "lastRefresh": "2026-07-17T06:38:02.144Z"
+  "lastRefresh": "2026-07-18T09:40:39.953Z"
 }

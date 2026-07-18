@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { I18nProvider } from '@/lib/hooks/use-i18n';
 import { useAuthStore } from '@/lib/store/auth-store';
-import { Sidebar } from '@/components/sidebar';
+import { TopNav } from '@/components/layout/top-nav';
 import '@/lib/i18n/config';
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -18,14 +18,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
 }
 
 // ---------------------------------------------------------------------------
-// AppShell — Sidebar + AuthGuard + loading state
+// AppShell — TopNav + AuthGuard + loading state
 // ---------------------------------------------------------------------------
 
 /**
  * Wraps the main content area with:
  * 1. Loading spinner while auth state is being discovered (initAuth in-flight)
  * 2. Auth guard — redirects unauthenticated users to /auth/login in multi mode
- * 3. Conditional Sidebar — hidden on /auth/* pages
+ * 3. Conditional TopNav — hidden on /auth/* pages
  *
  * Must be rendered inside <Providers> (needs auth store + i18n).
  */
@@ -46,13 +46,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (mode === 'multi' && !user && !isAuthPage) {
       redirectTo = '/auth/login';
     } else if (mode === 'multi' && user && isAuthPage) {
-      redirectTo = hasProfile ? '/chat' : '/onboarding';
+      redirectTo = hasProfile ? '/home' : '/onboarding';
     } else if (mode === 'multi' && user && !hasProfile && !isOnboardingPage && !isAuthPage) {
       // Authenticated but profile not complete → redirect to onboarding
       redirectTo = '/onboarding';
     } else if (user && hasProfile && isOnboardingPage) {
-      // Profile complete but still on onboarding page → redirect to chat
-      redirectTo = '/chat';
+      // Profile complete but still on onboarding page → redirect to home
+      redirectTo = '/home';
     }
   }
 
@@ -80,16 +80,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  // --- Auth pages and onboarding page: render without Sidebar ---
+  // --- Auth pages and onboarding page: render without TopNav ---
   if (isAuthPage || isOnboardingPage) {
     return <>{children}</>;
   }
 
-  // --- Normal pages: Sidebar + main content ---
+  // --- Normal pages: TopNav + main content ---
   return (
-    <div className="flex h-screen">
-      <Sidebar />
-      <main className="flex-1 overflow-hidden">{children}</main>
+    <div className="flex h-screen flex-col bg-background">
+      <TopNav />
+      <main className="flex-1 overflow-y-auto">{children}</main>
     </div>
   );
 }

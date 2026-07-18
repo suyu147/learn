@@ -7,12 +7,12 @@ export default function Home() {
   const router = useRouter()
 
   useEffect(() => {
-    router.replace('/chat')
+    router.replace('/home')
   }, [router])
 
   return (
     <div className="flex h-full items-center justify-center bg-[var(--background)]">
-      <div className="text-[var(--muted-foreground)]">正在重定向...</div>
+      <div className="text-[var(--muted-foreground)]">正在进入主页...</div>
     </div>
   )
 }

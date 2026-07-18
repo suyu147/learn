@@ -119,6 +119,14 @@
       "salt": "55b31a4f4b757c522ec5bdc9879e2ed9940e3db7a8e2d30345223510f576421e",
       "role": "user",
       "createdAt": "2026-07-16T15:50:47.172Z"
+    },
+    {
+      "id": "user-1784360230870-7cg2fg",
+      "username": "screenshot_user",
+      "passwordHash": "bb616d0de79d041a8c61bfddc104b7bf91986466ff97ae33e5f1311defd3594ea56b7d7465f0e8fa550126a5a07f876a7135dc5239c6a8d8807f85799716e2c3",
+      "salt": "3b23d0fabb50ef81630f1fc91cd16a1b89dcedc0189ab48f831fded4f30870f9",
+      "role": "user",
+      "createdAt": "2026-07-18T07:37:10.870Z"
     }
   ]
 }

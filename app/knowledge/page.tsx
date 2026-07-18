@@ -155,18 +155,24 @@ export default function KnowledgePage() {
   };
 
   return (
-    <div className="flex h-full bg-[var(--background)]">
+    <div className="flex h-full app-page-bg">
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-y-auto">
         {/* Header */}
-        <div className="border-b border-[var(--border)] px-6 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl font-semibold text-[var(--foreground)]">
-              知识库
-            </h1>
+        <div className="px-6 pt-6 pb-4">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <p className="chip-primary">KNOWLEDGE</p>
+              <h1 className="mt-2 text-[24px] font-bold tracking-tight text-[var(--foreground)]">
+                知识库
+              </h1>
+              <p className="mt-1 text-[12.5px] text-[var(--muted-foreground)]">
+                管理和检索你的学习资料
+              </p>
+            </div>
             <button
               onClick={() => setShowCreateForm(true)}
-              className="px-3 py-1.5 rounded-lg text-[13px] font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity flex items-center gap-1.5"
+              className="inline-flex items-center gap-1.5 rounded-full bg-gradient-brand px-4 py-2 text-[13px] font-semibold text-white shadow-sm shadow-blue-500/30 transition-all hover:shadow-md"
             >
               <Plus className="h-3.5 w-3.5" />
               新建知识库
