@@ -32,6 +32,18 @@ import { RESOURCE_TYPE_LABELS } from '@/lib/types/resource'
 import type { ProfileDimensions } from '@/lib/types/profile'
 import { PROFILE_DIMENSION_LABELS, DEFAULT_DIMENSIONS } from '@/lib/types/profile'
 import { ResourceViewer } from '@/components/workspace/resource-viewer'
+import { PPTViewer } from '@/components/workspace/ppt-viewer'
+import { ConceptPanel } from '@/components/workspace/concept-panel'
+import { InlineCodeRunner } from '@/components/workspace/inline-code-runner'
+import { KnowledgeGraphBar } from '@/components/workspace/knowledge-graph-bar'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import type { ConceptHotspot } from '@/lib/types/slides'
+import type { CodeButton } from '@/lib/types/stage'
+import type { Scene } from '@/lib/types/stage'
 import { useResourceDecisionsStore } from '@/lib/store/resource-decisions'
 
 // ---------------------------------------------------------------------------
@@ -182,6 +194,11 @@ export default function SmartLearnPage() {
   const [showGoalInput, setShowGoalInput] = useState(false)
   const [snapshot, setSnapshot] = useState<LearnerSnapshot | null>(null)
 
+  // -- PPT interactive state --
+  const [selectedHotspot, setSelectedHotspot] = useState<ConceptHotspot | null>(null)
+  const [selectedCodeButton, setSelectedCodeButton] = useState<CodeButton | null>(null)
+  const [showExtResources, setShowExtResources] = useState(false)
+
   const abortRef = useRef<AbortController | null>(null)
 
   // -- Resource decisions store --
@@ -215,6 +232,18 @@ export default function SmartLearnPage() {
     setSelectedResource(null)
   }, [])
 
+  /** Handle concept hotspot click from PPT viewer */
+  const handleHotspotClick = useCallback((hotspot: ConceptHotspot) => {
+    setSelectedHotspot(hotspot)
+    setSelectedCodeButton(null)
+  }, [])
+
+  /** Handle code button click from PPT viewer */
+  const handleCodeButtonClick = useCallback((btn: CodeButton) => {
+    setSelectedCodeButton(btn)
+    setSelectedHotspot(null)
+  }, [])
+
   /** Build headers for SSE fetch calls — includes auth token when available */
   const sseHeaders = (): Record<string, string> => {
     const token = getApiToken()
@@ -242,6 +271,19 @@ export default function SmartLearnPage() {
         activeNode.resources?.some((ref) => ref.resourceId === r.id),
       )
     : []
+
+  // PPT resource (main view) and non-PPT resources (extension panel)
+  const pptResource = activeNodeResources.find((r) => r.type === 'ppt') ?? null
+  const pptScenes = pptResource?.metadata?.pptData as Scene[] | undefined
+  const nonPptResources = activeNodeResources.filter((r) => r.type !== 'ppt')
+
+  /** Open a related resource from concept panel */
+  const handleViewRelatedResource = useCallback((resourceId: string) => {
+    const resource = resources.find((r) => r.id === resourceId)
+    if (resource && activeNode) {
+      handleResourceClick(resource, activeNode.id)
+    }
+  }, [resources, activeNode, handleResourceClick])
 
   /** Handle quiz completion — feed result back into the decision engine */
   const handleQuizResult = useCallback(
@@ -369,6 +411,28 @@ export default function SmartLearnPage() {
           if (learnEventType === 'resource_delta' && meta.resource) {
             const resource = meta.resource as Resource
             addResource(resource)
+          }
+
+          if (learnEventType === 'ppt_ready' && meta.scenes) {
+            // Backup handler: wrap PPT scenes as a Resource if resource_delta didn't arrive
+            const scenes = meta.scenes as Scene[]
+            const currentResources = useResourcesStore.getState().resources
+            const existingPpt = currentResources.find((r) => r.type === 'ppt')
+            if (!existingPpt && scenes.length > 0) {
+              const kps = (meta.knowledgePoints as string[] | undefined) ?? []
+              const pptResource: Resource = {
+                id: crypto.randomUUID(),
+                userId: (meta.userId as string) || 'local-admin',
+                type: 'ppt',
+                title: kps.length > 0 ? `${kps.join('、')} - 动态课件` : '动态课件',
+                content: `PPT课件：共${scenes.length}页`,
+                sourceAgent: 'ppt',
+                status: 'ready',
+                createdAt: new Date().toISOString(),
+                metadata: { knowledgePoints: kps, pptData: scenes },
+              }
+              addResource(pptResource)
+            }
           }
 
           if (learnEventType === 'path_update' && meta.path) {
@@ -1008,8 +1072,54 @@ export default function SmartLearnPage() {
               </p>
             </div>
 
-            {/* Resource Grid */}
-            {activeNodeResources.length > 0 ? (
+            {/* ── PPT 主视图模式 ── */}
+            {pptResource && pptScenes && pptScenes.length > 0 ? (
+              <div className="space-y-3">
+                {/* 知识图谱条 */}
+                {path && path.nodes.length > 1 && (
+                  <KnowledgeGraphBar
+                    nodes={path.nodes}
+                    activeNodeId={activeNode?.id}
+                    onNodeClick={handleNodeSelect}
+                  />
+                )}
+
+                {/* PPT + 侧边面板 */}
+                <div className="flex gap-0 rounded-xl border border-[var(--border)] overflow-hidden" style={{ minHeight: 480 }}>
+                  {/* PPT 主画布 */}
+                  <div className="flex-1 min-w-0 p-4 overflow-auto">
+                    <PPTViewer
+                      scenes={pptScenes}
+                      onHotspotClick={handleHotspotClick}
+                      onCodeButtonClick={handleCodeButtonClick}
+                    />
+                  </div>
+
+                  {/* 侧边讲解面板 */}
+                  {(selectedHotspot || selectedCodeButton) && (
+                    <div className="w-80 shrink-0">
+                      {selectedHotspot && (
+                        <ConceptPanel
+                          hotspot={selectedHotspot}
+                          onClose={() => setSelectedHotspot(null)}
+                          onViewRelatedResource={handleViewRelatedResource}
+                        />
+                      )}
+                      {selectedCodeButton && (
+                        <InlineCodeRunner
+                          code={selectedCodeButton.code}
+                          language={selectedCodeButton.language}
+                          label={selectedCodeButton.label}
+                          stdin={selectedCodeButton.stdin}
+                          onClose={() => setSelectedCodeButton(null)}
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : activeNodeResources.length > 0 ? (
+              /* ── 回退：资源网格模式 ── */
               <div className="grid grid-cols-2 gap-3">
                 {activeNodeResources.map((resource) => {
                   const Icon = RESOURCE_ICON_MAP[resource.type] ?? FileText
@@ -1070,6 +1180,36 @@ export default function SmartLearnPage() {
           </div>
         )}
       </div>
+
+      {/* Floating Extension Resources Panel */}
+      {nonPptResources.length > 0 && (
+        <div className="fixed bottom-4 right-4 z-30">
+          <Collapsible open={showExtResources} onOpenChange={setShowExtResources}>
+            <CollapsibleTrigger asChild>
+              <button className="px-3 py-1.5 rounded-lg text-[13px] font-medium bg-[var(--card)] text-[var(--foreground)] border border-[var(--border)] shadow-lg hover:bg-[var(--accent)] transition-colors flex items-center gap-1.5">
+                扩展资源 ({nonPptResources.length})
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="mt-2 w-80 max-h-96 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--card)] shadow-lg p-3 space-y-2">
+                {nonPptResources.map((r) => {
+                  const Icon = RESOURCE_ICON_MAP[r.type] ?? FileText
+                  return (
+                    <button
+                      key={r.id}
+                      onClick={() => activeNode && handleResourceClick(r, activeNode.id)}
+                      className="w-full flex items-center gap-2 rounded-lg p-2 text-left hover:bg-[var(--muted)] transition-colors"
+                    >
+                      <Icon className="h-4 w-4 text-[var(--primary)] shrink-0" />
+                      <span className="text-[12px] text-[var(--foreground)] line-clamp-1">{r.title}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </div>
+      )}
 
       {/* Resource Viewer Modal Overlay */}
       {selectedResource && (

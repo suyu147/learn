@@ -71,8 +71,34 @@ export async function generateResourcesNode(
 
     let pptScenes = null;
     if (resourcePlan.execution.shouldGeneratePPT && !disabledAgentIds.includes('ppt')) {
-      pptScenes = await generatePptScenes(`讲解：${node.knowledgePoints.join('、')}`, state.aiConfig, true, true);
-      if (pptScenes.length > 0) write({ type: 'ppt_ready', scenes: pptScenes });
+      write({ type: 'agent_status', agentId: 'ppt', agentName: AGENT_NAMES.ppt, status: 'running', resourceType: 'ppt' as ResourceType });
+      try {
+        pptScenes = await generatePptScenes(`讲解：${node.knowledgePoints.join('、')}`, state.aiConfig, true, true, node.knowledgePoints);
+        if (pptScenes.length > 0) {
+          write({ type: 'ppt_ready', scenes: pptScenes, nodeId: node.id, userId: getUserId(config), knowledgePoints: node.knowledgePoints });
+          // Wrap PPT scenes as a Resource so the frontend can find and render it
+          const pptResource: Resource = {
+            id: crypto.randomUUID(),
+            userId: getUserId(config),
+            type: 'ppt',
+            title: `${node.knowledgePoints.join('、')} - 动态课件`,
+            content: `PPT课件：共${pptScenes.length}页`,
+            sourceAgent: 'ppt',
+            status: 'ready',
+            createdAt: new Date().toISOString(),
+            metadata: {
+              knowledgePoints: node.knowledgePoints,
+              profileUsed: true,
+              pptData: pptScenes,
+            },
+          };
+          write({ type: 'resource_delta', resource: pptResource });
+          generatedResources.push(pptResource);
+          write({ type: 'agent_status', agentId: 'ppt', agentName: AGENT_NAMES.ppt, status: 'completed', resourceType: 'ppt' as ResourceType });
+        }
+      } catch (_err) {
+        write({ type: 'agent_status', agentId: 'ppt', agentName: AGENT_NAMES.ppt, status: 'failed', resourceType: 'ppt' as ResourceType });
+      }
     }
 
     const path = {

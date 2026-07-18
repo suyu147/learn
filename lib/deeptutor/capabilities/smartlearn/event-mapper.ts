@@ -123,6 +123,9 @@ export function mapLearnEventToStreamEvent(
         metadata: {
           learnEventType: 'ppt_ready',
           scenes: event.scenes,
+          nodeId: event.nodeId,
+          userId: event.userId,
+          knowledgePoints: event.knowledgePoints,
         },
       });
 

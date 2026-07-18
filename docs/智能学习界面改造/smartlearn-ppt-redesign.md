@@ -8,7 +8,7 @@
 
 ### 一、整体布局变化
 
-**当前布局**：左侧 LearningPathPanel（节点列表）→ 右侧 ResourceViewer（按类型切换展示文档/思维导图/代码/PPT 等）。
+**当前布局**：顶部水平节点时间线（圆形按钮排列）→ 下方两列资源网格（ResourceGrid 展示当前节点的资源卡片）→ 点击资源卡片弹出全屏模态遮罩层（`fixed inset-0 z-50`）内嵌 ResourceViewer 按类型分发渲染。注意：`components/workspace/learning-path-panel.tsx`（280px 左侧栏）虽然已实现但当前未被 `page.tsx` 引用。
 
 **目标布局**：
 
@@ -35,13 +35,14 @@
 |---|---|
 | `app/smartlearn/page.tsx` | 主布局重构：PPT 作为默认展示，资源卡片改为"扩展资源"抽屉 |
 | `components/workspace/ppt-viewer.tsx` | 增加概念热区点击回调、代码跳转按钮、知识图谱首页场景 |
-| `components/workspace/resource-viewer.tsx` | 降级为"扩展资源面板"，去掉独立全屏逻辑 |
+| `components/workspace/resource-viewer.tsx` | 降级为"扩展资源面板"内嵌组件（注意：ResourceViewer 本身只是类型分发器，当前无全屏逻辑，全屏由 page.tsx 的模态遮罩实现，故此处主要是去掉错误/重试横幅等冗余 UI） |
 | `lib/learning-graph/helpers/ppt-generator.ts` | 生成时注入 concept hotspots 和 code buttons 到 Scene 数据 |
 | `lib/learning-graph/helpers/resource-generators.ts` | PPT 生成时同时产出配套的 concept snippets 和 code snippets |
-| `lib/types/stage.ts` | Scene 类型扩展：新增 `conceptHotspots` 和 `codeButtons` 字段 |
+| `lib/types/stage.ts` | 类型扩展：`SlideSceneContent` 新增 `codeButtons` 字段 |
+| `lib/types/slides.ts` | 类型扩展：`PPTBaseElement` 新增 `hotspots` 字段 |
 | `lib/types/action.ts` | 新增 `open-concept` 和 `run-code` 两种 Action 类型 |
 | `components/workspace/concept-panel.tsx` | **新文件** — 侧边概念讲解面板 |
-| `components/workspace/inline-code-runner.tsx` | **新文件** — 嵌入式代码沙盒（复用 `/api/v1/code/execute`） |
+| `components/workspace/inline-code-runner.tsx` | **新文件** — 嵌入式代码沙盒（复用 `components/resources/code-runner.tsx` 的核心逻辑，复用 `/api/v1/code/execute`） |
 | `components/workspace/knowledge-graph-bar.tsx` | **新文件** — 简洁知识图谱条 |
 
 ---
@@ -72,8 +73,10 @@ interface KGEdge { from: string; to: string }
 **PPT 数据注入**：在 `ppt-generator.ts` 的 `generatePptScenes` 流程中，对每个生成的 slide Scene，扫描其 `canvas.elements` 中的文本元素。对文本中出现的知识点关键词（从 `currentNode.knowledgePoints` 取），在元素数据上追加 `hotspots` 标记：
 
 ```ts
-// 扩展 PPTElement（lib/types/slides.ts）
-interface PPTElement {
+// 扩展 PPTBaseElement（lib/types/slides.ts）
+// 注意：PPTElement 实际定义为 type PPTElement = PPTBaseElement & Record<string, unknown>
+// 建议在 PPTBaseElement 上添加 hotspots，使所有子类型（PPTTextElement 等）均可使用
+interface PPTBaseElement {
   // ...existing fields
   hotspots?: Array<{
     keyword: string;        // 匹配的概念词
@@ -100,9 +103,11 @@ interface PPTElement {
 **PPT 数据注入**：对于知识点包含编程相关关键词（复用 `resource-decision.ts` 已有的代码关键词列表）的节点，PPT 生成时在对应 slide 中嵌入 code button 元素：
 
 ```ts
-// Scene 扩展字段
-interface Scene {
-  // ...existing fields
+// Scene 扩展字段（lib/types/stage.ts）
+// 注意：Scene 的 content 字段是判别联合类型 SlideSceneContent | QuizSceneContent | ...
+// codeButtons 应加到 SlideSceneContent（即 SlideSceneContent 接口）上而非 Scene 本身
+interface SlideSceneContent {
+  // ...existing fields (slide: Slide, etc.)
   codeButtons?: Array<{
     id: string;
     label: string;         // "运行示例：快速排序"
@@ -114,8 +119,8 @@ interface Scene {
 ```
 
 **前端交互**：
-- `ppt-viewer.tsx` 检测到 `scene.codeButtons` 时，在 slide 底部渲染一行按钮
-- 点击按钮 → 右侧面板切换为 `InlineCodeRunner`（复用 `code-runner.tsx` 的核心逻辑，但去掉 Card 包装，直接嵌入侧边栏）
+- `ppt-viewer.tsx` 检测到 `scene.content.codeButtons`（仅 slide 类型场景）时，在 slide 底部渲染一行按钮
+- 点击按钮 → 右侧面板切换为 `InlineCodeRunner`（复用 `components/resources/code-runner.tsx` 的核心逻辑，但去掉 Card 包装，直接嵌入侧边栏）
 - 代码运行走已有的 `/api/v1/code/execute`（Piston Sandbox），无需新建 API
 
 **code snippet 生成**：在 PPT 生成的 LLM 提示词中，要求对涉及算法/代码的 slide 同时产出一段可运行的示例代码（10-30 行），附在 outline 的 metadata 中。
@@ -148,7 +153,7 @@ PPT 类型资源不在此列表中出现（因为它已经是主视图）。
 
 #### 3.5 PPT 生成优化
 
-当前 `ppt-generator.ts` 的流程是 `outline → scene content → scene actions` 三步串行 LLM。优化方向：
+当前 `ppt-generator.ts` 的流程是 `generateSceneOutlinesFromRequirements`（outline 生成）→ 可选 `batchGenerateImages`（批量图片生成，依赖 image provider 配置）→ 串行 `for...of` 循环调用 `buildSceneFromOutline`（内部含 scene content 生成 + scene actions 生成两步 LLM 调用）。优化方向：
 
 1. **概念热区和代码按钮随 PPT 一起生成**：在 `generateSceneOutlinesFromRequirements` 的 prompt 中增加要求，让 LLM 在 outline 阶段就标注哪些文本元素是概念热区、哪些 slide 需要代码按钮。这避免了后处理扫描的不准确性。
 
@@ -164,6 +169,7 @@ PPT 类型资源不在此列表中出现（因为它已经是主视图）。
 generate-resources.ts
   ├── ppt-generator.ts
   │   ├── outline (含 hotspot 标注 + code button 标注)  ← 修改 prompt
+  │   ├── images (可选，依赖 image provider)              ← batchGenerateImages
   │   ├── scene content (每个 slide 带 hotspots 和 codeButtons)
   │   ├── concept snippets (LLM 批量生成)                 ← 新增
   │   └── scene actions (spotlight/laser 等，不变)
@@ -190,7 +196,7 @@ smartlearn/page.tsx
 
 ### 五、实施步骤（建议顺序）
 
-1. **扩展类型定义**（`stage.ts` + `action.ts` + `slides.ts`）— 加 hotspots、codeButtons 字段，改动小且无副作用
+1. **扩展类型定义**（`stage.ts` 的 `SlideSceneContent` + `slides.ts` 的 `PPTBaseElement` + `action.ts`）— 加 hotspots、codeButtons 字段，改动小且无副作用
 2. **新建三个组件**（`concept-panel.tsx`、`inline-code-runner.tsx`、`knowledge-graph-bar.tsx`）— 纯 UI，可独立开发和测试
 3. **修改 `ppt-viewer.tsx`** — 接入概念热区渲染和代码按钮渲染
 4. **修改 `ppt-generator.ts` + `resource-generators.ts`** — prompt 改造，注入 hotspot/code 生成逻辑

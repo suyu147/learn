@@ -37,6 +37,16 @@ export type { QuizSceneContent as QuizContent };
 export interface SlideSceneContent {
   type: 'slide';
   canvas: import('./slides').Slide;
+  codeButtons?: CodeButton[];
+}
+
+/** PPT slide 中嵌入的可运行代码按钮 */
+export interface CodeButton {
+  id: string;
+  label: string;         // 如 "运行示例：快速排序"
+  language: string;       // python / javascript 等
+  code: string;           // 预生成的完整可运行代码
+  stdin?: string;
 }
 
 export interface QuizSceneContent {

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Pause, Play, RotateCcw, SkipForward } from 'lucide-react';
+import { Pause, Play, RotateCcw, SkipForward, Code } from 'lucide-react';
 import { useSlideBackgroundStyle } from '@/lib/hooks/use-slide-background-style';
 import { ScreenElement } from '@/components/slide-renderer/Editor/ScreenElement';
 import { QuizRenderer } from '@/components/slide-renderer/Editor/QuizRenderer';
@@ -10,8 +10,8 @@ import { computeContentHeight, sortPPTElements } from '@/components/slide-render
 import { SpotlightOverlay } from '@/components/slide-renderer/Editor/SpotlightOverlay';
 import { LaserOverlay } from '@/components/slide-renderer/Editor/LaserOverlay';
 import type { Action } from '@/lib/types/action';
-import type { Scene } from '@/lib/types/stage';
-import type { PPTElement, SlideBackground } from '@/lib/types/slides';
+import type { Scene, CodeButton } from '@/lib/types/stage';
+import type { PPTElement, SlideBackground, ConceptHotspot } from '@/lib/types/slides';
 
 const CANVAS_WIDTH = 1000;
 const CANVAS_HEIGHT = 562.5;
@@ -20,6 +20,8 @@ type EngineState = 'idle' | 'playing' | 'paused';
 
 interface Props {
   scenes?: Scene[];
+  onHotspotClick?: (hotspot: ConceptHotspot) => void;
+  onCodeButtonClick?: (button: CodeButton) => void;
 }
 
 interface SpotlightState {
@@ -36,10 +38,12 @@ function SlidePreview({
   scene,
   spotlight,
   laser,
+  onHotspotClick,
 }: {
   scene: Scene;
   spotlight: SpotlightState | null;
   laser: LaserState | null;
+  onHotspotClick?: (hotspot: ConceptHotspot) => void;
 }) {
   const slideData = scene.type === 'slide'
     ? (scene.content as { type: string; canvas?: import('@/lib/types/slides').Slide }).canvas
@@ -112,13 +116,32 @@ function SlidePreview({
           ))}
           {spotlight && <SpotlightOverlay scene={scene} elementId={spotlight.elementId} dimness={spotlight.dimness} />}
           {laser && <LaserOverlay scene={scene} elementId={laser.elementId} color={laser.color} />}
+          {/* 概念热区指示器 */}
+          {onHotspotClick && elements.map((element: PPTElement) => {
+            const hotspots = element.hotspots as ConceptHotspot[] | undefined;
+            if (!hotspots?.length) return null;
+            return hotspots.map((hs, hsIdx) => (
+              <button
+                key={`hs-${element.id}-${hsIdx}`}
+                className="absolute z-10 flex items-center gap-0.5 rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700 shadow-sm hover:bg-blue-200 transition-colors border border-blue-300 cursor-pointer"
+                style={{
+                  left: element.left + element.width - 4,
+                  top: element.top - 8,
+                }}
+                title={`概念: ${hs.keyword}`}
+                onClick={(e) => { e.stopPropagation(); onHotspotClick(hs); }}
+              >
+                <span className="underline decoration-dotted underline-offset-2">{hs.keyword}</span>
+              </button>
+            ));
+          })}
         </div>
       </div>
     </div>
   );
 }
 
-export function PPTViewer({ scenes }: Props) {
+export function PPTViewer({ scenes, onHotspotClick, onCodeButtonClick }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [engineState, setEngineState] = useState<EngineState>('idle');
   const [spotlight, setSpotlight] = useState<SpotlightState | null>(null);
@@ -269,7 +292,29 @@ export function PPTViewer({ scenes }: Props) {
         </div>
       </div>
 
-      {scene ? <SlidePreview scene={scene} spotlight={spotlight} laser={laser} /> : null}
+      {scene ? <SlidePreview scene={scene} spotlight={spotlight} laser={laser} onHotspotClick={onHotspotClick} /> : null}
+
+      {/* 代码运行按钮（仅 slide 类型场景） */}
+      {scene?.type === 'slide' && (() => {
+        const codeButtons = (scene.content as { codeButtons?: CodeButton[] }).codeButtons;
+        if (!codeButtons?.length || !onCodeButtonClick) return null;
+        return (
+          <div className="flex flex-wrap gap-2">
+            {codeButtons.map((btn) => (
+              <Button
+                key={btn.id}
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => onCodeButtonClick(btn)}
+              >
+                <Code className="h-3.5 w-3.5" />
+                {btn.label}
+              </Button>
+            ))}
+          </div>
+        );
+      })()}
 
       <div className="flex justify-center gap-2">
         {safeScenes.map((_, index) => (

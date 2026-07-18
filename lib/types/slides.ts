@@ -84,6 +84,14 @@ export interface PPTBaseElement {
   fill?: PPTElementFill;
   opacity?: number;
   link?: string;
+  hotspots?: ConceptHotspot[];
+}
+
+/** 概念热区：PPT 元素中可点击展开讲解的关键词标注 */
+export interface ConceptHotspot {
+  keyword: string;        // 匹配的概念词
+  snippet: string;        // 50-200字的概念讲解
+  relatedResourceId?: string; // 关联的扩展资源（document/reading）
 }
 
 export type PPTElement = PPTBaseElement & Record<string, unknown>;

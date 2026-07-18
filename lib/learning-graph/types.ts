@@ -55,7 +55,7 @@ export type LearnEvent =
   | { type: 'node_ready'; node: LearningPathNode }
   | { type: 'resource_decision'; nodeId: string; decision: ResourceDecisionResultV2 }
   | { type: 'resource_delta'; resource: Resource }
-  | { type: 'ppt_ready'; scenes: Scene[] }
+  | { type: 'ppt_ready'; scenes: Scene[]; nodeId?: string; userId?: string; knowledgePoints?: string[] }
   | { type: 'evaluation_result'; evaluation: EvaluationResultPayload; score: number }
   | { type: 'profile_update'; dimensions: ProfileDimensions }
   | { type: 'path_update'; path: LearningPath }

@@ -9,7 +9,7 @@ import { CalloutBlock, parseCalloutType } from '@/components/chat/callout-block'
 import { MathBlock } from '@/components/chat/math-block';
 import { cn } from '@/lib/utils';
 import { type BundledLanguage } from 'shiki';
-import { type ComponentPropsWithoutRef, useEffect, useRef, useState, useMemo } from 'react';
+import { type ComponentPropsWithoutRef, type ReactNode, useEffect, useRef, useState, useMemo } from 'react';
 import { Eye, Code2, ZoomIn, X } from 'lucide-react';
 
 // KaTeX CSS — loaded once per page

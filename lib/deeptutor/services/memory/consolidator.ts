@@ -282,7 +282,7 @@ export async function runUpdateL2(
       // 6. Validate and apply to shared document
       for (const op of ops) {
         if (op.op === 'add') {
-          (op as Record<string, unknown>).__entryId = newEntryId();
+          (op as unknown as Record<string, unknown>).__entryId = newEntryId();
         }
       }
 
@@ -424,7 +424,7 @@ export async function runUpdateL3(
         op: 'add' as const,
         section: f.section || 'General',
         text: f.text.slice(0, 240),
-        refs: f.refs.filter((r) => l2Surfaces.includes(r)),
+        refs: f.refs.filter((r) => l2Surfaces.includes(r as Surface)),
       }));
 
       // Apply to document

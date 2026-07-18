@@ -7,8 +7,6 @@
  * - String content (≤240 chars per fact)
  */
 
-import type { EntryId, Ref } from '@/lib/deeptutor/services/memory/ids';
-
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------

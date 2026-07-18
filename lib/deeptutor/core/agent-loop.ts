@@ -369,7 +369,7 @@ function toModelMessages(messages: BaseMessage[]): ModelMessage[] {
       // Convert LangChain content format to AI SDK format.
       // LangChain uses {type:'image_url', image_url:{url}} — AI SDK v5 uses {type:'image', image}.
       const sdkContent = convertContentToAISDK(msg.content);
-      result.push({ role: 'user', content: sdkContent });
+      result.push({ role: 'user', content: sdkContent } as unknown as ModelMessage);
     } else if (isAIMessageLike(msg)) {
       // Read tool_calls from LangChain standard property first,
       // then fall back to additional_kwargs.tool_calls (OpenAI format)
@@ -440,7 +440,7 @@ function toModelMessages(messages: BaseMessage[]): ModelMessage[] {
           content: parts,
         } as ModelMessage);
       } else {
-        result.push({ role: 'assistant', content: msg.content });
+        result.push({ role: 'assistant', content: msg.content } as unknown as ModelMessage);
       }
     } else if (isToolMessageLike(msg)) {
       const hasPrev = lastMsgHasToolCalls();
