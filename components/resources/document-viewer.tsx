@@ -201,7 +201,7 @@ export function DocumentViewer({ content, title }: { content: string; title: str
       </Card>
 
       {structured.sections.map((section, index) => (
-        <Card key={section.id || `${section.title}-${index}`}>
+        <Card key={`section-${index}`}>
           <CardHeader>
             <CardTitle className="text-lg">{section.title}</CardTitle>
           </CardHeader>

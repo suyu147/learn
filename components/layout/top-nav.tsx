@@ -6,14 +6,13 @@ import {
   Home,
   Network,
   MessagesSquare,
-  ClipboardCheck,
   BookOpen,
+  BookMarked,
   Sparkles,
   Settings,
   User,
   ChevronDown,
   LogOut,
-  Library,
   Bot,
   PenLine,
   Brain,
@@ -40,17 +39,16 @@ const primaryNav = [
   { href: '/home', label: '首页', icon: Home },
   { href: '/smartlearn', label: '智能学习', icon: GraduationCap },
   { href: '/chat', label: 'AI 问答', icon: MessagesSquare },
-  { href: '/co-writer', label: '协作写作', icon: PenLine },
-  { href: '/book', label: '学习资源', icon: BookOpen },
+  { href: '/book', label: '智慧书', icon: BookMarked },
+  { href: '/resources', label: '学习资源', icon: BookOpen },
 ] as const;
 
 const moreNav = [
   { href: '/knowledge', label: '知识库', icon: Network },
+  { href: '/co-writer', label: '协作写作', icon: PenLine },
   { href: '/agents', label: '智能体', icon: Bot },
-  { href: '/playground', label: '在线测试', icon: ClipboardCheck },
   { href: '/memory', label: '记忆', icon: Brain },
   { href: '/notebook', label: '笔记本', icon: NotebookPen },
-  { href: '/space', label: '工作台', icon: Library },
 ] as const;
 
 function isPrimaryActive(pathname: string, href: string) {

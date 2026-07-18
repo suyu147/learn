@@ -51,7 +51,11 @@ async function generateDefaultResource(type: ResourceType, knowledgePoints: stri
     return { content: JSON.stringify(videoSearchResult), title: `${knowledgePoints.join(', ')} - 推荐视频`, metadata };
   }
   const prompt = resourcePrompts[type as keyof typeof resourcePrompts];
-  const content = await runTextGeneration(prompt, `Generate ${RESOURCE_TYPE_LABELS[type]} for:\n${buildPersonalizedContext(knowledgePoints, profile)}`, aiConfig, `resource-${type}`);
+  // quiz and ppt require structured JSON output with 5+ items — 4096 tokens is
+  // often not enough and the LLM output gets truncated mid-string, producing
+  // unparseable JSON. Give them more room.
+  const maxTokens = type === 'quiz' || type === 'ppt' ? 8192 : 4096;
+  const content = await runTextGeneration(prompt, `Generate ${RESOURCE_TYPE_LABELS[type]} for:\n${buildPersonalizedContext(knowledgePoints, profile)}`, aiConfig, `resource-${type}`, maxTokens);
   return { content, title: `${knowledgePoints.join(', ')} - ${RESOURCE_TYPE_LABELS[type]}`, metadata };
 }
 
