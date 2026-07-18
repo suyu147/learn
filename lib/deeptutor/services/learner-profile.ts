@@ -64,6 +64,23 @@ export interface LearnerProfileRecord {
   isNew: boolean;
 }
 
+export interface QuizStats {
+  totalAttempts: number;
+  correctCount: number;
+  errorCount: number;
+  accuracy: number | null;
+}
+
+export interface RecentQuizAttempt {
+  topic: string;
+  question: string;
+  correct: boolean;
+  difficulty: number;
+  userAnswer: string;
+  correctAnswer: string;
+  createdAt: string;
+}
+
 export interface LearnerSnapshot {
   profile: LearnerProfileRecord;
   analytics: {
@@ -72,9 +89,11 @@ export interface LearnerSnapshot {
     strongTopics: string[];
     schedule: ScheduleEntry[];
   };
-  weakPoints: Array<{ topic: string; mastery: number; priority: number }>;
+  weakPoints: Array<{ topic: string; mastery: number; priority: number; attempts: number; errors: number }>;
   errors: Array<{ topic: string; count: number; latestAt: string }>;
   recentSessions: LearningSessionRecord[];
+  quizStats: QuizStats;
+  recentQuizAttempts: RecentQuizAttempt[];
 }
 
 function mergeDimensions(partial?: Partial<ProfileDimensions>): ProfileDimensions {
@@ -283,23 +302,77 @@ export class LearnerProfileService {
     }));
   }
 
-  async getLearnerSnapshot(userId: string): Promise<LearnerSnapshot> {
-    const [profile, skillMap, schedule, recentSessions, errorGroups] = await Promise.all([
-      this.getProfile(userId),
-      this.getSkillMap(userId),
-      this.getSchedule(userId),
-      this.getRecentSessions(userId),
-      prisma.learningQuizAttempt.groupBy({
-        by: ['topic'],
-        where: { userId, correct: false },
-        _count: { topic: true },
-        _max: { createdAt: true },
-        orderBy: { _count: { topic: 'desc' } },
-      }),
+  async getQuizStats(userId: string): Promise<QuizStats> {
+    await ensureUser(userId);
+    const [total, correct] = await Promise.all([
+      prisma.learningQuizAttempt.count({ where: { userId } }),
+      prisma.learningQuizAttempt.count({ where: { userId, correct: true } }),
     ]);
+    return {
+      totalAttempts: total,
+      correctCount: correct,
+      errorCount: total - correct,
+      accuracy: total > 0 ? Math.round((correct / total) * 100) : null,
+    };
+  }
+
+  async getRecentQuizAttempts(userId: string, limit = 20): Promise<RecentQuizAttempt[]> {
+    await ensureUser(userId);
+    const attempts = await prisma.learningQuizAttempt.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+    return attempts.map((a) => ({
+      topic: a.topic,
+      question: a.question,
+      correct: a.correct,
+      difficulty: a.difficulty ?? 3,
+      userAnswer: a.userAnswer ?? '',
+      correctAnswer: a.correctAnswer ?? '',
+      createdAt: a.createdAt.toISOString(),
+    }));
+  }
+
+  async getLearnerSnapshot(userId: string): Promise<LearnerSnapshot> {
+    const [profile, skillMap, schedule, recentSessions, errorGroups, quizStats, recentQuizAttempts] =
+      await Promise.all([
+        this.getProfile(userId),
+        this.getSkillMap(userId),
+        this.getSchedule(userId),
+        this.getRecentSessions(userId),
+        prisma.learningQuizAttempt.groupBy({
+          by: ['topic'],
+          where: { userId, correct: false },
+          _count: { topic: true },
+          _max: { createdAt: true },
+          orderBy: { _count: { topic: 'desc' } },
+        }),
+        this.getQuizStats(userId),
+        this.getRecentQuizAttempts(userId),
+      ]);
 
     const weakTopics = buildWeakTopics(skillMap.entries);
     const strongTopics = buildStrongTopics(skillMap.entries);
+
+    // Build error-count map from errorGroups (correct: false)
+    const errorCountsMap = new Map<string, number>();
+    for (const g of errorGroups) {
+      errorCountsMap.set(g.topic, g._count.topic);
+    }
+
+    // Enrich weak points with real attempts/errors from LearningQuizAttempt
+    let weakTopicAttemptsMap = new Map<string, number>();
+    if (weakTopics.length > 0) {
+      const allAttemptsByTopic = await prisma.learningQuizAttempt.groupBy({
+        by: ['topic'],
+        where: { userId, topic: { in: weakTopics } },
+        _count: { _all: true },
+      });
+      for (const g of allAttemptsByTopic) {
+        weakTopicAttemptsMap.set(g.topic, g._count._all);
+      }
+    }
 
     return {
       profile,
@@ -316,6 +389,8 @@ export class LearnerProfileService {
           topic: entry.topic,
           mastery: entry.mastery,
           priority: index + 1,
+          attempts: weakTopicAttemptsMap.get(entry.topic) ?? 0,
+          errors: errorCountsMap.get(entry.topic) ?? 0,
         })),
       errors: errorGroups.map((group) => ({
         topic: group.topic,
@@ -323,6 +398,8 @@ export class LearnerProfileService {
         latestAt: group._max.createdAt?.toISOString() ?? new Date(0).toISOString(),
       })),
       recentSessions,
+      quizStats,
+      recentQuizAttempts,
     };
   }
 

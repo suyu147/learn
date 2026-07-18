@@ -39,6 +39,23 @@ interface SkillMapEntry {
   attempts?: number
 }
 
+interface QuizStats {
+  totalAttempts: number
+  correctCount: number
+  errorCount: number
+  accuracy: number | null
+}
+
+interface RecentQuizAttempt {
+  topic: string
+  question: string
+  correct: boolean
+  difficulty: number
+  userAnswer: string
+  correctAnswer: string
+  createdAt: string
+}
+
 interface ProfileSnapshot {
   profile: {
     dimensions: {
@@ -51,7 +68,8 @@ interface ProfileSnapshot {
     strongTopics: string[]
     schedule: Array<{ topic: string; dueDate: string; priority: number }>
   }
-  weakPoints: Array<{ topic: string; mastery: number; priority: number }>
+  weakPoints: Array<{ topic: string; mastery: number; priority: number; attempts: number; errors: number }>
+  errors: Array<{ topic: string; count: number; latestAt: string }>
   recentSessions: Array<{
     quizResults: Array<{
       topic: string
@@ -62,6 +80,8 @@ interface ProfileSnapshot {
       correctAnswer: string
     }>
   }>
+  quizStats: QuizStats
+  recentQuizAttempts: RecentQuizAttempt[]
 }
 
 interface ErrorRecord {
@@ -271,38 +291,33 @@ export default function ProfilePage() {
 
   const userId = user?.id ?? 'anonymous'
   const errorsData: ErrorsApiData = useMemo(() => {
-    const attempts = snapshot?.recentSessions.flatMap((session) => session.quizResults) ?? []
-    const total = attempts.length
-    const correctCount = attempts.filter((attempt) => attempt.correct).length
-    const recent = attempts
-      .filter((attempt) => !attempt.correct)
-      .slice(-20)
-      .reverse()
-      .map((attempt) => ({
-        question: attempt.question,
-        topic: attempt.topic,
-        correct: attempt.correct,
-        userAnswer: attempt.userAnswer,
-        correctAnswer: attempt.correctAnswer,
-        difficulty: attempt.difficulty,
-        timestamp: new Date().toISOString(),
-      }))
+    const stats = snapshot?.quizStats
+    // Use recentQuizAttempts with real timestamps (all attempts, not just errors)
+    const recent = (snapshot?.recentQuizAttempts ?? []).map((a) => ({
+      question: a.question,
+      topic: a.topic,
+      correct: a.correct,
+      userAnswer: a.userAnswer,
+      correctAnswer: a.correctAnswer,
+      difficulty: a.difficulty,
+      timestamp: a.createdAt,
+    }))
 
     return {
       recent,
-      total,
-      correctCount,
-      errorCount: total - correctCount,
-      accuracy: total > 0 ? Math.round((correctCount / total) * 100) : null,
+      total: stats?.totalAttempts ?? 0,
+      correctCount: stats?.correctCount ?? 0,
+      errorCount: stats?.errorCount ?? 0,
+      accuracy: stats?.accuracy ?? null,
     }
   }, [snapshot])
   const weakPointsData = useMemo<WeakPointEntry[]>(() => {
     return (snapshot?.weakPoints ?? []).map((point) => ({
       topic: point.topic,
       mastery: Math.round(point.mastery * 100),
-      errorRate: Math.round((1 - point.mastery) * 100),
-      attempts: 0,
-      errors: 0,
+      errorRate: point.attempts > 0 ? Math.round((point.errors / point.attempts) * 100) : Math.round((1 - point.mastery) * 100),
+      attempts: point.attempts,
+      errors: point.errors,
       severity: point.mastery < 0.35 ? 'high' : point.mastery < 0.5 ? 'medium' : 'low',
     }))
   }, [snapshot])
@@ -355,7 +370,12 @@ export default function ProfilePage() {
       { label: '解题能力', value: accuracy },
       { label: '应用理解', value: Math.max(0, avgMastery - weakCount * 3) },
       { label: '分析能力', value: Math.min(100, Math.round((avgMastery + accuracy) / 2)) },
-      { label: '编程实现', value: subjects.find(s => s.name.includes('编程') || s.name.includes('数据'))?.mastery ?? Math.round(avgMastery * 0.8) },
+      { label: '编程实现', value: (() => {
+        const codeSubject = subjects.find(s => s.name.includes('编程') || s.name.includes('数据'))
+        if (codeSubject) return codeSubject.mastery
+        const codeEntry = snapshot?.analytics.skillMap.entries?.find(e => e.topic.includes('编程') || e.topic.includes('数据结构'))
+        return codeEntry ? Math.round(codeEntry.mastery * 100) : Math.round(avgMastery * 0.8)
+      })() },
       { label: '知识迁移', value: Math.max(0, avgMastery - 15) },
     ]
   })()
@@ -421,24 +441,14 @@ export default function ProfilePage() {
     return tags
   })()
 
-  // Error type distribution from error patterns
+  // Error type distribution from backend errors (grouped by topic)
   const errorTypes = (() => {
-    const patterns = profile?.dimensions?.errorPatterns
-    const mistakes = profile?.dimensions?.weakPoints?.errorPatterns
-    const all = [...(patterns?.commonMistakes ?? []), ...(mistakes ?? [])]
+    const errorsList = snapshot?.errors ?? []
+    if (errorsList.length === 0) return []
 
-    if (all.length === 0) return []
-
-    // Group by keyword patterns
-    const groups: Record<string, number> = {}
-    for (const m of all) {
-      const key = m.length > 8 ? m.slice(0, 8) : m
-      groups[key] = (groups[key] ?? 0) + 1
-    }
-
-    return Object.entries(groups).map(([type, count]) => ({
-      type,
-      count,
+    return errorsList.map((e) => ({
+      type: e.topic,
+      count: e.count,
       desc: '',
       icon: AlertTriangle,
     }))

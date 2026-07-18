@@ -19,6 +19,8 @@ interface ProfileResponse {
   weakPoints?: unknown[];
   errors?: unknown[];
   recentSessions?: unknown[];
+  quizStats?: unknown;
+  recentQuizAttempts?: unknown[];
 }
 
 /** Build auth headers for raw fetch calls */
@@ -33,7 +35,7 @@ export async function fetchProfile(
 ): Promise<ProfileResponse | null> {
   try {
     const res = await fetch(
-      `/api/v1/smartlearn/profile?userId=${encodeURIComponent(userId)}`,
+      '/api/v1/smartlearn/profile',
       { headers: { ...authHeaders(), 'x-user-id': userId } },
     );
     if (!res.ok) return null;
