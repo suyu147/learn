@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  CheckCircle2,
-  Lock,
   Play,
   RotateCcw,
   FileText,
@@ -889,33 +887,6 @@ export default function SmartLearnPage() {
   // Render helpers
   // =========================================================================
 
-  const getNodeIcon = (node: LearningPathNode, idx: number) => {
-    if (node.status === 'completed') return <CheckCircle2 className="h-5 w-5" />
-    if (node.status === 'locked') return <Lock className="h-5 w-5" />
-    return <span className="text-sm font-bold">{idx + 1}</span>
-  }
-
-  const getNodeButtonClass = (node: LearningPathNode) => {
-    return cn(
-      'h-12 w-12 rounded-full flex items-center justify-center border-2 transition-all',
-      node.status === 'completed' && 'bg-[var(--success)] border-[var(--success)] text-white',
-      node.status === 'in_progress' && 'bg-[var(--primary)] border-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/30',
-      node.status === 'available' && 'bg-[var(--card)] border-[var(--primary)] text-[var(--primary)] hover:bg-[var(--primary)]/10',
-      node.status === 'locked' && 'bg-[var(--muted)] border-[var(--border)] text-[var(--muted-foreground)] opacity-50 cursor-not-allowed',
-    )
-  }
-
-  const getNodeLabelClass = (node: LearningPathNode) => {
-    return cn(
-      'text-[11px] text-center max-w-[80px] leading-tight',
-      node.status === 'locked'
-        ? 'text-[var(--muted-foreground)]'
-        : node.id === selectedNodeId
-          ? 'text-[var(--primary)] font-medium'
-          : 'text-[var(--foreground)]',
-    )
-  }
-
   // =========================================================================
   // Render
   // =========================================================================
@@ -1029,33 +1000,6 @@ export default function SmartLearnPage() {
           </div>
         )}
 
-        {/* Learning Path Timeline */}
-        {nodes.length > 0 && (
-          <div className="px-6 py-6 border-b border-[var(--border)]">
-            <div className="relative">
-              {/* Connecting Line */}
-              <div className="absolute top-6 left-0 right-0 h-0.5 bg-[var(--border)] -translate-y-1/2" />
-
-              {/* Nodes */}
-              <div className="relative flex justify-between items-center">
-                {nodes.map((node, idx) => (
-                  <div key={node.id} className="flex flex-col items-center gap-2 relative">
-                    <button
-                      onClick={() => handleNodeSelect(node.id)}
-                      className={getNodeButtonClass(node)}
-                    >
-                      {getNodeIcon(node, idx)}
-                    </button>
-                    <span className={getNodeLabelClass(node)}>
-                      {node.title}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Loading state while fetching profile */}
         {isProfileLoading && (
           <div className="flex-1 flex items-center justify-center">
@@ -1155,15 +1099,6 @@ export default function SmartLearnPage() {
             {/* ── PPT 主视图模式 ── */}
             {pptResource && pptScenes && pptScenes.length > 0 ? (
               <div className="space-y-3">
-                {/* 知识图谱条 */}
-                {path && path.nodes.length > 1 && (
-                  <KnowledgeGraphBar
-                    nodes={path.nodes}
-                    activeNodeId={viewingNode.id}
-                    onNodeClick={handleNodeSelect}
-                  />
-                )}
-
                 {/* PPT + 侧边面板 */}
                 <div className="flex gap-0 rounded-xl border border-[var(--border)] overflow-hidden" style={{ minHeight: 480 }}>
                   {/* PPT 主画布 */}
