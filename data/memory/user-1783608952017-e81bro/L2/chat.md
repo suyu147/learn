@@ -20,11 +20,16 @@
 - 月薪字段清洗：将逗号、'k'单位、中文数字转换为数值，缺失值用中位数填充 [^m_mrqm0ieojh64k2ogwz_0] <!--m_mrqm0ieojh64k2ogwz-->
 - 正在学习Python数据清洗代码，包括性别、部门、日期标准化，以及手机号和邮箱校验 [^m_mrqm0jodkfr9qlyqmx_0] <!--m_mrqm0jodkfr9qlyqmx-->
 - 看到了为数据添加质量标签的方法，根据手机号、邮箱、日期异常标记数据质量 [^m_mrqm0jodk9qnzocyfj_0] <!--m_mrqm0jodk9qnzocyfj-->
+- 询问机器学习基本概念，包括监督学习、无监督学习、核心术语和流程 [^m_mrqoes92ochpmjmv7w_0] <!--m_mrqoes92ochpmjmv7w-->
+- 收到迭代二分查找的Python代码示例 [^m_mrqq27cx2onbi7hyar_0] <!--m_mrqq27cx2onbi7hyar-->
+- 看到迭代与递归的对比，了解迭代内存开销低适合大数据 [^m_mrqq27cx9sov0emds8_0] <!--m_mrqq27cx9sov0emds8-->
+- 看到用pandas风格迭代更新DataFrame清洗数据的示例 [^m_mrqq27cxow9fei7t5b_0] <!--m_mrqq27cxow9fei7t5b-->
 
 ## Progress
 
 - 在教程中看到用中位数填充年龄和月薪缺失值的做法 [^m_mrqm0cblq2hw0sovme_0] <!--m_mrqm0cblq2hw0sovme-->
 - 在资料中遇到删除关键字段为空的记录、统一日期格式等清洗操作 [^m_mrqm0cblmd2wtl633t_0] <!--m_mrqm0cblmd2wtl633t-->
+- 在数据清洗学习中接触到机器学习流程，理解数据清洗是建模前关键步骤 [^m_mrqoes935tvvj2uc26_0] <!--m_mrqoes935tvvj2uc26-->
 
 ## Preferences
 
@@ -49,6 +54,11 @@
 [^m_mrqm0ieojh64k2ogwz_0]: chat:session-1783556896641
 [^m_mrqm0jodkfr9qlyqmx_0]: chat:session-1783556896641
 [^m_mrqm0jodk9qnzocyfj_0]: chat:session-1783556896641
+[^m_mrqoes92ochpmjmv7w_0]: chat:cmrqn092b0007u3c0h9ddkbie
+[^m_mrqq27cx2onbi7hyar_0]: chat:cmrqogzyg0003u3gck2fx0ino
+[^m_mrqq27cx9sov0emds8_0]: chat:cmrqogzyg0003u3gck2fx0ino
+[^m_mrqq27cxow9fei7t5b_0]: chat:cmrqogzyg0003u3gck2fx0ino
 [^m_mrqm0cblq2hw0sovme_0]: chat:session-1783556896641
 [^m_mrqm0cblmd2wtl633t_0]: chat:session-1783556896641
+[^m_mrqoes935tvvj2uc26_0]: chat:cmrqn092b0007u3c0h9ddkbie
 [^m_mrqm0ieozszzyqer3w_0]: chat:session-1783556896641
