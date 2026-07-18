@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { CheckCircle2, Lock, CircleDot } from 'lucide-react';
 import type { LearningPathNode } from '@/lib/types/learning-path';
 
 interface Props {
@@ -21,8 +22,8 @@ interface KGEdge {
 }
 
 /**
- * 简洁知识图谱条：用纯 SVG 渲染当前学习路径的知识点拓扑。
- * 当前正在学习的节点高亮，已完成节点绿色，未解锁节点灰色。
+ * 简洁知识路径条：用纯 SVG + foreignObject 渲染当前学习路径的知识点拓扑。
+ * 已完成节点绿色高亮，当前节点蓝色发光，未解锁节点置灰，连线带箭头。
  */
 export function KnowledgeGraphBar({ nodes, activeNodeId, onNodeClick }: Props) {
   const { kgNodes, kgEdges } = useMemo(() => {
@@ -59,11 +60,11 @@ export function KnowledgeGraphBar({ nodes, activeNodeId, onNodeClick }: Props) {
   if (kgNodes.length === 0) return null;
 
   // 布局参数
-  const nodeWidth = 120;
-  const nodeHeight = 36;
-  const gapX = 60;
-  const padX = 20;
-  const padY = 12;
+  const nodeWidth = 180;
+  const nodeHeight = 72;
+  const gapX = 56;
+  const padX = 28;
+  const padY = 24;
   const totalWidth = padX * 2 + kgNodes.length * nodeWidth + (kgNodes.length - 1) * gapX;
   const totalHeight = padY * 2 + nodeHeight;
 
@@ -75,67 +76,103 @@ export function KnowledgeGraphBar({ nodes, activeNodeId, onNodeClick }: Props) {
     });
   });
 
-  const statusColors: Record<KGNode['status'], { fill: string; stroke: string; text: string }> = {
-    completed: { fill: '#dcfce7', stroke: '#22c55e', text: '#166534' },
-    active: { fill: '#dbeafe', stroke: '#3b82f6', text: '#1e40af' },
-    locked: { fill: '#f3f4f6', stroke: '#d1d5db', text: '#6b7280' },
+  const statusTheme: Record<
+    KGNode['status'],
+    { fill: string; stroke: string; text: string; icon: string; badge: string }
+  > = {
+    completed: {
+      fill: '#f0fdf4',
+      stroke: '#22c55e',
+      text: '#15803d',
+      icon: '#22c55e',
+      badge: '已完成',
+    },
+    active: {
+      fill: '#eff6ff',
+      stroke: '#3b82f6',
+      text: '#1e40af',
+      icon: '#3b82f6',
+      badge: '进行中',
+    },
+    locked: {
+      fill: '#f9fafb',
+      stroke: '#e5e7eb',
+      text: '#6b7280',
+      icon: '#9ca3af',
+      badge: '未解锁',
+    },
+  };
+
+  const getEdgeStyle = (toStatus: KGNode['status']) => {
+    if (toStatus === 'completed') return { stroke: '#86efac', width: 2.5, dash: undefined };
+    if (toStatus === 'active') return { stroke: '#60a5fa', width: 2.5, dash: undefined };
+    return { stroke: '#d1d5db', width: 2, dash: '6 4' };
   };
 
   return (
-    <div className="overflow-x-auto border rounded-lg bg-background p-2">
+    <div className="w-full overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] p-1 shadow-sm">
       <svg
         width={totalWidth}
         height={totalHeight}
         viewBox={`0 0 ${totalWidth} ${totalHeight}`}
         className="mx-auto block"
       >
+        <defs>
+          <marker id="arrowhead-completed" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L8,3 L0,6 Z" fill="#86efac" />
+          </marker>
+          <marker id="arrowhead-active" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L8,3 L0,6 Z" fill="#60a5fa" />
+          </marker>
+          <marker id="arrowhead-locked" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L8,3 L0,6 Z" fill="#d1d5db" />
+          </marker>
+          <filter id="activeGlow" x="-25%" y="-25%" width="150%" height="150%">
+            <feDropShadow dx="0" dy="3" stdDeviation="5" floodColor="#3b82f6" floodOpacity="0.22" />
+          </filter>
+        </defs>
+
         {/* 边 */}
         {kgEdges.map((edge, i) => {
           const from = nodePositions.get(edge.from);
           const to = nodePositions.get(edge.to);
           if (!from || !to) return null;
-          const x1 = from.x + nodeWidth;
-          const y1 = from.y + nodeHeight / 2;
-          const x2 = to.x;
-          const y2 = to.y + nodeHeight / 2;
+          const toNode = kgNodes.find((n) => n.id === edge.to);
+          const style = getEdgeStyle(toNode?.status ?? 'locked');
+          const marker =
+            toNode?.status === 'completed'
+              ? 'url(#arrowhead-completed)'
+              : toNode?.status === 'active'
+                ? 'url(#arrowhead-active)'
+                : 'url(#arrowhead-locked)';
           return (
             <line
               key={`edge-${i}`}
-              x1={x1}
-              y1={y1}
-              x2={x2}
-              y2={y2}
-              stroke="#d1d5db"
-              strokeWidth={1.5}
-              markerEnd="url(#arrowhead)"
+              x1={from.x + nodeWidth}
+              y1={from.y + nodeHeight / 2}
+              x2={to.x}
+              y2={to.y + nodeHeight / 2}
+              stroke={style.stroke}
+              strokeWidth={style.width}
+              strokeDasharray={style.dash}
+              markerEnd={marker}
             />
           );
         })}
-
-        {/* 箭头标记 */}
-        <defs>
-          <marker
-            id="arrowhead"
-            markerWidth="6"
-            markerHeight="4"
-            refX="6"
-            refY="2"
-            orient="auto"
-          >
-            <polygon points="0 0, 6 2, 0 4" fill="#d1d5db" />
-          </marker>
-        </defs>
 
         {/* 节点 */}
         {kgNodes.map((node) => {
           const pos = nodePositions.get(node.id);
           if (!pos) return null;
-          const colors = statusColors[node.status];
+          const theme = statusTheme[node.status];
           const isActive = node.status === 'active';
+          const isCompleted = node.status === 'completed';
+          const isLocked = node.status === 'locked';
+
           return (
             <g
               key={node.id}
-              className="cursor-pointer"
+              className="cursor-pointer transition-opacity hover:opacity-90"
               onClick={() => onNodeClick?.(node.id)}
             >
               <rect
@@ -143,24 +180,66 @@ export function KnowledgeGraphBar({ nodes, activeNodeId, onNodeClick }: Props) {
                 y={pos.y}
                 width={nodeWidth}
                 height={nodeHeight}
-                rx={8}
-                ry={8}
-                fill={colors.fill}
-                stroke={colors.stroke}
-                strokeWidth={isActive ? 2 : 1.5}
-                className={isActive ? 'animate-pulse' : ''}
+                rx={14}
+                ry={14}
+                fill={theme.fill}
+                stroke={theme.stroke}
+                strokeWidth={isActive ? 2.5 : 1.5}
+                filter={isActive ? 'url(#activeGlow)' : undefined}
               />
-              <text
-                x={pos.x + nodeWidth / 2}
-                y={pos.y + nodeHeight / 2}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fill={colors.text}
-                fontSize={12}
-                fontWeight={isActive ? 600 : 400}
+              <foreignObject
+                x={pos.x}
+                y={pos.y}
+                width={nodeWidth}
+                height={nodeHeight}
+                xmlns="http://www.w3.org/1999/xhtml"
               >
-                {node.label.length > 8 ? node.label.slice(0, 8) + '...' : node.label}
-              </text>
+                <div
+                  style={{
+                    width: nodeWidth,
+                    height: nodeHeight,
+                    padding: '12px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {isCompleted && <CheckCircle2 size={14} color={theme.icon} />}
+                    {isActive && <CircleDot size={14} color={theme.icon} />}
+                    {isLocked && <Lock size={13} color={theme.icon} />}
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        color: theme.icon,
+                      }}
+                    >
+                      {theme.badge}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      lineHeight: 1.35,
+                      color: theme.text,
+                      overflowWrap: 'break-word',
+                      wordBreak: 'break-word',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                    title={node.label}
+                  >
+                    {node.label}
+                  </div>
+                </div>
+              </foreignObject>
             </g>
           );
         })}

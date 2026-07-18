@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Pause, Play, RotateCcw, SkipForward, Code, Volume2 } from 'lucide-react';
+import { Pause, Play, RotateCcw, ChevronLeft, ChevronRight, Code, Volume2, Volume1, VolumeX, Gauge } from 'lucide-react';
 import { useSlideBackgroundStyle } from '@/lib/hooks/use-slide-background-style';
 import { ScreenElement } from '@/components/slide-renderer/Editor/ScreenElement';
 import { QuizRenderer } from '@/components/slide-renderer/Editor/QuizRenderer';
@@ -252,6 +252,8 @@ export function PPTViewer({ scenes, onHotspotClick, onCodeButtonClick }: Props) 
   const [laser, setLaser] = useState<LaserState | null>(null);
   const [activeSpeaker, setActiveSpeaker] = useState<ActiveSpeaker | null>(null);
   const [captionText, setCaptionText] = useState('');
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [volume, setVolume] = useState(1);
 
   const safeScenes = scenes ?? [];
   const clampedIndex = Math.min(currentIndex, Math.max(safeScenes.length - 1, 0));
@@ -322,7 +324,8 @@ export function PPTViewer({ scenes, onHotspotClick, onCodeButtonClick }: Props) 
 
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'zh-CN';
-      utterance.rate = 1.0;
+      utterance.rate = playbackRate;
+      utterance.volume = volume;
 
       const voice = selectVoiceForSpeaker(speaker);
       if (voice) utterance.voice = voice;
@@ -501,47 +504,21 @@ export function PPTViewer({ scenes, onHotspotClick, onCodeButtonClick }: Props) 
     );
   }
 
+  const volumeIcon = useMemo(() => {
+    if (volume === 0) return <VolumeX className="h-4 w-4" />;
+    if (volume < 0.5) return <Volume1 className="h-4 w-4" />;
+    return <Volume2 className="h-4 w-4" />;
+  }, [volume]);
+
   return (
     <div className="space-y-3">
-      {/* 标题和场景导航 */}
+      {/* 标题和场景计数 */}
       <div className="flex items-center justify-between gap-4">
         <div>
           <h3 className="text-base font-medium">{scene?.title}</h3>
           <span className="text-sm text-muted-foreground">
             场景 {clampedIndex + 1} / {safeScenes.length}
           </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!canPlay}
-            onClick={handlePlayPause}
-          >
-            {engineState === 'playing' ? <Pause className="mr-1 h-4 w-4" /> : <Play className="mr-1 h-4 w-4" />}
-            {engineState === 'playing' ? '暂停讲解' : hasSpeech ? '播放讲解' : '播放特效'}
-          </Button>
-          <Button variant="outline" size="sm" disabled={engineState === 'idle'} onClick={stopPlayback}>
-            <RotateCcw className="mr-1 h-4 w-4" />
-            重置
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={clampedIndex === 0}
-            onClick={() => setCurrentIndex((index) => index - 1)}
-          >
-            上一个
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={clampedIndex >= safeScenes.length - 1}
-            onClick={() => setCurrentIndex((index) => index + 1)}
-          >
-            <SkipForward className="mr-1 h-4 w-4" />
-            下一个
-          </Button>
         </div>
       </div>
 
@@ -553,8 +530,19 @@ export function PPTViewer({ scenes, onHotspotClick, onCodeButtonClick }: Props) 
         />
       )}
 
-      {/* 幻灯片预览 */}
-      {scene ? <SlidePreview scene={scene} spotlight={spotlight} laser={laser} onHotspotClick={onHotspotClick} /> : null}
+      {/* 幻灯片预览 + 中央播放按钮 */}
+      <div className="relative">
+        {scene ? <SlidePreview scene={scene} spotlight={spotlight} laser={laser} onHotspotClick={onHotspotClick} /> : null}
+        {engineState === 'idle' && canPlay && (
+          <button
+            onClick={handlePlayPause}
+            className="absolute inset-0 m-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-xl shadow-violet-500/30 transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:ring-offset-2"
+            aria-label="播放讲解"
+          >
+            <Play className="h-7 w-7 fill-white" />
+          </button>
+        )}
+      </div>
 
       {/* 字幕条 */}
       {captionText && (
@@ -568,9 +556,82 @@ export function PPTViewer({ scenes, onHotspotClick, onCodeButtonClick }: Props) 
       {engineState === 'idle' && hasSpeech && !captionText && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Volume2 className="h-3.5 w-3.5" />
-          <span>点击「播放讲解」开始语音讲解与动态特效</span>
+          <span>点击中央播放按钮或下方控制栏开始语音讲解</span>
         </div>
       )}
+
+      {/* 底部控制栏 */}
+      <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 shadow-sm">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setCurrentIndex((i) => Math.max(i - 1, 0))}
+            disabled={clampedIndex === 0}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-label="上一页"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            onClick={handlePlayPause}
+            disabled={!canPlay}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm transition-all hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-label={engineState === 'playing' ? '暂停' : '播放'}
+          >
+            {engineState === 'playing' ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
+          </button>
+          <button
+            onClick={() => setCurrentIndex((i) => Math.min(i + 1, safeScenes.length - 1))}
+            disabled={clampedIndex >= safeScenes.length - 1}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-label="下一页"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+          <button
+            onClick={stopPlayback}
+            disabled={engineState === 'idle'}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-label="重置"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* 倍速 */}
+          <div className="flex items-center gap-1.5">
+            <Gauge className="h-3.5 w-3.5 text-[var(--muted-foreground)]" />
+            <select
+              value={playbackRate}
+              onChange={(e) => setPlaybackRate(parseFloat(e.target.value))}
+              className="h-7 rounded-md border border-[var(--border)] bg-[var(--background)] px-1.5 text-[11px] text-[var(--foreground)] focus:outline-none focus:border-[var(--primary)]"
+            >
+              {[0.5, 0.75, 1, 1.25, 1.5, 2].map((r) => (
+                <option key={r} value={r}>{r}x</option>
+              ))}
+            </select>
+          </div>
+          {/* 音量 */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setVolume((v) => (v === 0 ? 1 : 0))}
+              className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+              aria-label={volume === 0 ? '取消静音' : '静音'}
+            >
+              {volumeIcon}
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.1}
+              value={volume}
+              onChange={(e) => setVolume(parseFloat(e.target.value))}
+              className="h-1 w-20 cursor-pointer appearance-none rounded-full bg-[var(--muted)] accent-[var(--primary)]"
+            />
+          </div>
+        </div>
+      </div>
 
       {/* 代码运行按钮（仅 slide 类型场景） */}
       {scene?.type === 'slide' && (() => {
