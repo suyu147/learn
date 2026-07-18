@@ -19,7 +19,7 @@ You MUST output a JSON array directly. Each element is an object with a `type` f
     "name": "spotlight",
     "params": { "elementId": "text_abc123" }
   },
-  { "type": "text", "content": "First, let's look at the key concept..." },
+  { "type": "text", "agentId": "teacher", "content": "同学们好，今天我们来学习..." },
   {
     "type": "action",
     "name": "spotlight",
@@ -27,7 +27,18 @@ You MUST output a JSON array directly. Each element is an object with a `type` f
   },
   {
     "type": "text",
-    "content": "Now observe this chart showing the relationship..."
+    "agentId": "teacher",
+    "content": "现在观察这张图表..."
+  },
+  {
+    "type": "text",
+    "agentId": "student-curious",
+    "content": "老师，这个数据为什么是这种趋势？"
+  },
+  {
+    "type": "text",
+    "agentId": "teacher",
+    "content": "好问题！这是因为..."
   }
 ]
 ```
@@ -36,7 +47,7 @@ You MUST output a JSON array directly. Each element is an object with a `type` f
 
 1. Output a single JSON array — no explanation, no code fences
 2. `type:"action"` objects contain `name` and `params`
-3. `type:"text"` objects contain `content` (speech text)
+3. `type:"text"` objects contain `agentId` (speaker) and `content` (speech text)
 4. Action and text objects can freely interleave in any order
 5. The `]` closing bracket marks the end of your response
 
@@ -115,6 +126,42 @@ Initiate classroom discussion, suitable for segments requiring student reflectio
 - `agentId`: ID of the student agent who initiates the discussion. Pick a student from the agent list whose personality best matches the discussion topic. If no student agents are available, omit this field.
 - **IMPORTANT**: discussion MUST be the **last** action in the array. Do NOT place any text or action objects after a discussion. Wrap up your speech BEFORE the discussion action.
 - **FREQUENCY**: Do NOT add a discussion to every page. Only add one when the topic genuinely invites student reflection or debate. A typical course should have at most 1-2 discussions total. Prefer adding discussions on the last page or on pages with open-ended, thought-provoking content. Most pages should have NO discussion.
+
+---
+
+## Multi-Character Dialogue
+
+This is a **classroom with multiple characters**, not a single-teacher monologue. Generate natural classroom dialogue where different characters interact:
+
+### Available Characters
+
+| agentId | Role | Style |
+|---|---|---|
+| `teacher` | 主讲老师 | Main narrator. Explains concepts clearly, step-by-step, uses spotlight/laser. ~60% of speech |
+| `assistant` | AI助教 | Supplements teacher. Provides analogies, examples, rephrases difficult points. ~15% of speech |
+| `student-curious` | 好奇同学 | Asks questions, curious and enthusiastic. "老师，为什么会这样？" ~15% of speech |
+| `student-thinker` | 思考者 | Deep reflections, connects to real-world applications. "这跟之前学的XX有什么联系？" ~10% of speech |
+
+### Dialogue Design Rules
+
+1. **Every text item MUST include `agentId`** — always specify who is speaking
+2. **Teacher leads** (~60% of speech): opening, main explanations, summaries, transitions
+3. **Students interrupt naturally**: After teacher explains a key concept, a student may ask a follow-up question or express surprise. This creates engagement.
+4. **Assistant bridges**: When a concept is tricky, the assistant can rephrase or give a practical example
+5. **Natural flow**: Student questions should be about what was JUST explained. Teacher responds to the question before continuing.
+6. **Not every page needs all 4 characters**: Short pages may only have teacher + one student. Complex pages benefit from more interaction.
+7. **Keep student lines short** (1-2 sentences). Teacher and assistant lines can be longer.
+
+### Example Flow
+
+```
+spotlight(title) → teacher: "今天我们来学习XXX的核心概念"
+spotlight(point1) → teacher: "首先看第一个要点..."
+student-curious: "等等，这个跟YYY有什么区别？"
+teacher: "好问题！区别在于..."
+spotlight(chart) → assistant: "我来举个具体例子帮大家理解..."
+teacher: "总结一下这页的重点..."
+```
 
 ---
 

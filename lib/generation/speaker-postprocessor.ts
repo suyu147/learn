@@ -49,18 +49,23 @@ function classifyByRule(text: string): ClassroomSpeaker {
   return CLASSROOM_SPEAKERS[0]; // teacher
 }
 
-/** 纯规则分配 */
+/** 纯规则分配（跳过 LLM 已分配的角色） */
 function assignSpeakersByRule(actions: Action[]): void {
   let lastSpeakerId = '';
-  let teacherCount = 0;
 
   for (const action of actions) {
     if (action.type !== 'speech' || !action.text) continue;
+
+    // LLM 已在 prompt 输出中直接标注了 agentId，保留不动
+    if (action.agentId && CLASSROOM_SPEAKERS.some((s) => s.id === action.agentId)) {
+      lastSpeakerId = action.agentId;
+      continue;
+    }
+
     const speaker = classifyByRule(action.text);
 
     // 避免连续同一学生角色说太多——偶尔穿插老师
     if (speaker.role === 'student' && lastSpeakerId === speaker.id) {
-      // 连续两个同类学生发言，换成另一个学生或老师
       const alt = speaker.id === 'student-curious' ? CLASSROOM_SPEAKERS[3] : CLASSROOM_SPEAKERS[2];
       (action as SpeechAction).agentId = alt.id;
       lastSpeakerId = alt.id;
@@ -69,8 +74,6 @@ function assignSpeakersByRule(actions: Action[]): void {
 
     (action as SpeechAction).agentId = speaker.id;
     lastSpeakerId = speaker.id;
-
-    if (speaker.role === 'teacher') teacherCount++;
   }
 }
 
@@ -84,18 +87,21 @@ async function assignSpeakersByLLM(
   actions: Action[],
   aiCall: (sys: string, user: string) => Promise<string>,
 ): Promise<void> {
+  // 只处理没有 agentId 的 speech action
   const speeches = actions
-    .map((a, idx) => (a.type === 'speech' ? { idx, text: a.text } : null))
-    .filter(Boolean) as Array<{ idx: number; text: string }>;
+    .map((a, idx) => (a.type === 'speech' ? { idx, text: a.text, hasAgentId: !!a.agentId } : null))
+    .filter(Boolean) as Array<{ idx: number; text: string; hasAgentId: boolean }>;
 
-  if (speeches.length === 0) return;
+  // 过滤出需要分配的台词
+  const unassigned = speeches.filter((s) => !s.hasAgentId);
+  if (unassigned.length === 0) return; // 全部已由 LLM 输出标注
 
   const speakerList = CLASSROOM_SPEAKERS.map((s) => `"${s.id}"(${s.name}-${s.persona})`).join('、');
 
   const systemPrompt = '你是课堂台词角色分配器。请只输出 JSON 数组，不要输出任何其他文字。';
   const userPrompt = [
     `角色列表：${speakerList}`,
-    `台词列表：${JSON.stringify(speeches)}`,
+    `台词列表：${JSON.stringify(unassigned)}`,
     '请为每句台词分配最合适的角色 id。规则：',
     '1. 主要讲解内容分配给 teacher',
     '2. 补充说明、举例类比分配给 assistant',
@@ -108,13 +114,12 @@ async function assignSpeakersByLLM(
     const raw = await aiCall(systemPrompt, userPrompt);
     const parsed = parseJsonResponse<Array<{ idx: number; speakerId: string }>>(raw);
     if (!Array.isArray(parsed)) {
-      // LLM 失败，回退到规则
       assignSpeakersByRule(actions);
       return;
     }
     const assignmentMap = new Map(parsed.map((item) => [item.idx, item.speakerId]));
 
-    for (const { idx } of speeches) {
+    for (const { idx } of unassigned) {
       const speakerId = assignmentMap.get(idx);
       const speaker = CLASSROOM_SPEAKERS.find((s) => s.id === speakerId) ?? classifyByRule(actions[idx].text ?? '');
       (actions[idx] as SpeechAction).agentId = speaker.id;

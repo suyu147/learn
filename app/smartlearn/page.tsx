@@ -165,10 +165,12 @@ export default function SmartLearnPage() {
   const pathReset = useLearningPathStore((s) => s.reset)
   const isPlanning = useLearningPathStore((s) => s.isPlanning)
   const setPlanning = useLearningPathStore((s) => s.setPlanning)
+  const loadPathForSession = useLearningPathStore((s) => s.loadPathForSession)
 
   const resources = useResourcesStore((s) => s.resources)
   const addResource = useResourcesStore((s) => s.addResource)
   const resourcesReset = useResourcesStore((s) => s.reset)
+  const loadResourcesForSession = useResourcesStore((s) => s.loadResourcesForSession)
 
   const profile = useLearningProfileStore((s) => s.profile)
   const setProfile = useLearningProfileStore((s) => s.setProfile)
@@ -316,6 +318,33 @@ export default function SmartLearnPage() {
     { label: '已完成节点', value: completedCount, color: 'text-[var(--info)]' },
     { label: '薄弱知识点', value: weakTopicCount, color: 'text-[var(--warning)]' },
   ]
+
+  // =========================================================================
+  // Restore learning state from localStorage on mount
+  // =========================================================================
+
+  useEffect(() => {
+    // zustand persist rehydration is async — wait one tick to ensure
+    // localStorage data has been written into the store before reading.
+    const timer = setTimeout(() => {
+      const sid = useSessionsStore.getState().currentSessionId
+      if (!sid) return
+
+      // Restore the active learning path for the current session
+      const currentPath = useLearningPathStore.getState().path
+      if (!currentPath) {
+        loadPathForSession(sid)
+      }
+
+      // Restore the active resources for the current session
+      const currentResources = useResourcesStore.getState().resources
+      if (currentResources.length === 0) {
+        loadResourcesForSession(sid)
+      }
+    }, 0)
+
+    return () => clearTimeout(timer)
+  }, [loadPathForSession, loadResourcesForSession])
 
   // =========================================================================
   // Fetch profile on mount

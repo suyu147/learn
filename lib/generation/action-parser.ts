@@ -95,11 +95,16 @@ export function parseActionsFromStructuredOutput(
     if (typedItem.type === 'text') {
       const text = ((typedItem.content as string) || '').trim();
       if (text) {
-        actions.push({
+        const speechAction: Record<string, unknown> = {
           id: `action_${nanoid(8)}`,
           type: 'speech',
           text,
-        });
+        };
+        // Preserve speaker assignment from LLM output
+        if (typeof typedItem.agentId === 'string' && typedItem.agentId) {
+          speechAction.agentId = typedItem.agentId;
+        }
+        actions.push(speechAction as unknown as Action);
       }
     } else if (typedItem.type === 'action') {
       try {
