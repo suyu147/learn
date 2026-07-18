@@ -71,7 +71,8 @@ export async function planResourcesNode(
       priorFeedback,
       constraints: {
         allowLLM: false,
-        allowPPT: state.learnerSnapshot?.currentStage === 'overview' || state.learnerSnapshot?.currentStage === 'review',
+        // Allow PPT for all stages except 'practice' — PPT is valuable for both overview and concept learning
+        allowPPT: state.learnerSnapshot?.currentStage !== 'practice',
         latencyBudgetMs: 200,
         maxTypes: state.learnerSnapshot?.currentStage === 'practice' ? 3 : 4,
         boostTypes,

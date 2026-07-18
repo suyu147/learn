@@ -267,10 +267,13 @@ export default function SmartLearnPage() {
   const totalCount = nodes.length
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
 
-  // Resources for the active node
-  const activeNodeResources = activeNode
+  // The node currently being viewed: prefer selectedNodeId, fallback to activeNode
+  const viewingNode = (selectedNodeId ? nodes.find((n) => n.id === selectedNodeId) : null) ?? activeNode
+
+  // Resources for the viewing node
+  const activeNodeResources = viewingNode
     ? resources.filter((r) =>
-        activeNode.resources?.some((ref) => ref.resourceId === r.id),
+        viewingNode.resources?.some((ref) => ref.resourceId === r.id),
       )
     : []
 
@@ -282,10 +285,10 @@ export default function SmartLearnPage() {
   /** Open a related resource from concept panel */
   const handleViewRelatedResource = useCallback((resourceId: string) => {
     const resource = resources.find((r) => r.id === resourceId)
-    if (resource && activeNode) {
-      handleResourceClick(resource, activeNode.id)
+    if (resource && viewingNode) {
+      handleResourceClick(resource, viewingNode.id)
     }
-  }, [resources, activeNode, handleResourceClick])
+  }, [resources, viewingNode, handleResourceClick])
 
   /** Handle quiz completion — feed result back into the decision engine */
   const handleQuizResult = useCallback(
@@ -560,6 +563,7 @@ export default function SmartLearnPage() {
   const handleStartLearning = async () => {
     setError(null)
     setStreamingText('')
+    setSelectedNodeId(null) // Reset selection so viewingNode falls back to the new activeNode
 
     const profileDimensions = profile?.dimensions
     if (!profileDimensions) {
@@ -1136,17 +1140,15 @@ export default function SmartLearnPage() {
         )}
 
         {/* Current Node Content */}
-        {(activeNode || selectedNodeId) && (
+        {viewingNode && (
           <div className="flex-1 px-6 py-6 space-y-4">
             <div>
               <h2 className="text-lg font-semibold text-[var(--foreground)] mb-1">
-                {selectedNodeId
-                  ? `当前节点：${nodes.find((n) => n.id === selectedNodeId)?.title ?? ''}`
-                  : `当前节点：${activeNode?.title ?? ''}`}
+                当前节点：{viewingNode.title}
               </h2>
               <p className="text-[13px] text-[var(--muted-foreground)]">
                 {activeNodeResources.length} 个学习资源
-                {activeNode?.estimatedMinutes ? ` · 预计用时 ${activeNode.estimatedMinutes} 分钟` : ''}
+                {viewingNode.estimatedMinutes ? ` · 预计用时 ${viewingNode.estimatedMinutes} 分钟` : ''}
               </p>
             </div>
 
@@ -1157,7 +1159,7 @@ export default function SmartLearnPage() {
                 {path && path.nodes.length > 1 && (
                   <KnowledgeGraphBar
                     nodes={path.nodes}
-                    activeNodeId={activeNode?.id}
+                    activeNodeId={viewingNode.id}
                     onNodeClick={handleNodeSelect}
                   />
                 )}
@@ -1204,7 +1206,7 @@ export default function SmartLearnPage() {
                   return (
                     <button
                       key={resource.id}
-                      onClick={() => handleResourceClick(resource, activeNode!.id)}
+                      onClick={() => handleResourceClick(resource, viewingNode!.id)}
                       className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 text-left hover:border-[var(--primary)] transition-colors group"
                     >
                       <div className="flex items-start gap-3">
@@ -1244,8 +1246,8 @@ export default function SmartLearnPage() {
               </div>
             )}
 
-            {/* Node actions */}
-            {activeNode && activeNode.status === 'in_progress' && !isStreaming && (
+            {/* Node actions — only show for the active (in_progress) node */}
+            {activeNode && activeNode.id === viewingNode?.id && activeNode.status === 'in_progress' && !isStreaming && (
               <div className="flex gap-2 pt-2">
                 <button
                   onClick={handleGenerateResources}
@@ -1275,7 +1277,7 @@ export default function SmartLearnPage() {
                   return (
                     <button
                       key={r.id}
-                      onClick={() => activeNode && handleResourceClick(r, activeNode.id)}
+                      onClick={() => viewingNode && handleResourceClick(r, viewingNode.id)}
                       className="w-full flex items-center gap-2 rounded-lg p-2 text-left hover:bg-[var(--muted)] transition-colors"
                     >
                       <Icon className="h-4 w-4 text-[var(--primary)] shrink-0" />
@@ -1316,7 +1318,7 @@ export default function SmartLearnPage() {
               <ResourceViewer
                 resource={selectedResource}
                 sessionId={currentSessionId}
-                nodeId={activeNode?.id ?? selectedNodeId}
+                nodeId={viewingNode?.id ?? selectedNodeId}
                 onQuizResult={handleQuizResult}
                 onResourceView={handleResourceView}
                 onRegenerate={undefined}
