@@ -5,6 +5,7 @@ import { generateSceneOutlinesFromRequirements } from '@/lib/generation/outline-
 import { buildSceneFromOutline } from '@/lib/generation/scene-builder';
 import { batchGenerateImages } from '@/lib/generation/image-generator';
 import { parseJsonResponse } from '@/lib/generation/json-repair';
+import { assignSpeakersToScenesAsync } from '@/lib/generation/speaker-postprocessor';
 import type { Scene, CodeButton } from '@/lib/types/stage';
 import type { ProviderId } from '@/lib/types/provider';
 import type { ConceptHotspot } from '@/lib/types/slides';
@@ -172,6 +173,9 @@ export async function generatePptScenes(requirement: string, aiConfig?: { provid
         }),
       );
     }
+
+    // 角色分配：为每个 speech action 标注说话者（主讲老师/助教/学生）
+    tasks.push(assignSpeakersToScenesAsync(scenes, aiCall));
 
     await Promise.all(tasks);
   }

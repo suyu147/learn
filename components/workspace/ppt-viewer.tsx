@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Pause, Play, RotateCcw, SkipForward, Code } from 'lucide-react';
+import { Pause, Play, RotateCcw, SkipForward, Code, Volume2 } from 'lucide-react';
 import { useSlideBackgroundStyle } from '@/lib/hooks/use-slide-background-style';
 import { ScreenElement } from '@/components/slide-renderer/Editor/ScreenElement';
 import { QuizRenderer } from '@/components/slide-renderer/Editor/QuizRenderer';
@@ -12,6 +12,7 @@ import { LaserOverlay } from '@/components/slide-renderer/Editor/LaserOverlay';
 import type { Action } from '@/lib/types/action';
 import type { Scene, CodeButton } from '@/lib/types/stage';
 import type { PPTElement, SlideBackground, ConceptHotspot } from '@/lib/types/slides';
+import { CLASSROOM_SPEAKERS, getSpeakerById, type ClassroomSpeaker } from '@/lib/generation/speaker-roster';
 
 const CANVAS_WIDTH = 1000;
 const CANVAS_HEIGHT = 562.5;
@@ -33,6 +34,34 @@ interface LaserState {
   elementId: string;
   color: string;
 }
+
+interface ActiveSpeaker {
+  speaker: ClassroomSpeaker;
+  isSpeaking: boolean;
+}
+
+// ── Browser TTS 语音缓存 ────────────────────────────────
+
+let cachedVoices: SpeechSynthesisVoice[] | null = null;
+
+function getBrowserVoices(): SpeechSynthesisVoice[] {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return [];
+  if (cachedVoices && cachedVoices.length > 0) return cachedVoices;
+  cachedVoices = window.speechSynthesis.getVoices();
+  return cachedVoices ?? [];
+}
+
+/** 为指定角色选择浏览器 TTS 语音 */
+function selectVoiceForSpeaker(speaker: ClassroomSpeaker): SpeechSynthesisVoice | undefined {
+  const voices = getBrowserVoices();
+  if (voices.length === 0) return undefined;
+  // 优先选中文语音
+  const zhVoices = voices.filter((v) => v.lang.startsWith('zh'));
+  const pool = zhVoices.length > 0 ? zhVoices : voices;
+  return pool[speaker.voiceIndex % pool.length];
+}
+
+// ── SlidePreview 子组件 ────────────────────────────────
 
 function SlidePreview({
   scene,
@@ -141,20 +170,112 @@ function SlidePreview({
   );
 }
 
+// ── 角色指示器组件 ──────────────────────────────────────
+
+function SpeakerIndicator({ active, allSpeakers }: { active: ActiveSpeaker | null; allSpeakers: ClassroomSpeaker[] }) {
+  if (allSpeakers.length === 0) return null;
+
+  return (
+    <div className="flex items-center gap-2 overflow-x-auto py-1">
+      {allSpeakers.map((sp) => {
+        const isActive = active?.speaker.id === sp.id;
+        return (
+          <div
+            key={sp.id}
+            className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-300 ${
+              isActive
+                ? 'bg-[var(--speaker-bg,#EFF6FF)] shadow-sm ring-1 ring-[var(--speaker-ring,#93C5FD)]'
+                : 'bg-muted/50 opacity-50'
+            }`}
+            style={{
+              '--speaker-bg': `${sp.color}15`,
+              '--speaker-ring': `${sp.color}60`,
+            } as React.CSSProperties}
+          >
+            <span className="text-base">{sp.avatar}</span>
+            <span
+              className={`font-medium ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}
+              style={{ color: isActive ? sp.color : undefined }}
+            >
+              {sp.name}
+            </span>
+            {isActive && active?.isSpeaking && (
+              <span className="relative flex h-2 w-2">
+                <span
+                  className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+                  style={{ backgroundColor: sp.color }}
+                />
+                <span
+                  className="relative inline-flex h-2 w-2 rounded-full"
+                  style={{ backgroundColor: sp.color }}
+                />
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── 字幕条组件 ────────────────────────────────────────
+
+function CaptionBar({ text, speaker }: { text: string; speaker: ClassroomSpeaker | null }) {
+  if (!text) return null;
+
+  return (
+    <div
+      className="rounded-lg border px-4 py-3 transition-all duration-300"
+      style={{
+        borderColor: speaker ? `${speaker.color}30` : undefined,
+        backgroundColor: speaker ? `${speaker.color}08` : undefined,
+      }}
+    >
+      <div className="flex items-start gap-2">
+        {speaker && (
+          <span className="mt-0.5 text-sm shrink-0">{speaker.avatar}</span>
+        )}
+        <p className="text-sm leading-relaxed text-foreground/90">
+          {text}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── 主组件 PPTViewer ───────────────────────────────────
+
 export function PPTViewer({ scenes, onHotspotClick, onCodeButtonClick }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [engineState, setEngineState] = useState<EngineState>('idle');
   const [spotlight, setSpotlight] = useState<SpotlightState | null>(null);
   const [laser, setLaser] = useState<LaserState | null>(null);
+  const [activeSpeaker, setActiveSpeaker] = useState<ActiveSpeaker | null>(null);
+  const [captionText, setCaptionText] = useState('');
 
   const safeScenes = scenes ?? [];
   const clampedIndex = Math.min(currentIndex, Math.max(safeScenes.length - 1, 0));
   const scene = safeScenes[clampedIndex];
+
   const actionQueueRef = useRef<Action[]>([]);
   const isPlayingRef = useRef(false);
   const effectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nextActionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const playNextActionRef = useRef<() => void>(() => {});
+
+  // 缓存可用角色（从 scene actions 中提取实际使用的角色）
+  const sceneSpeakers = useMemo(() => {
+    if (!scene?.actions) return CLASSROOM_SPEAKERS.slice(0, 1);
+    const ids = new Set<string>();
+    for (const a of scene.actions) {
+      if (a.type === 'speech' && a.agentId) ids.add(a.agentId);
+    }
+    if (ids.size === 0) return [CLASSROOM_SPEAKERS[0]]; // 默认只显示老师
+    return CLASSROOM_SPEAKERS.filter((s) => ids.has(s.id));
+  }, [scene?.actions]);
+
+  // ── 清理计时器和特效 ──
 
   const clearTimersAndEffects = useCallback(() => {
     if (effectTimerRef.current) {
@@ -169,77 +290,208 @@ export function PPTViewer({ scenes, onHotspotClick, onCodeButtonClick }: Props) 
     setLaser(null);
   }, []);
 
+  const stopSpeech = useCallback(() => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    utteranceRef.current = null;
+  }, []);
+
   const stopPlayback = useCallback(() => {
     isPlayingRef.current = false;
     actionQueueRef.current = [];
     setEngineState('idle');
+    setActiveSpeaker(null);
+    setCaptionText('');
     clearTimersAndEffects();
-  }, [clearTimersAndEffects]);
+    stopSpeech();
+  }, [clearTimersAndEffects, stopSpeech]);
 
-  const playNextAction = useCallback(() => {
+  // ── 浏览器 TTS 播放 ──
+
+  const playSpeechAudio = useCallback((text: string, speaker: ClassroomSpeaker): Promise<void> => {
+    return new Promise((resolve) => {
+      if (typeof window === 'undefined' || !window.speechSynthesis) {
+        // 不支持 TTS，用估算时间模拟
+        const duration = Math.max(text.length * 150, 2000);
+        nextActionTimerRef.current = setTimeout(resolve, duration);
+        return;
+      }
+
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'zh-CN';
+      utterance.rate = 1.0;
+
+      const voice = selectVoiceForSpeaker(speaker);
+      if (voice) utterance.voice = voice;
+
+      utterance.onstart = () => {
+        setActiveSpeaker({ speaker, isSpeaking: true });
+      };
+      utterance.onend = () => {
+        setActiveSpeaker((prev) => prev ? { ...prev, isSpeaking: false } : null);
+        utteranceRef.current = null;
+        resolve();
+      };
+      utterance.onerror = () => {
+        utteranceRef.current = null;
+        resolve();
+      };
+
+      utteranceRef.current = utterance;
+      window.speechSynthesis.speak(utterance);
+    });
+  }, []);
+
+  // ── 核心播放引擎 ──
+
+  const playNextAction = useCallback(async () => {
     if (actionQueueRef.current.length === 0 || !isPlayingRef.current) {
-      setEngineState('idle');
-      isPlayingRef.current = false;
+      // 队列结束
+      if (isPlayingRef.current) {
+        // 最后一个动作完成后的延迟清理
+        await new Promise<void>((r) => {
+          nextActionTimerRef.current = setTimeout(() => {
+            clearTimersAndEffects();
+            setActiveSpeaker(null);
+            setCaptionText('');
+            setEngineState('idle');
+            isPlayingRef.current = false;
+            r();
+          }, 1500);
+        });
+      }
       return;
     }
 
     const action = actionQueueRef.current.shift()!;
-    clearTimersAndEffects();
+    const normalizedType = action.type;
 
-    if (action.type === 'spotlight' && action.elementId) {
+    // ── Spotlight: fire-and-forget ──
+    if (normalizedType === 'spotlight' && action.elementId) {
       setSpotlight({ elementId: action.elementId, dimness: action.dimOpacity ?? 0.5 });
-      effectTimerRef.current = setTimeout(() => setSpotlight(null), 3000);
-    } else if (action.type === 'laser' && action.elementId) {
-      setLaser({ elementId: action.elementId, color: action.color || '#ff0000' });
-      effectTimerRef.current = setTimeout(() => setLaser(null), 2000);
+      if (effectTimerRef.current) clearTimeout(effectTimerRef.current);
+      effectTimerRef.current = setTimeout(() => setSpotlight(null), 5000);
+      // 立即推进下一个动作
+      if (isPlayingRef.current) {
+        queueMicrotask(() => playNextActionRef.current());
+      }
+      return;
     }
 
-    if (actionQueueRef.current.length > 0 && isPlayingRef.current) {
-      const delay = action.type === 'speech' ? 2000 : 1000;
-      nextActionTimerRef.current = setTimeout(() => playNextActionRef.current(), delay);
-    } else {
-      nextActionTimerRef.current = setTimeout(() => {
-        clearTimersAndEffects();
-        setEngineState('idle');
-        isPlayingRef.current = false;
-      }, action.type === 'spotlight' ? 3000 : action.type === 'laser' ? 2000 : 500);
+    // ── Laser: fire-and-forget ──
+    if (normalizedType === 'laser' && action.elementId) {
+      setLaser({ elementId: action.elementId, color: action.color || '#ff0000' });
+      if (effectTimerRef.current) clearTimeout(effectTimerRef.current);
+      effectTimerRef.current = setTimeout(() => setLaser(null), 5000);
+      // 立即推进下一个动作
+      if (isPlayingRef.current) {
+        queueMicrotask(() => playNextActionRef.current());
+      }
+      return;
     }
-  }, [clearTimersAndEffects]);
+
+    // ── Speech: 阻塞直到语音结束 ──
+    if (normalizedType === 'speech' && action.text) {
+      const speaker = (action.agentId ? getSpeakerById(action.agentId) : null) ?? CLASSROOM_SPEAKERS[0];
+      setCaptionText(action.text);
+      setActiveSpeaker({ speaker, isSpeaking: true });
+
+      await playSpeechAudio(action.text, speaker);
+
+      // 语音结束后短暂停顿再推进
+      if (isPlayingRef.current && actionQueueRef.current.length > 0) {
+        await new Promise<void>((r) => {
+          nextActionTimerRef.current = setTimeout(r, 600);
+        });
+        if (isPlayingRef.current) {
+          playNextActionRef.current();
+        }
+      } else if (isPlayingRef.current) {
+        // 最后一个 speech，延迟后结束
+        await new Promise<void>((r) => {
+          nextActionTimerRef.current = setTimeout(() => {
+            clearTimersAndEffects();
+            setActiveSpeaker(null);
+            setCaptionText('');
+            setEngineState('idle');
+            isPlayingRef.current = false;
+            r();
+          }, 1500);
+        });
+      }
+      return;
+    }
+
+    // ── 其他动作类型：跳过，推进下一个 ──
+    if (isPlayingRef.current) {
+      queueMicrotask(() => playNextActionRef.current());
+    }
+  }, [clearTimersAndEffects, playSpeechAudio]);
 
   useEffect(() => {
     playNextActionRef.current = playNextAction;
   }, [playNextAction]);
 
+  // 场景切换时停止播放
   useEffect(() => {
     stopPlayback();
   }, [clampedIndex, stopPlayback]);
 
+  // 组件卸载时停止播放
   useEffect(() => () => stopPlayback(), [stopPlayback]);
+
+  // 加载浏览器语音列表
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    const loadVoices = () => {
+      cachedVoices = window.speechSynthesis.getVoices();
+    };
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    loadVoices();
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
+
+  // ── 播放/暂停控制 ──
 
   const handlePlayPause = useCallback(() => {
     if (!scene?.actions?.length) return;
 
     if (engineState === 'playing') {
+      // 暂停
       isPlayingRef.current = false;
       setEngineState('paused');
+      stopSpeech();
       if (nextActionTimerRef.current) {
         clearTimeout(nextActionTimerRef.current);
         nextActionTimerRef.current = null;
       }
+      setActiveSpeaker((prev) => prev ? { ...prev, isSpeaking: false } : null);
       return;
     }
 
+    // 开始/恢复
     if (engineState === 'idle') {
       actionQueueRef.current = [...scene.actions];
       clearTimersAndEffects();
+      setCaptionText('');
     }
 
     isPlayingRef.current = true;
     setEngineState('playing');
     playNextAction();
-  }, [clearTimersAndEffects, engineState, playNextAction, scene]);
+  }, [clearTimersAndEffects, engineState, playNextAction, scene, stopSpeech]);
 
-  const canPlayEffects = !!scene?.actions?.some((action) => action.type === 'spotlight' || action.type === 'laser');
+  // 有 speech 或 spotlight/laser 动作时才可播放
+  const canPlay = !!scene?.actions?.some(
+    (a) => a.type === 'speech' || a.type === 'spotlight' || a.type === 'laser',
+  );
+
+  const hasSpeech = !!scene?.actions?.some((a) => a.type === 'speech');
 
   if (safeScenes.length === 0) {
     return (
@@ -250,7 +502,8 @@ export function PPTViewer({ scenes, onHotspotClick, onCodeButtonClick }: Props) 
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
+      {/* 标题和场景导航 */}
       <div className="flex items-center justify-between gap-4">
         <div>
           <h3 className="text-base font-medium">{scene?.title}</h3>
@@ -262,11 +515,11 @@ export function PPTViewer({ scenes, onHotspotClick, onCodeButtonClick }: Props) 
           <Button
             variant="outline"
             size="sm"
-            disabled={!canPlayEffects}
+            disabled={!canPlay}
             onClick={handlePlayPause}
           >
             {engineState === 'playing' ? <Pause className="mr-1 h-4 w-4" /> : <Play className="mr-1 h-4 w-4" />}
-            {engineState === 'playing' ? '暂停特效' : '播放特效'}
+            {engineState === 'playing' ? '暂停讲解' : hasSpeech ? '播放讲解' : '播放特效'}
           </Button>
           <Button variant="outline" size="sm" disabled={engineState === 'idle'} onClick={stopPlayback}>
             <RotateCcw className="mr-1 h-4 w-4" />
@@ -292,7 +545,32 @@ export function PPTViewer({ scenes, onHotspotClick, onCodeButtonClick }: Props) 
         </div>
       </div>
 
+      {/* 角色指示器 */}
+      {hasSpeech && (
+        <SpeakerIndicator
+          active={activeSpeaker}
+          allSpeakers={sceneSpeakers}
+        />
+      )}
+
+      {/* 幻灯片预览 */}
       {scene ? <SlidePreview scene={scene} spotlight={spotlight} laser={laser} onHotspotClick={onHotspotClick} /> : null}
+
+      {/* 字幕条 */}
+      {captionText && (
+        <CaptionBar
+          text={captionText}
+          speaker={activeSpeaker?.speaker ?? null}
+        />
+      )}
+
+      {/* 语音播放提示（空闲时且有 speech） */}
+      {engineState === 'idle' && hasSpeech && !captionText && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Volume2 className="h-3.5 w-3.5" />
+          <span>点击「播放讲解」开始语音讲解与动态特效</span>
+        </div>
+      )}
 
       {/* 代码运行按钮（仅 slide 类型场景） */}
       {scene?.type === 'slide' && (() => {
@@ -316,6 +594,7 @@ export function PPTViewer({ scenes, onHotspotClick, onCodeButtonClick }: Props) 
         );
       })()}
 
+      {/* 场景页码指示器 */}
       <div className="flex justify-center gap-2">
         {safeScenes.map((_, index) => (
           <button
