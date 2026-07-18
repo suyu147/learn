@@ -1194,6 +1194,17 @@ export default function SmartLearnPage() {
             )}
           </div>
         )}
+
+        {/* 知识路径条 — 页面底部 */}
+        {viewingNode && path && path.nodes.length > 1 && (
+          <div className="px-6 pb-6">
+            <KnowledgeGraphBar
+              nodes={path.nodes}
+              activeNodeId={viewingNode.id}
+              onNodeClick={handleNodeSelect}
+            />
+          </div>
+        )}
       </div>
 
       {/* Floating Extension Resources Panel */}
