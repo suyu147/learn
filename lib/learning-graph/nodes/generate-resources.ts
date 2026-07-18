@@ -101,13 +101,26 @@ export async function generateResourcesNode(
       }
     }
 
+    // Build the full node list: all completed nodes + the current node with resource refs
+    const nodeWithResources = { ...node, resources: generatedResources.map((resource) => ({ resourceId: resource.id, type: resource.type, title: resource.title })) }
+    const allNodes = [...state.completedNodes, nodeWithResources]
+
+    // Build edges: link each completed node to its successor, plus edge from last completed to current
+    const allEdges: { from: string; to: string }[] = []
+    for (let i = 0; i < state.completedNodes.length - 1; i++) {
+      allEdges.push({ from: state.completedNodes[i].id, to: state.completedNodes[i + 1].id })
+    }
+    if (state.completedNodes.length > 0) {
+      allEdges.push({ from: state.completedNodes[state.completedNodes.length - 1].id, to: node.id })
+    }
+
     const path = {
       id: state.sessionId,
       userId: getUserId(config),
       goal: state.goal,
-      nodes: [...state.completedNodes, { ...node, resources: generatedResources.map((resource) => ({ resourceId: resource.id, type: resource.type, title: resource.title })) }],
-      edges: state.completedNodes.length > 0 ? [{ from: state.completedNodes[state.completedNodes.length - 1].id, to: node.id }] : [],
-      estimatedDays: Math.max(1, state.completedNodes.length + 1),
+      nodes: allNodes,
+      edges: allEdges,
+      estimatedDays: Math.max(1, allNodes.length),
       status: 'active' as const,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

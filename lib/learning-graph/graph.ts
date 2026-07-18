@@ -29,6 +29,7 @@ export function compileLearningGraph() {
     .addNode('tutor_respond', tutorRespondNode)
     .addConditionalEdges(START, routeByAction as never, {
       plan_node: 'plan_node',
+      analyze_learner: 'analyze_learner',
       evaluate: 'evaluate',
       tutor_respond: 'tutor_respond',
       [END]: END,

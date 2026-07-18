@@ -40,10 +40,26 @@ export async function POST(req: NextRequest) {
 
     log.info(`Resources POST: sessionId=${sessionId}, goal="${body.goal.slice(0, 60)}"`);
 
-    // Build initial state — delegate to the learning graph with action: 'start'
-    // The graph's plan → analyze → resource_plan → generate flow will produce resources
+    // Build initial state — use 'generate_resources' action to skip plan_node
+    // and directly generate resources for the current/next node
+    // Reconstruct currentNode from completedNodes if currentNodeId matches, or build from request info
+    const existingCurrentNode = (body.completedNodes ?? []).find((n) => n.id === body.currentNodeId)
+    const currentNode: LearningPathNode | null = existingCurrentNode
+      ? { ...existingCurrentNode, status: 'in_progress' }
+      : body.currentNodeId && body.currentNodeTitle
+        ? {
+            id: body.currentNodeId,
+            title: body.currentNodeTitle,
+            knowledgePoints: body.currentNodeTitle.split(/[、，,\s]/).filter(Boolean).slice(0, 4),
+            resources: [],
+            estimatedMinutes: 30,
+            prerequisites: [],
+            status: 'in_progress' as const,
+          }
+        : null
+
     const initialState: Partial<LearningStateType> = {
-      action: 'start',
+      action: 'generate_resources',
       sessionId,
       profile: body.profile,
       goal: body.goal,
@@ -58,7 +74,7 @@ export async function POST(req: NextRequest) {
       resourceFeedback: body.resourceFeedback ?? [],
       nodeDecisionOverrides: body.nodeDecisionOverrides ?? {},
       // Fields populated by graph nodes
-      currentNode: null,
+      currentNode,
       learnerSnapshot: null,
       resourcePlan: null,
       generatedResources: [],

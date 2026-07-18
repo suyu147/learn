@@ -465,8 +465,38 @@ export default function SmartLearnPage() {
           }
 
           if (learnEventType === 'path_update' && meta.path) {
-            const updatedPath = meta.path as import('@/lib/types/learning-path').LearningPath
-            setPath(updatedPath)
+            const serverPath = meta.path as import('@/lib/types/learning-path').LearningPath
+            const currentPath = pathRef.current
+            if (currentPath) {
+              // Merge strategy: preserve client nodes that already have resources,
+              // supplement with server nodes, prefer server data for overlapping nodes
+              const serverNodeMap = new Map(serverPath.nodes.map((n) => [n.id, n]))
+              const clientNodeMap = new Map(currentPath.nodes.map((n) => [n.id, n]))
+
+              // Start with server nodes, then merge in any client nodes that server doesn't have
+              const mergedNodes = [...serverPath.nodes]
+              for (const [id, clientNode] of clientNodeMap) {
+                if (!serverNodeMap.has(id)) {
+                  mergedNodes.push(clientNode)
+                } else {
+                  // For overlapping nodes, if client has resources but server doesn't, preserve client resources
+                  const serverNode = serverNodeMap.get(id)!
+                  if (clientNode.resources.length > 0 && serverNode.resources.length === 0) {
+                    const idx = mergedNodes.findIndex((n) => n.id === id)
+                    if (idx !== -1) {
+                      mergedNodes[idx] = { ...serverNode, resources: clientNode.resources }
+                    }
+                  }
+                }
+              }
+
+              setPath({
+                ...serverPath,
+                nodes: mergedNodes,
+              })
+            } else {
+              setPath(serverPath)
+            }
           }
 
           if (learnEventType === 'evaluation_result' && meta.evaluation) {
@@ -502,18 +532,25 @@ export default function SmartLearnPage() {
           break
 
         // -- Done --
-        case 'done':
+        case 'done': {
           setIsStreaming(false)
           setAgentStatus('')
           setCurrentPhase('')
+          // Auto-complete the active node when stream ends with resources generated
+          const latestPath = pathRef.current
+          const latestActiveNode = latestPath?.nodes.find((n) => n.status === 'in_progress')
+          if (latestActiveNode && latestActiveNode.resources && latestActiveNode.resources.length > 0) {
+            updateNodeStatus(latestActiveNode.id, 'completed')
+          }
           break
+        }
 
         default:
           // Ignore unknown event types
           break
       }
     },
-    [setPath, addResource, updateDimensions],
+    [setPath, addResource, updateDimensions, updateNodeStatus],
   )
 
   // =========================================================================
@@ -552,7 +589,16 @@ export default function SmartLearnPage() {
     abortRef.current = abort
 
     try {
-      const completedNodes = nodes.filter((n) => n.status === 'completed')
+      // Auto-complete the active node before starting the next one
+      // This ensures nodes with generated resources are marked completed
+      const currentActiveNode = useLearningPathStore.getState().path?.nodes.find((n) => n.status === 'in_progress')
+      if (currentActiveNode && currentActiveNode.resources && currentActiveNode.resources.length > 0) {
+        updateNodeStatus(currentActiveNode.id, 'completed')
+      }
+
+      // Read the latest state after potential auto-complete
+      const latestNodes = useLearningPathStore.getState().path?.nodes ?? []
+      const completedNodes = latestNodes.filter((n) => n.status === 'completed')
 
       const res = await fetch('/api/v1/smartlearn', {
         method: 'POST',
@@ -563,7 +609,7 @@ export default function SmartLearnPage() {
           profile: profileDimensions,
           goal,
           completedNodes,
-          currentNodeId: activeNode?.id ?? null,
+          currentNodeId: null,
         }),
         signal: abort.signal,
       })
@@ -699,7 +745,10 @@ export default function SmartLearnPage() {
     abortRef.current = abort
 
     try {
-      const completedNodes = nodes.filter((n) => n.status === 'completed')
+      // Ensure completedNodes includes all nodes with generated resources
+      const latestNodes = useLearningPathStore.getState().path?.nodes ?? []
+      const completedNodes = latestNodes.filter((n) => n.status === 'completed')
+      const latestActiveNode = latestNodes.find((n) => n.status === 'in_progress') ?? activeNode
 
       const res = await fetch('/api/v1/smartlearn/resources', {
         method: 'POST',
@@ -709,8 +758,8 @@ export default function SmartLearnPage() {
           profile: profile.dimensions,
           goal: currentSession?.goal ?? '',
           completedNodes,
-          currentNodeId: activeNode?.id ?? null,
-          currentNodeTitle: activeNode?.title ?? null,
+          currentNodeId: latestActiveNode?.id ?? null,
+          currentNodeTitle: latestActiveNode?.title ?? null,
         }),
         signal: abort.signal,
       })

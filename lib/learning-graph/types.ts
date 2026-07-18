@@ -23,7 +23,7 @@ export interface EvaluationResultPayload {
 }
 
 export interface LearnRequest {
-  action: 'start' | 'node_complete' | 'quiz_result' | 'tutor_chat';
+  action: 'start' | 'node_complete' | 'quiz_result' | 'tutor_chat' | 'generate_resources';
   sessionId: string;
   profile: ProfileDimensions;
   goal: string;
