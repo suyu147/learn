@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Brain,
   MessagesSquare,
@@ -16,14 +16,13 @@ import {
   ArrowRight,
   Zap,
   TrendingUp,
-  Code2,
   GraduationCap,
+  PenLine,
 } from 'lucide-react';
 import { useSessionStore } from '@/lib/store/session-store';
 import { useKnowledgeStore } from '@/lib/store/knowledge-store';
-import { useMemoryStore } from '@/lib/store/memory-store';
-import { useChatStore } from '@/lib/store/chat-store';
 import { useAuthStore } from '@/lib/store/auth-store';
+import { apiGet } from '@/lib/api-client';
 
 // ---------------------------------------------------------------------------
 // Data shape for the 4 quick-action cards
@@ -40,20 +39,28 @@ interface QuickCard {
 
 const quickCards: QuickCard[] = [
   {
-    key: 'workspace',
-    title: '工作台',
-    desc: '多 Agent 协作生成学习路径、语义、图谱和试卷',
-    href: '/space',
-    icon: BookOpen,
+    key: 'smartlearn',
+    title: '智能学习',
+    desc: '构建学习画像，生成个性化路径和推荐课程',
+    href: '/smartlearn',
+    icon: GraduationCap,
     iconClass: 'bg-pastel-blue',
   },
   {
-    key: 'test',
-    title: '在线测试',
-    desc: '按知识点生成练习并记录表现',
-    href: '/playground',
-    icon: ClipboardCheck,
+    key: 'chat',
+    title: 'AI问答',
+    desc: '随时向 AI 提问，拆解概念和解决问题',
+    href: '/chat',
+    icon: MessagesSquare,
     iconClass: 'bg-pastel-green',
+  },
+  {
+    key: 'cowriter',
+    title: '协作写作',
+    desc: '与 AI 协同完成笔记、写作和知识总结',
+    href: '/co-writer',
+    icon: PenLine,
+    iconClass: 'bg-pastel-amber',
   },
   {
     key: 'resource',
@@ -61,17 +68,26 @@ const quickCards: QuickCard[] = [
     desc: '讲义、PPT、模板和练习场一站管理',
     href: '/book',
     icon: Library,
-    iconClass: 'bg-pastel-amber',
-  },
-  {
-    key: 'challenge',
-    title: '代码挑战',
-    desc: '在真实编程环境里验证掌握程度',
-    href: '/smartlearn',
-    icon: MonitorPlay,
     iconClass: 'bg-pastel-rose',
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Learning stats type (mirrors backend LearningStatsResponse)
+// ---------------------------------------------------------------------------
+
+interface LearningStats {
+  minutes: number;
+  answered: number;
+  accuracy: number;
+  days: number;
+  sessions: number;
+  activeSessions: number;
+  knowledgeBases: number;
+  totalDocs: number;
+  memoryEntries: number;
+  weeklyChange: number;
+}
 
 // ---------------------------------------------------------------------------
 // Page
@@ -81,37 +97,41 @@ export default function HomePage() {
   const user = useAuthStore((s) => s.user);
   const sessions = useSessionStore((s) => s.sessions);
   const knowledgeBases = useKnowledgeStore((s) => s.knowledgeBases);
-  const memoryEntries = useMemoryStore((s) => s.entries);
-  const chatMessages = useChatStore((s) => s.messages);
 
-  // Compute stats — same data sources the legacy dashboard uses.
-  // Fall back to pleasant placeholders so the page never looks empty.
-  const stats = useMemo(() => {
+  // Fetch real stats from backend API
+  const [apiStats, setApiStats] = useState<LearningStats | null>(null);
+
+  useEffect(() => {
+    apiGet<LearningStats>('/api/v1/stats/learning')
+      .then((data) => setApiStats(data))
+      .catch((err) => {
+        console.warn('Failed to load learning stats, using fallback:', err);
+      });
+  }, []);
+
+  // Fallback: compute from frontend stores when API is unavailable
+  const fallbackStats = useMemo(() => {
     const activeSessions = sessions.filter((s) => s.status === 'active').length;
-    const totalQuestions = knowledgeBases.reduce(
-      (acc, kb) => acc + (kb.blockCount || 0),
-      0,
-    );
     const totalDocs = knowledgeBases.reduce(
       (acc, kb) => acc + (kb.documentCount || 0),
       0,
     );
-    const accuracy = totalQuestions > 0
-      ? Math.min(99, Math.round((memoryEntries.length / Math.max(totalQuestions, 1)) * 100) || 9.5)
-      : 9.5;
 
     return {
-      minutes: chatMessages.length * 2 + 6,                 // 学习时长
-      answered: totalQuestions + 63,                         // 答题数量
-      accuracy: totalQuestions > 0 ? accuracy : 9.5,         // 正确率
-      days: Math.max(1, new Date().getDate() % 30),          // 学习天数
+      minutes: 0,
+      answered: 0,
+      accuracy: 0,
+      days: 0,
       sessions: sessions.length,
       activeSessions,
       knowledgeBases: knowledgeBases.length,
       totalDocs,
-      memoryEntries: memoryEntries.length,
+      memoryEntries: 0,
+      weeklyChange: 0,
     };
-  }, [sessions, knowledgeBases, memoryEntries, chatMessages]);
+  }, [sessions, knowledgeBases]);
+
+  const stats = apiStats ?? fallbackStats;
 
   return (
     <div className="app-page-bg min-h-full pb-16">
@@ -133,12 +153,11 @@ export default function HomePage() {
               <h1 className="mt-3 text-[32px] font-bold leading-[1.15] tracking-tight text-[var(--foreground)] sm:text-[40px] lg:text-[44px]">
                 欢迎回来，同学
                 <br />
-                继续攻克{' '}
-                <span className="text-gradient-brand">数据结构</span>
+                继续{' '}
+                <span className="text-gradient-brand">开始学习</span>
               </h1>
               <p className="mt-5 max-w-xl text-[14px] leading-relaxed text-[var(--muted-foreground)]">
-                夜深了，注意休息。用知识库定位薄弱点，用 AI 问答拆解概念，
-                用代码挑战完成真正掌握。
+                夜深了，注意休息。用多维度个人画像生成符合用户真实学习情况的完整课程，通过答题情况反馈调整学习资源。
               </p>
 
               {/* CTA row */}
@@ -156,13 +175,6 @@ export default function HomePage() {
                 >
                   <MessagesSquare className="h-3.5 w-3.5 text-blue-500" />
                   问 AI 助教
-                </Link>
-                <Link
-                  href="/smartlearn"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-white px-4 py-2.5 text-[13.5px] font-medium text-[var(--foreground)] transition-all hover:border-amber-300 hover:bg-amber-50/60"
-                >
-                  <Code2 className="h-3.5 w-3.5 text-amber-500" />
-                  代码挑战
                 </Link>
               </div>
 
@@ -230,9 +242,18 @@ export default function HomePage() {
                 />
               </div>
 
-              <div className="mt-5 flex items-center gap-2 rounded-xl bg-blue-50/70 p-3 text-[12px] text-blue-700">
+              <div className={`mt-5 flex items-center gap-2 rounded-xl p-3 text-[12px] ${
+                stats.weeklyChange >= 0
+                  ? 'bg-blue-50/70 text-blue-700'
+                  : 'bg-amber-50/70 text-amber-700'
+              }`}>
                 <TrendingUp className="h-3.5 w-3.5" />
-                较上周提升 2.3%，继续加油！
+                {stats.weeklyChange === 0
+                  ? '本周暂无对比数据，继续加油！'
+                  : stats.weeklyChange > 0
+                    ? `较上周提升 ${stats.weeklyChange.toFixed(1)}%，继续加油！`
+                    : `较上周下降 ${Math.abs(stats.weeklyChange).toFixed(1)}%，继续努力！`
+                }
               </div>
             </div>
           </div>

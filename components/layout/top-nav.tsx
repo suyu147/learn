@@ -8,7 +8,6 @@ import {
   MessagesSquare,
   ClipboardCheck,
   BookOpen,
-  Code2,
   Sparkles,
   Settings,
   User,
@@ -142,15 +141,6 @@ export function TopNav() {
 
         {/* Right side actions */}
         <div className="flex shrink-0 items-center gap-2">
-          {/* Code challenge CTA — gradient pill */}
-          <Link
-            href="/smartlearn"
-            className="hidden items-center gap-1.5 rounded-full bg-gradient-brand px-3.5 py-2 text-[12.5px] font-semibold text-white shadow-sm shadow-blue-500/30 transition-all hover:shadow-md hover:shadow-blue-500/40 sm:inline-flex"
-          >
-            <Code2 className="h-3.5 w-3.5" />
-            代码挑战
-          </Link>
-
           {/* AI quick action */}
           <Link
             href="/chat"
