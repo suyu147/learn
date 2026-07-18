@@ -1207,30 +1207,52 @@ export default function SmartLearnPage() {
         )}
       </div>
 
-      {/* Floating Extension Resources Panel */}
+      {/* Floating Extension Resources Panel — premium FAB */}
       {nonPptResources.length > 0 && (
-        <div className="fixed bottom-4 right-4 z-30">
+        <div className="fixed bottom-6 right-6 z-30">
           <Collapsible open={showExtResources} onOpenChange={setShowExtResources}>
             <CollapsibleTrigger asChild>
-              <button className="px-3 py-1.5 rounded-lg text-[13px] font-medium bg-[var(--card)] text-[var(--foreground)] border border-[var(--border)] shadow-lg hover:bg-[var(--accent)] transition-colors flex items-center gap-1.5">
-                扩展资源 ({nonPptResources.length})
+              <button className="group relative flex items-center gap-2 rounded-2xl bg-gradient-brand px-5 py-3 text-[14px] font-semibold text-white shadow-[0_8px_30px_-6px_rgba(37,99,235,0.5)] transition-all duration-300 hover:shadow-[0_12px_40px_-6px_rgba(37,99,235,0.6)] hover:scale-[1.03] active:scale-[0.97]">
+                {/* Subtle glow ring */}
+                <span className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-white/20" />
+                {/* Animated shimmer overlay */}
+                <span className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-r from-transparent via-white/10 to-transparent bg-[length:200%_100%] animate-[shimmer_3s_ease-in-out_infinite] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <BookOpen className="h-4.5 w-4.5 shrink-0 drop-shadow-sm" />
+                <span>扩展资源</span>
+                <span className="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white/25 px-1.5 text-[11px] font-bold backdrop-blur-sm">
+                  {nonPptResources.length}
+                </span>
               </button>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <div className="mt-2 w-80 max-h-96 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--card)] shadow-lg p-3 space-y-2">
-                {nonPptResources.map((r) => {
-                  const Icon = RESOURCE_ICON_MAP[r.type] ?? FileText
-                  return (
-                    <button
-                      key={r.id}
-                      onClick={() => viewingNode && handleResourceClick(r, viewingNode.id)}
-                      className="w-full flex items-center gap-2 rounded-lg p-2 text-left hover:bg-[var(--muted)] transition-colors"
-                    >
-                      <Icon className="h-4 w-4 text-[var(--primary)] shrink-0" />
-                      <span className="text-[12px] text-[var(--foreground)] line-clamp-1">{r.title}</span>
-                    </button>
-                  )
-                })}
+              <div className="mt-3 w-80 max-h-96 overflow-auto rounded-2xl border border-blue-100/60 bg-white/95 backdrop-blur-xl shadow-[0_20px_60px_-15px_rgba(37,99,235,0.25),0_0_0_1px_rgba(255,255,255,0.1)] p-2 space-y-1">
+                {/* Panel header */}
+                <div className="flex items-center gap-2 px-3 pb-2 pt-1">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-pastel-blue">
+                    <BookOpen className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="text-[12px] font-semibold text-[var(--foreground)]">扩展学习资源</span>
+                  <span className="ml-auto text-[11px] text-[var(--muted-foreground)]">{nonPptResources.length} 项</span>
+                </div>
+                <div className="h-px bg-gradient-to-r from-transparent via-[var(--border)] to-transparent" />
+                {/* Resource list */}
+                <div className="space-y-0.5 pt-1">
+                  {nonPptResources.map((r) => {
+                    const Icon = RESOURCE_ICON_MAP[r.type] ?? FileText
+                    return (
+                      <button
+                        key={r.id}
+                        onClick={() => viewingNode && handleResourceClick(r, viewingNode.id)}
+                        className="group/item w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-blue-50/70 transition-all duration-200"
+                      >
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-pastel-blue transition-colors group-hover/item:bg-blue-100">
+                          <Icon className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <span className="text-[12.5px] font-medium text-[var(--foreground)] line-clamp-1 group-hover/item:text-blue-700 transition-colors">{r.title}</span>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             </CollapsibleContent>
           </Collapsible>

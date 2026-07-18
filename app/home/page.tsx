@@ -10,7 +10,6 @@ import {
   BookOpen,
   ClipboardCheck,
   Library,
-  MonitorPlay,
   ChevronRight,
   Sparkles,
   ArrowRight,
@@ -65,7 +64,7 @@ const quickCards: QuickCard[] = [
   {
     key: 'resource',
     title: '学习资源',
-    desc: '讲义、PPT、模板和练习场一站管理',
+    desc: '讲义、试题、知识图谱、视频、扩展阅读和代码示例一站管理',
     href: '/book',
     icon: Library,
     iconClass: 'bg-pastel-rose',
@@ -320,7 +319,7 @@ export default function HomePage() {
             </div>
 
             <div className="mt-5">
-              <KnowledgeGraphIllustration />
+              <KnowledgeNameList knowledgeBases={knowledgeBases} />
             </div>
           </div>
 
@@ -450,82 +449,39 @@ function OverviewRow({
 }
 
 // ---------------------------------------------------------------------------
-// Knowledge graph illustration (pure SVG, no data dependencies)
+// Knowledge base name list
 // ---------------------------------------------------------------------------
 
-function KnowledgeGraphIllustration() {
-  // A small static node-link diagram evokes the design reference without
-  // requiring a backend connection.
-  const nodes = [
-    { x: 110, y: 110, label: '数组', r: 22, color: '#3b82f6' },
-    { x: 240, y: 60, label: '链表', r: 20, color: '#8b5cf6' },
-    { x: 380, y: 120, label: '栈', r: 22, color: '#10b981' },
-    { x: 470, y: 230, label: '队列', r: 20, color: '#f59e0b' },
-    { x: 340, y: 280, label: '树', r: 24, color: '#3b82f6' },
-    { x: 150, y: 250, label: '图', r: 20, color: '#ef4444' },
-    { x: 540, y: 110, label: '堆', r: 16, color: '#06b6d4' },
-  ];
-  const edges: [number, number][] = [
-    [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [0, 5], [2, 4], [2, 6], [3, 6],
-  ];
+function KnowledgeNameList({
+  knowledgeBases,
+}: {
+  knowledgeBases: { id: string; name: string }[];
+}) {
+  if (knowledgeBases.length === 0) {
+    return (
+      <div className="flex h-[120px] items-center justify-center rounded-xl border border-dashed border-[var(--border)] bg-white/60">
+        <p className="text-[13px] text-[var(--muted-foreground)]">
+          暂未导入知识库，前往添加
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="relative h-[280px] w-full overflow-hidden rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50/60 via-white to-cyan-50/40">
-      {/* faint grid */}
-      <div
-        className="absolute inset-0 opacity-[0.4]"
-        style={{
-          backgroundImage:
-            'linear-gradient(rgba(59,130,246,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.06) 1px, transparent 1px)',
-          backgroundSize: '24px 24px',
-        }}
-      />
-      <svg viewBox="0 0 600 320" className="absolute inset-0 h-full w-full">
-        {edges.map(([a, b], i) => {
-          const n1 = nodes[a];
-          const n2 = nodes[b];
-          return (
-            <line
-              key={i}
-              x1={n1.x}
-              y1={n1.y}
-              x2={n2.x}
-              y2={n2.y}
-              stroke="rgba(59,130,246,0.25)"
-              strokeWidth="1.2"
-              strokeDasharray="4 4"
-            />
-          );
-        })}
-        {nodes.map((n) => (
-          <g key={n.label}>
-            <circle
-              cx={n.x}
-              cy={n.y}
-              r={n.r + 4}
-              fill="white"
-              opacity="0.7"
-            />
-            <circle
-              cx={n.x}
-              cy={n.y}
-              r={n.r}
-              fill={n.color}
-              opacity="0.9"
-            />
-            <text
-              x={n.x}
-              y={n.y + 4}
-              textAnchor="middle"
-              fontSize="11"
-              fontWeight="600"
-              fill="white"
-            >
-              {n.label}
-            </text>
-          </g>
-        ))}
-      </svg>
+    <div className="space-y-2">
+      {knowledgeBases.map((kb) => (
+        <div
+          key={kb.id}
+          className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-white px-4 py-3 transition-colors hover:bg-blue-50/40"
+        >
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-pastel-blue">
+            <BookOpen className="h-4 w-4" />
+          </div>
+          <span className="text-[13.5px] font-medium text-[var(--foreground)]">
+            {kb.name}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
