@@ -1,5 +1,21 @@
 [
   {
+    "id": "2cf1c3d10d49",
+    "action": "expand",
+    "instruction": "扩展一下",
+    "originalLength": 30,
+    "editedLength": 190,
+    "timestamp": "2026-07-19T16:06:00.204Z"
+  },
+  {
+    "id": "7d4815041ee5",
+    "action": "expand",
+    "instruction": "优化一下这段自我介绍",
+    "originalLength": 21,
+    "editedLength": 30,
+    "timestamp": "2026-07-19T16:05:44.111Z"
+  },
+  {
     "id": "69758a04cae3",
     "action": "expand",
     "instruction": "优化一下这一段个人简历",

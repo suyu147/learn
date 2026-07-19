@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { apiGet, apiPost, apiDelete } from '@/lib/api-client';
 
 export interface KnowledgeBase {
   id: string;
@@ -97,11 +98,7 @@ export const useKnowledgeStore = create<KnowledgeState>()(
         if (syncInProgress) return;
         syncInProgress = true;
         try {
-          const res = await fetch('/api/v1/knowledge');
-          if (!res.ok) {
-            throw new Error(`Sync failed: HTTP ${res.status}`);
-          }
-          const body = await res.json();
+          const body = await apiGet<{ knowledgeBases: ServerKB[] }>('/api/v1/knowledge');
           const serverKbs: ServerKB[] = body.knowledgeBases ?? [];
           set({
             knowledgeBases: serverKbs.map(mapServerKb),
@@ -117,51 +114,28 @@ export const useKnowledgeStore = create<KnowledgeState>()(
       },
 
       createKBOnServer: async (name, description) => {
-        try {
-          const res = await fetch('/api/v1/knowledge', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, description: description ?? '' }),
-          });
-          if (!res.ok) {
-            const errBody = await res.json().catch(() => null);
-            const message =
-              errBody?.error ?? `Create failed: HTTP ${res.status}`;
-            throw new Error(message);
-          }
-          const body = await res.json();
-          const serverKb: ServerKB | undefined = body.knowledgeBase;
-          if (serverKb) {
-            set((state) => ({
-              knowledgeBases: [
-                mapServerKb(serverKb),
-                ...state.knowledgeBases,
-              ],
-            }));
-          }
-        } catch (err) {
-          console.warn('[KnowledgeStore] Failed to create KB on server:', err);
-          throw err;
+        const body = await apiPost<{ knowledgeBase: ServerKB }>('/api/v1/knowledge', {
+          name,
+          description: description ?? '',
+        });
+        const serverKb: ServerKB | undefined = body.knowledgeBase;
+        if (serverKb) {
+          set((state) => ({
+            knowledgeBases: [
+              mapServerKb(serverKb),
+              ...state.knowledgeBases,
+            ],
+          }));
         }
       },
 
       deleteKBOnServer: async (id) => {
-        try {
-          const res = await fetch(`/api/v1/knowledge/${id}`, {
-            method: 'DELETE',
-          });
-          if (!res.ok) {
-            throw new Error(`Delete failed: HTTP ${res.status}`);
-          }
-          set((state) => ({
-            knowledgeBases: state.knowledgeBases.filter(
-              (kb) => kb.id !== id
-            ),
-          }));
-        } catch (err) {
-          console.warn('[KnowledgeStore] Failed to delete KB on server:', err);
-          throw err;
-        }
+        await apiDelete(`/api/v1/knowledge/${id}`);
+        set((state) => ({
+          knowledgeBases: state.knowledgeBases.filter(
+            (kb) => kb.id !== id
+          ),
+        }));
       },
     }),
     {

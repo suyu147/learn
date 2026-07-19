@@ -73,10 +73,10 @@ export function TopNav() {
           </div>
           <div className="hidden flex-col leading-tight sm:flex">
             <span className="text-[14px] font-bold tracking-tight text-[var(--foreground)]">
-              数据结构学习平台
+              智学方舟
             </span>
             <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-              Data Structure Studio
+              smartlearn 
             </span>
           </div>
         </Link>

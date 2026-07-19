@@ -47,16 +47,17 @@ export async function apiFetch<T>(
   // Separate headers from rest of options to avoid header overwrite
   const { headers: optionHeaders, ...restOptions } = options;
 
+  // Build headers: omit Content-Type for FormData to let the browser
+  // auto-set multipart/form-data with the correct boundary string.
+  const isFormData = restOptions.body instanceof FormData;
+  const headers: Record<string, string> = { ...authHeaders, ...optionHeaders };
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
+
   const res = await fetch(path, {
     ...restOptions,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(restOptions.body instanceof FormData
-        ? { 'Content-Type': '' } // let browser set multipart boundary
-        : {}),
-      ...authHeaders,
-      ...optionHeaders,
-    },
+    headers,
   });
 
   if (!res.ok) {
