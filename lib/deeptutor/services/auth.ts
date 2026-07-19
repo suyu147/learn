@@ -15,6 +15,7 @@ import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import { getDataDir } from '@/lib/paths';
 
 const log = createLogger('AuthService');
 
@@ -153,7 +154,7 @@ async function verifyPassword(password: string, storedHash: string, salt: string
 // ---------------------------------------------------------------------------
 
 function getUserStorePath(): string {
-  return path.join(process.cwd(), 'data', 'auth', 'users.json');
+  return path.join(getDataDir('auth'), 'users.json');
 }
 
 async function ensureAuthDir(): Promise<void> {

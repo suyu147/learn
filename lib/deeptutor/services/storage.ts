@@ -11,6 +11,7 @@
  */
 
 import { createLogger } from '@/lib/logger';
+import { getDataDir } from '@/lib/paths';
 import {
   readFile,
   writeFile,
@@ -67,7 +68,7 @@ export class LocalDiskAdapter implements StorageAdapter {
     this.rootDir = path.resolve(
       rootDir ??
         process.env.DT_STORAGE_ROOT ??
-        path.join(process.cwd(), 'data', 'storage'),
+        getDataDir('storage'),
     );
   }
 

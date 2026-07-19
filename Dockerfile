@@ -44,6 +44,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
+# Install curl for Docker healthcheck (wget not available in alpine by default)
+RUN apk add --no-cache curl
+
 # Security: run as non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -55,17 +58,25 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/static ./.next/static
 
-# Copy Prisma files for runtime migrations (entrypoint runs prisma migrate deploy)
+# Copy full node_modules from builder.
+# Rationale: serverExternalPackages (@langchain/core, @langchain/langgraph) and
+# dynamically imported packages (@modelcontextprotocol/sdk) have many transitive
+# dependencies that Next.js standalone does NOT trace. Copying the full tree is
+# the only reliable way to avoid MODULE_NOT_FOUND at runtime.
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copy Prisma schema + migrations for runtime `prisma migrate deploy` in entrypoint
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+
+# Copy prompt templates (read at runtime via fs.readFileSync, NOT traced by standalone)
+COPY --from=builder /app/lib/generation/prompts ./lib/generation/prompts
 
 # Copy entrypoint script
 COPY docker/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
 # Create data directory for local disk storage (mounted as volume in compose)
-RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
+RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data /app/lib
 
 # Switch to non-root user
 USER nextjs

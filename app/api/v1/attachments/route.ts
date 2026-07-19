@@ -4,6 +4,7 @@
 
 import { NextRequest } from 'next/server';
 import { createLogger } from '@/lib/logger';
+import { getDataDir } from '@/lib/paths';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Save to local disk
-    const uploadDir = join(process.cwd(), 'data', 'attachments', userId);
+    const uploadDir = getDataDir('attachments', userId);
     await mkdir(uploadDir, { recursive: true });
 
     const timestamp = Date.now();

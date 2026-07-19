@@ -10,6 +10,7 @@
  */
 
 import { createLogger } from '@/lib/logger';
+import { getDataDir } from '@/lib/paths';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 
@@ -45,7 +46,7 @@ export interface NotebookRecord {
 // Constants
 // ---------------------------------------------------------------------------
 
-const NOTEBOOK_BASE_DIR = 'data/notebooks';
+const NOTEBOOK_BASE_DIR = getDataDir('notebooks');
 
 // ---------------------------------------------------------------------------
 // NotebookService
@@ -55,7 +56,7 @@ export class NotebookServiceImpl {
   private baseDir: string;
 
   constructor(baseDir?: string) {
-    this.baseDir = baseDir ?? join(process.cwd(), NOTEBOOK_BASE_DIR);
+    this.baseDir = baseDir ?? NOTEBOOK_BASE_DIR;
   }
 
   async listNotebooks(userId: string): Promise<Notebook[]> {

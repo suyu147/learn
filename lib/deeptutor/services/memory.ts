@@ -19,6 +19,7 @@
  */
 
 import { createLogger } from '@/lib/logger';
+import { getDataDir } from '@/lib/paths';
 import { readFile, writeFile, mkdir, rm } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
@@ -56,7 +57,7 @@ export interface MemoryOverview {
 // ---------------------------------------------------------------------------
 
 const L3_SLOTS: L3Slot[] = ['recent', 'profile', 'scope', 'preferences'];
-const MEMORY_BASE_DIR = 'data/memory';
+const MEMORY_BASE_DIR = getDataDir('memory');
 const MAX_TEXT_LEN = 240;        // Max chars per memory entry
 const MAX_READ_CHARS = 16_000;   // Max chars returned per read
 
@@ -68,7 +69,7 @@ export class MemoryServiceImpl {
   private baseDir: string;
 
   constructor(baseDir?: string) {
-    this.baseDir = baseDir ?? join(process.cwd(), MEMORY_BASE_DIR);
+    this.baseDir = baseDir ?? MEMORY_BASE_DIR;
   }
 
   // -------------------------------------------------------------------------

@@ -9,6 +9,7 @@
  */
 
 import { createLogger } from '@/lib/logger';
+import { getDataDir } from '@/lib/paths';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
@@ -60,7 +61,7 @@ export interface SnapshotState {
 
 const SNAPSHOT_PAGE_SIZE = 50;
 const MAX_MESSAGES_PER_SESSION = 500;
-const MEMORY_BASE_DIR = 'data/memory';
+const MEMORY_BASE_DIR = getDataDir('memory');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -282,7 +283,7 @@ export class SnapshotStore {
   private baseDir: string;
 
   constructor(baseDir?: string) {
-    this.baseDir = baseDir ?? join(process.cwd(), MEMORY_BASE_DIR);
+    this.baseDir = baseDir ?? MEMORY_BASE_DIR;
   }
 
   /**

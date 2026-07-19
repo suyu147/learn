@@ -27,6 +27,7 @@ Thumbs.db
 
 # Documentation (not needed in production image)
 *.md
+!lib/generation/prompts/**/*.md
 .claude/
 
 # Test files (not needed in production image)

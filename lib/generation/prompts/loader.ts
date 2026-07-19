@@ -12,19 +12,12 @@ import fs from 'fs';
 import path from 'path';
 import type { PromptId, LoadedPrompt, SnippetId } from './types';
 import { createLogger } from '@/lib/logger';
+import { getPromptsDir } from '@/lib/paths';
 const log = createLogger('PromptLoader');
 
 // Cache for loaded prompts and snippets
 const promptCache = new Map<string, LoadedPrompt>();
 const snippetCache = new Map<string, string>();
-
-/**
- * Get the prompts directory path
- */
-function getPromptsDir(): string {
-  // In Next.js, use process.cwd() for the project root
-  return path.join(process.cwd(), 'lib', 'generation', 'prompts');
-}
 
 /**
  * Load a snippet by ID

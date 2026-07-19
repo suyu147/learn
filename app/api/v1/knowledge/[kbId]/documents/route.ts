@@ -12,6 +12,7 @@
 
 import { NextRequest } from 'next/server';
 import { createLogger } from '@/lib/logger';
+import { getDataDir } from '@/lib/paths';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { KnowledgeServiceImpl, KnowledgeError } from '@/lib/deeptutor/services/knowledge';
@@ -64,7 +65,7 @@ export async function POST(
       }
 
       // Save file to disk
-      const uploadDir = join(process.cwd(), 'data', 'knowledge_bases', kbId, 'raw');
+      const uploadDir = getDataDir('knowledge_bases', kbId, 'raw');
       await mkdir(uploadDir, { recursive: true });
 
       fileName = file.name;

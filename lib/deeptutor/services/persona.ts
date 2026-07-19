@@ -14,6 +14,7 @@
  */
 
 import { createLogger } from '@/lib/logger';
+import { getDataDir } from '@/lib/paths';
 import { readFile, writeFile, mkdir, unlink } from 'fs/promises';
 import { join } from 'path';
 
@@ -41,7 +42,7 @@ export interface PersonaDetail extends Persona {
 // Constants
 // ---------------------------------------------------------------------------
 
-const PERSONA_BASE_DIR = 'data/personas';
+const PERSONA_BASE_DIR = getDataDir('personas');
 
 // ---------------------------------------------------------------------------
 // ID generation
@@ -144,7 +145,7 @@ export class PersonaServiceImpl {
   private baseDir: string;
 
   constructor(baseDir?: string) {
-    this.baseDir = baseDir ?? join(process.cwd(), PERSONA_BASE_DIR);
+    this.baseDir = baseDir ?? PERSONA_BASE_DIR;
   }
 
   // -------------------------------------------------------------------------

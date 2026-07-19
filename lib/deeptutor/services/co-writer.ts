@@ -10,6 +10,7 @@ import { createLogger } from '@/lib/logger';
 import { callLLM } from '@/lib/ai/llm';
 import { getModel } from '@/lib/ai/providers';
 import type { ProviderId } from '@/lib/types/provider';
+import { getDataDir } from '@/lib/paths';
 import {
   writeFile,
   readFile,
@@ -74,7 +75,7 @@ export interface OperationRecord {
 // CoWriterStorage — File-system CRUD
 // ---------------------------------------------------------------------------
 
-const DATA_ROOT = join(process.cwd(), 'data', 'co-writer');
+const DATA_ROOT = getDataDir('co-writer');
 
 function docsRoot(): string {
   return join(DATA_ROOT, 'documents');

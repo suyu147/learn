@@ -8,6 +8,7 @@
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import type { Surface } from '@/lib/deeptutor/services/memory';
+import { getDataDir } from '@/lib/paths';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -35,7 +36,7 @@ export class MetaStore {
   private baseDir: string;
 
   constructor(baseDir?: string) {
-    this.baseDir = baseDir ?? join(process.cwd(), 'data', 'memory');
+    this.baseDir = baseDir ?? getDataDir('memory');
   }
 
   async readL2Meta(userId: string, surface: Surface): Promise<L2Meta> {

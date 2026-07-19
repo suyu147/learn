@@ -21,6 +21,7 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { randomBytes } from 'crypto';
 import { createLogger } from '@/lib/logger';
+import { getDataDir } from '@/lib/paths';
 import type {
   Book,
   BookSummary,
@@ -32,7 +33,7 @@ import type {
 import { createBook, createProgress } from './models';
 
 const log = createLogger('BookStorage');
-const DATA_ROOT = join(process.cwd(), 'data', 'books');
+const DATA_ROOT = getDataDir('books');
 
 // ---------------------------------------------------------------------------
 // Path helpers

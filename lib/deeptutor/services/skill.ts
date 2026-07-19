@@ -13,6 +13,7 @@
  */
 
 import { createLogger } from '@/lib/logger';
+import { getDataDir } from '@/lib/paths';
 import {
   readdir,
   readFile,
@@ -52,7 +53,7 @@ export interface SkillSummary {
 // Constants
 // ---------------------------------------------------------------------------
 
-const BASE_DIR = join(process.cwd(), 'data', 'skills');
+const BASE_DIR = getDataDir('skills');
 const SKILL_FILE = 'SKILL.md';
 const DEFAULT_TOP_K = 3;
 const TRIGGER_MATCH_SCORE = 3;

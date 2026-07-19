@@ -41,6 +41,12 @@ services:
       SPARK_API_SECRET: ${SPARK_API_SECRET:-}
       SPARK_BASE_URL: ${SPARK_BASE_URL:-https://spark-api-open.xf-yun.com/v1}
 
+      # -- Vision Proxy (fallback when main model lacks vision) --
+      VISION_PROVIDER: ${VISION_PROVIDER:-glm}
+      VISION_MODEL: ${VISION_MODEL:-glm-4.6v-flash}
+      VISION_API_KEY: ${VISION_API_KEY:-}
+      VISION_BASE_URL: ${VISION_BASE_URL:-}
+
       # -- Image Generation --
       IMAGE_GEN_PROVIDER: ${IMAGE_GEN_PROVIDER:-openai}
       IMAGE_GEN_API_KEY: ${IMAGE_GEN_API_KEY:-}
@@ -62,7 +68,8 @@ services:
       RUNWAYML_BASE_URL: ${RUNWAYML_BASE_URL:-}
 
       # -- Sandbox (Piston API) --
-      DT_SANDBOX_URL: ${DT_SANDBOX_URL:-}
+      PISTON_API_URL: ${PISTON_API_URL:-http://sandbox:2000}
+      PISTON_API_KEY: ${PISTON_API_KEY:-}
 
       # -- MCP Servers --
       DT_MCP_SERVERS: ${DT_MCP_SERVERS:-}
@@ -72,10 +79,19 @@ services:
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       BRAVE_API_KEY: ${BRAVE_API_KEY:-}
 
+      # -- Embedding (RAG vector retrieval) --
+      DT_EMBEDDING_PROVIDER: ${DT_EMBEDDING_PROVIDER:-siliconflow}
+      DT_EMBEDDING_API_KEY: ${DT_EMBEDDING_API_KEY:-}
+      DT_EMBEDDING_BASE_URL: ${DT_EMBEDDING_BASE_URL:-https://api.siliconflow.cn/v1}
+      DT_EMBEDDING_MODEL: ${DT_EMBEDDING_MODEL:-BAAI/bge-m3}
+
       # -- Auth --
       AUTH_MODE: ${AUTH_MODE:-disabled}
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET to a random 32+ char string (e.g. openssl rand -hex 32)}
       SINGLE_USER_NAME: ${SINGLE_USER_NAME:-admin}
+
+      # -- Encryption (AES-256 for API keys stored in DB) --
+      DT_ENCRYPTION_SECRET: ${DT_ENCRYPTION_SECRET:?Set DT_ENCRYPTION_SECRET to a random 32+ char string}
 
       # -- Logging --
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -88,22 +104,25 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      sandbox:
+        condition: service_started
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/v1/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/v1/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 60s
 
   db:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
+    # pgvector/pgvector includes the vector extension required for RAG/knowledge base
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-smartlearn}
-    ports:
-      - "${DB_PORT:-5432}:5432"
+    # ports:  # ⚠️ Don't expose DB to host in production; use `docker compose exec db` instead
+    #   - "${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -112,6 +131,14 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+
+  sandbox:
+    image: ghcr.io/engineer-man/piston:latest
+    restart: unless-stopped
+    # Piston provides secure code execution for the code sandbox feature.
+    # Only exposed to the internal Docker network (not to the host).
+    expose:
+      - "2000"
 
 volumes:
   pgdata:
