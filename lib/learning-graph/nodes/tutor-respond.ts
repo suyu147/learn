@@ -18,23 +18,54 @@ function getUserId(config: { configurable?: { userId?: string } }): string {
   return config.configurable?.userId ?? 'anonymous';
 }
 
+/**
+ * 判断某个维度是否已收集到有效数据（与 profile-utils.ts 的进度计算标准一致）。
+ * 注意：只判断用户实际填写的内容，不判默认值。
+ */
+function isDimensionFilled(key: keyof ProfileDimensions, dims: ProfileDimensions): boolean {
+  switch (key) {
+    case 'knowledgeBase': return dims.knowledgeBase.subjects.length > 0;
+    case 'cognitiveStyle': return dims.cognitiveStyle.preference.length > 0;
+    case 'learningGoals': return dims.learningGoals.shortTerm.length > 0 || dims.learningGoals.longTerm.length > 0;
+    case 'weakPoints': return dims.weakPoints.topics.length > 0 || dims.weakPoints.errorPatterns.length > 0;
+    case 'timePreference': return dims.timePreference.preferredDuration > 0 || dims.timePreference.preferredTimeSlot.length > 0;
+    case 'interests': return dims.interests.domains.length > 0;
+    case 'learningPace': return dims.learningPace.depthPreference.length > 0;
+    case 'errorPatterns': return dims.errorPatterns.commonMistakes.length > 0 || dims.errorPatterns.difficultAreas.length > 0;
+    default: return false;
+  }
+}
+
+const DIMENSION_KEYS: (keyof ProfileDimensions)[] = [
+  'knowledgeBase', 'cognitiveStyle', 'learningGoals', 'weakPoints',
+  'timePreference', 'interests', 'learningPace', 'errorPatterns',
+];
+
+/**
+ * 合并画像维度：已填维度锁死不覆盖，只允许未填维度写入 partial 数据。
+ */
 function mergeProfileDimensions(
   current: ProfileDimensions,
   partial: Partial<ProfileDimensions>,
 ): ProfileDimensions {
-  return {
-    ...DEFAULT_DIMENSIONS,
-    ...current,
-    ...partial,
-    knowledgeBase: { ...DEFAULT_DIMENSIONS.knowledgeBase, ...current.knowledgeBase, ...partial.knowledgeBase },
-    cognitiveStyle: { ...DEFAULT_DIMENSIONS.cognitiveStyle, ...current.cognitiveStyle, ...partial.cognitiveStyle },
-    learningGoals: { ...DEFAULT_DIMENSIONS.learningGoals, ...current.learningGoals, ...partial.learningGoals },
-    weakPoints: { ...DEFAULT_DIMENSIONS.weakPoints, ...current.weakPoints, ...partial.weakPoints },
-    timePreference: { ...DEFAULT_DIMENSIONS.timePreference, ...current.timePreference, ...partial.timePreference },
-    interests: { ...DEFAULT_DIMENSIONS.interests, ...current.interests, ...partial.interests },
-    learningPace: { ...DEFAULT_DIMENSIONS.learningPace, ...current.learningPace, ...partial.learningPace },
-    errorPatterns: { ...DEFAULT_DIMENSIONS.errorPatterns, ...current.errorPatterns, ...partial.errorPatterns },
-  };
+  // 以 current 为基准（已带 DEFAULT_DIMENSIONS 兜底），只对未填维度应用 partial
+  const merged = { ...current } as Record<string, unknown>;
+
+  for (const key of DIMENSION_KEYS) {
+    const partialVal = (partial as Record<string, unknown>)[key];
+    if (!partialVal || typeof partialVal !== 'object') continue;
+
+    if (isDimensionFilled(key, current)) {
+      // 该维度已有有效数据 → 锁死，不覆盖
+      continue;
+    }
+
+    // 该维度未填写 → 允许写入 partial
+    const currentVal = (current as unknown as Record<string, unknown>)[key];
+    merged[key] = { ...(currentVal as object), ...partialVal };
+  }
+
+  return merged as unknown as ProfileDimensions;
 }
 
 
@@ -69,9 +100,11 @@ export async function tutorRespondNode(
 
     if (profileChat) {
       // Profile-building conversation: use specialized prompt
+      const currentProfileDims = (state.profile as ProfileDimensions | undefined) ?? DEFAULT_DIMENSIONS;
       const result = streamProfileBuildResponse(
         state.message,
         state.conversationHistory,
+        currentProfileDims,
         state.aiConfig,
       );
       for await (const chunk of result.textStream) {

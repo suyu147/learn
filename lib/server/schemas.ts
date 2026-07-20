@@ -280,6 +280,16 @@ export const VerifyModelSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// API Keys
+// ---------------------------------------------------------------------------
+
+export const ApiKeyCreateSchema = z.object({
+  provider: z.string().min(1, 'provider is required'),
+  apiKey: z.string().min(1, 'apiKey is required'),
+  label: z.string().optional(),
+});
+
+// ---------------------------------------------------------------------------
 // Profile
 // ---------------------------------------------------------------------------
 

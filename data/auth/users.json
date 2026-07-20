@@ -127,6 +127,14 @@
       "salt": "3b23d0fabb50ef81630f1fc91cd16a1b89dcedc0189ab48f831fded4f30870f9",
       "role": "user",
       "createdAt": "2026-07-18T07:37:10.870Z"
+    },
+    {
+      "id": "user-1784478114837-fi0c5t",
+      "username": "bnm",
+      "passwordHash": "811b3d3118465b2fa77fe4e2ecb693978001459572348d1a89e1ca0a2ea263b22cb04baeed442c55d3d965aed244fe602840fef377e690259c506cbc8c6b7dc7",
+      "salt": "6b2e3abe3327b6f7ecf8b22847dc31e7e126da9f6463cf224e1622626f673275",
+      "role": "user",
+      "createdAt": "2026-07-19T16:21:54.837Z"
     }
   ]
 }

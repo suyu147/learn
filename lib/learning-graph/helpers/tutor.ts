@@ -33,6 +33,66 @@ export function streamTutorResponse(message: string, conversationHistory: { role
   return streamLLM({ model, system: TUTOR_SYSTEM_PROMPT, messages, maxOutputTokens: 2048 }, 'learn-tutor');
 }
 
+/** 各维度中文标签，用于提示词展示 */
+const DIMENSION_LABELS: Record<string, string> = {
+  knowledgeBase: '知识基础',
+  cognitiveStyle: '认知风格',
+  learningGoals: '学习目标',
+  weakPoints: '薄弱知识点',
+  timePreference: '时间偏好',
+  interests: '兴趣方向',
+  learningPace: '学习节奏',
+  errorPatterns: '易错点',
+};
+
+/**
+ * 判断某个维度是否已被收集到有效数据
+ */
+function isDimensionFilled(key: string, dims: ProfileDimensions): boolean {
+  // 通过索引获取维度值
+  const v = (dims as unknown as Record<string, unknown>)[key];
+  if (v == null || typeof v !== 'object') return false;
+  const obj = v as Record<string, unknown>;
+  switch (key) {
+    case 'knowledgeBase': return Array.isArray(obj.subjects) && obj.subjects.length > 0;
+    case 'cognitiveStyle': return typeof obj.preference === 'string' && obj.preference.length > 0;
+    case 'learningGoals': return (Array.isArray(obj.shortTerm) && obj.shortTerm.length > 0) || (typeof obj.longTerm === 'string' && obj.longTerm.length > 0);
+    case 'weakPoints': return (Array.isArray(obj.topics) && obj.topics.length > 0) || (Array.isArray(obj.errorPatterns) && obj.errorPatterns.length > 0);
+    case 'timePreference': return (typeof obj.preferredDuration === 'number' && obj.preferredDuration > 0) || (typeof obj.preferredTimeSlot === 'string' && obj.preferredTimeSlot.length > 0);
+    case 'interests': return Array.isArray(obj.domains) && obj.domains.length > 0;
+    case 'learningPace': return typeof obj.depthPreference === 'string' && obj.depthPreference.length > 0;
+    case 'errorPatterns': return (Array.isArray(obj.commonMistakes) && obj.commonMistakes.length > 0) || (Array.isArray(obj.difficultAreas) && obj.difficultAreas.length > 0);
+    default: return false;
+  }
+}
+
+/**
+ * 构建动态系统提示词，包含当前画像状态，引导AI聚焦未填维度
+ */
+function buildProfileSystemPrompt(currentDimensions: ProfileDimensions): string {
+  const filled: string[] = [];
+  const unfilled: string[] = [];
+  for (const key of Object.keys(DIMENSION_LABELS)) {
+    if (isDimensionFilled(key, currentDimensions)) {
+      filled.push(DIMENSION_LABELS[key]);
+    } else {
+      unfilled.push(DIMENSION_LABELS[key]);
+    }
+  }
+
+  const filledStr = filled.length > 0 ? filled.join('、') : '无';
+  const unfilledStr = unfilled.length > 0 ? unfilled.join('、') : '全部完成';
+
+  return `${PROFILE_BUILD_SYSTEM_PROMPT}
+
+## 当前画像状态（重要！）
+
+已完成的维度（不要再问这些）：${filledStr}
+尚未完成的维度（优先推进这些）：${unfilledStr}
+
+**你的核心任务：优先引导用户提供"尚未完成"维度的信息，自然过渡，不要回头问已完成维度的问题。**`;
+}
+
 /**
  * Stream a profile-building conversation response.
  * Uses a specialized prompt that guides the AI to learn about the user's learning profile through natural conversation.
@@ -40,6 +100,7 @@ export function streamTutorResponse(message: string, conversationHistory: { role
 export function streamProfileBuildResponse(
   message: string,
   conversationHistory: { role: string; content: string }[],
+  currentDimensions?: ProfileDimensions,
   aiConfig?: { providerId?: string; modelId?: string; apiKey?: string; baseUrl?: string },
 ) {
   const { model } = resolveModel({
@@ -52,7 +113,10 @@ export function streamProfileBuildResponse(
     ...conversationHistory.slice(-10).map((item) => ({ role: item.role as 'user' | 'assistant', content: item.content })),
     { role: 'user' as const, content: message },
   ];
-  return streamLLM({ model, system: PROFILE_BUILD_SYSTEM_PROMPT, messages, maxOutputTokens: 2048 }, 'profile-build');
+  const systemPrompt = currentDimensions
+    ? buildProfileSystemPrompt(currentDimensions)
+    : PROFILE_BUILD_SYSTEM_PROMPT;
+  return streamLLM({ model, system: systemPrompt, messages, maxOutputTokens: 2048 }, 'profile-build');
 }
 
 /**

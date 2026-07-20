@@ -104,8 +104,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      sandbox:
-        condition: service_started
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000/api/v1/health || exit 1"]

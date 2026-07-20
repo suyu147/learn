@@ -71,48 +71,47 @@ export const useLearningProfileStore = create<LearningProfileState>()(
         const currentState = get();
         const currentDimensions = currentState.profile?.dimensions ?? { ...DEFAULT_DIMENSIONS };
 
-        const mergedDimensions: ProfileDimensions = {
-          knowledgeBase: {
-            ...currentDimensions.knowledgeBase,
-            ...dimensions.knowledgeBase,
-            subjects: dimensions.knowledgeBase?.subjects ?? currentDimensions.knowledgeBase.subjects,
-          },
-          cognitiveStyle: {
-            ...currentDimensions.cognitiveStyle,
-            ...dimensions.cognitiveStyle,
-          },
-          learningGoals: {
-            ...currentDimensions.learningGoals,
-            ...dimensions.learningGoals,
-            shortTerm: dimensions.learningGoals?.shortTerm ?? currentDimensions.learningGoals.shortTerm,
-          },
-          weakPoints: {
-            ...currentDimensions.weakPoints,
-            ...dimensions.weakPoints,
-            topics: dimensions.weakPoints?.topics ?? currentDimensions.weakPoints.topics,
-            errorPatterns: dimensions.weakPoints?.errorPatterns ?? currentDimensions.weakPoints.errorPatterns,
-          },
-          timePreference: {
-            ...currentDimensions.timePreference,
-            ...dimensions.timePreference,
-          },
-          interests: {
-            ...currentDimensions.interests,
-            ...dimensions.interests,
-            domains: dimensions.interests?.domains ?? currentDimensions.interests.domains,
-            preferredFormats: dimensions.interests?.preferredFormats ?? currentDimensions.interests.preferredFormats,
-          },
-          learningPace: {
-            ...currentDimensions.learningPace,
-            ...dimensions.learningPace,
-          },
-          errorPatterns: {
-            ...currentDimensions.errorPatterns,
-            ...dimensions.errorPatterns,
-            commonMistakes: dimensions.errorPatterns?.commonMistakes ?? currentDimensions.errorPatterns.commonMistakes,
-            difficultAreas: dimensions.errorPatterns?.difficultAreas ?? currentDimensions.errorPatterns.difficultAreas,
-          },
-        };
+        /**
+         * 判断某个维度是否已收集到有效数据（与 profile-utils.ts 的进度计算标准一致）。
+         * 已填维度锁死，后续无论 LLM 返回什么数据都不覆盖。
+         */
+        function isFilled(key: keyof ProfileDimensions, dims: ProfileDimensions): boolean {
+          switch (key) {
+            case 'knowledgeBase': return dims.knowledgeBase.subjects.length > 0;
+            case 'cognitiveStyle': return dims.cognitiveStyle.preference.length > 0;
+            case 'learningGoals': return dims.learningGoals.shortTerm.length > 0 || dims.learningGoals.longTerm.length > 0;
+            case 'weakPoints': return dims.weakPoints.topics.length > 0 || dims.weakPoints.errorPatterns.length > 0;
+            case 'timePreference': return dims.timePreference.preferredDuration > 0 || dims.timePreference.preferredTimeSlot.length > 0;
+            case 'interests': return dims.interests.domains.length > 0;
+            case 'learningPace': return dims.learningPace.depthPreference.length > 0;
+            case 'errorPatterns': return dims.errorPatterns.commonMistakes.length > 0 || dims.errorPatterns.difficultAreas.length > 0;
+            default: return false;
+          }
+        }
+
+        const DIM_KEYS: (keyof ProfileDimensions)[] = [
+          'knowledgeBase', 'cognitiveStyle', 'learningGoals', 'weakPoints',
+          'timePreference', 'interests', 'learningPace', 'errorPatterns',
+        ];
+
+        // 以当前维度为基准，只对未填维度合并 incoming 数据
+        const mergedDimensions = { ...currentDimensions } as Record<string, unknown>;
+
+        for (const key of DIM_KEYS) {
+          const incomingVal = (dimensions as Record<string, unknown>)[key];
+          if (!incomingVal || typeof incomingVal !== 'object') continue;
+
+          if (isFilled(key, currentDimensions)) {
+            // 已填 → 锁死，不覆盖
+            continue;
+          }
+
+          // 未填 → 合并
+          const currentVal = (currentDimensions as unknown as Record<string, unknown>)[key];
+          mergedDimensions[key] = { ...(currentVal as object), ...incomingVal };
+        }
+
+        const result = mergedDimensions as unknown as ProfileDimensions;
 
         // 直接 mutate draft（immer 推荐模式），不要 return partial state
         // return + draft mutation 混用会导致 immer 行为不一致
@@ -130,7 +129,7 @@ export const useLearningProfileStore = create<LearningProfileState>()(
             userId: getCurrentUserId(),
             updatedAt: new Date().toISOString(),
             version: (state.profile?.version ?? 0) + 1,
-            dimensions: mergedDimensions,
+            dimensions: result,
             conversationHistory: state.profile?.conversationHistory ?? [],
           };
         });
@@ -144,7 +143,7 @@ export const useLearningProfileStore = create<LearningProfileState>()(
           fetch('/api/v1/smartlearn/profile', {
             method: 'PATCH',
             headers,
-            body: JSON.stringify({ dimensions: mergedDimensions }),
+            body: JSON.stringify({ dimensions: result }),
           }).then((response) => {
             if (!response.ok) throw new Error(`Profile save failed (${response.status})`);
             set({ saveError: null });
