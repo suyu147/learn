@@ -5,6 +5,11 @@
  * the user's knowledge bases. It queries the RAG service and returns
  * relevant passages with source citations.
  *
+ * After each search, the query metadata is automatically recorded
+ * as an L1 trace event on the 'kb' surface, creating a bidirectional
+ * link between RAG and the memory system (mirrors DeepTutor Python's
+ * rag/service.py pattern).
+ *
  * Parameters:
  * - query: The search query
  * - kb_name: The knowledge base to search
@@ -20,6 +25,7 @@ import {
   createToolPromptHints,
 } from '@/lib/deeptutor/core/tool-protocol';
 import type { RAGServiceImpl } from '@/lib/deeptutor/services/rag';
+import { getMemoryService } from '@/lib/deeptutor/services/memory';
 import { prisma } from '@/lib/db/client';
 import { createLogger } from '@/lib/logger';
 
@@ -31,10 +37,12 @@ const log = createLogger('RAGTool');
 
 let _ragService: RAGServiceImpl | null = null;
 let _userId: string = 'anonymous';
+let _sessionId: string | undefined;
 
-export function setRAGToolContext(ragService: RAGServiceImpl, userId: string): void {
+export function setRAGToolContext(ragService: RAGServiceImpl, userId: string, sessionId?: string): void {
   _ragService = ragService;
   _userId = userId;
+  _sessionId = sessionId;
 }
 
 // ---------------------------------------------------------------------------
@@ -101,6 +109,32 @@ export class RAGTool extends BaseTool {
 
     try {
       const result = await _ragService.searchByName(query, kbName, _userId);
+
+      // Emit L1 trace to 'kb' surface — creates RAG↔memory linkage
+      // so the consolidator can extract "user queried X knowledge base for Y" facts.
+      try {
+        const memoryService = getMemoryService();
+        if (memoryService) {
+          await memoryService.emitTrace(_userId, {
+            surface: 'kb',
+            kind: 'query',
+            payload: {
+              query,
+              kb_name: kbName,
+              result_count: result.sources.length,
+              answer_chars: result.context.length,
+              top_sources: result.sources.slice(0, 3).map((s) => ({
+                document: s.documentTitle,
+                score: s.score,
+              })),
+            },
+            sessionId: _sessionId,
+          });
+        }
+      } catch (traceErr) {
+        // Trace failure must not block the RAG response
+        log.debug('Failed to emit RAG trace event:', traceErr);
+      }
 
       if (result.sources.length === 0) {
         return createToolResult({

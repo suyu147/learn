@@ -76,7 +76,8 @@ const MERMAID_RULES = `## Mermaid Rules
 - Use appropriate diagram type: flowchart, sequenceDiagram, classDiagram, stateDiagram, gantt, pie, etc.
 - Keep node labels concise
 - Start with the diagram type keyword on line 1 (e.g. flowchart TD, sequenceDiagram, etc.)
-- Do NOT include markdown fences or HTML tags`;
+- Do NOT include markdown fences or HTML tags
+- IMPORTANT: Do NOT use square brackets [ ] inside node labels — they will break the parser. Use parentheses ( ) or angle brackets < > instead. Example: write B[区间 (a,b)] or B["区间 [a,b]"] instead of B[区间 [a,b]]`;
 
 const HTML_RULES = `## HTML Rules
 - Output a complete, self-contained HTML document

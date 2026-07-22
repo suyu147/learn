@@ -1,15 +1,10 @@
 import type { Metadata } from 'next';
-import { Plus_Jakarta_Sans, Lora, JetBrains_Mono } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from '@/components/ui/sonner';
 import { ThemeScript } from '@/components/theme-script';
 import { Providers, AppShell } from '@/components/providers';
 import { ErrorBoundary } from '@/components/error-boundary';
 import './globals.css';
-
-const fontSans = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-sans' });
-const fontSerif = Lora({ subsets: ['latin'], variable: '--font-serif' });
-const fontMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' });
 
 export const metadata: Metadata = {
   title: 'SmartLearn — 智能学习系统',
@@ -18,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN" className={`${fontSans.variable} ${fontSerif.variable} ${fontMono.variable}`} suppressHydrationWarning>
+    <html lang="zh-CN" className="font-sans" suppressHydrationWarning>
       <head>
         <ThemeScript />
       </head>

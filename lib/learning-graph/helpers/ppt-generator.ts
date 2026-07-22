@@ -139,8 +139,14 @@ export async function generatePptScenes(requirement: string, aiConfig?: { provid
   if (!outlineResult.success || !outlineResult.data) return [];
   let generatedMediaMapping: ImageMapping = {};
   if (imageGenAvailable) {
-    const allMediaGens = outlineResult.data.filter((o) => o.mediaGenerations?.length).flatMap((o) => o.mediaGenerations!);
-    if (allMediaGens.length > 0) generatedMediaMapping = Object.fromEntries(await batchGenerateImages(allMediaGens));
+    try {
+      const allMediaGens = outlineResult.data.filter((o) => o.mediaGenerations?.length).flatMap((o) => o.mediaGenerations!);
+      if (allMediaGens.length > 0) generatedMediaMapping = Object.fromEntries(await batchGenerateImages(allMediaGens));
+    } catch (imgErr) {
+      // Image generation failure must never block PPT generation.
+      // Proceed with empty mapping — slides will use placeholder images.
+      console.warn('[ppt-generator] Image generation failed, proceeding without images:', imgErr);
+    }
   }
   const stageId = `stage_${Date.now()}`;
   const scenes: Scene[] = [];

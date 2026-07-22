@@ -47,9 +47,9 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
-  --font-sans: var(--font-sans);
-  --font-serif: var(--font-serif);
-  --font-mono: var(--font-mono);
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-serif: 'Lora', ui-serif, Georgia, 'Times New Roman', 'SimSun', 'STSong', serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'Fira Code', Menlo, 'Consolas', monospace;
 }
 
 /* ============================================================
@@ -98,9 +98,6 @@
   --gradient-brand: linear-gradient(135deg, #60a5fa 0%, #2563eb 60%, #1d4ed8 100%);
   --gradient-amber: linear-gradient(135deg, #fbbf24 0%, #f97316 100%);
   --radius: 0.875rem;
-  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  --font-serif: 'Lora', ui-serif, Georgia, 'Times New Roman', 'SimSun', 'STSong', serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'Fira Code', Menlo, 'Consolas', monospace;
 }
 
 /* ============================================================

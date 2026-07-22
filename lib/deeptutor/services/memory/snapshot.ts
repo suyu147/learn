@@ -4,8 +4,8 @@
  * Replaces the broken "wait for LLM to call write_memory" pattern with
  * deterministic data collection. Inspired by DeepTutor Python's snapshot/adapters.py.
  *
- * Currently implements only the `chat` surface (DtMessage).
- * Additional surfaces (quiz, notebook, kb, book, cowriter) will be added later.
+ * Supported surfaces: chat, quiz, notebook, kb, book, cowriter
+ * Each surface reads from the corresponding PostgreSQL/Prisma model.
  */
 
 import { createLogger } from '@/lib/logger';
@@ -217,6 +217,542 @@ export async function readChatEntitiesIncremental(
 }
 
 // ---------------------------------------------------------------------------
+// Quiz Snapshot Adapter
+// ---------------------------------------------------------------------------
+
+/**
+ * Read quiz entities from PostgreSQL via Prisma.
+ * Uses LearningQuizAttempt model for quiz attempts.
+ */
+export async function readQuizEntities(userId: string): Promise<Entity[]> {
+  const prisma = (await import('@/lib/db/client')).default;
+
+  const attempts = await prisma.learningQuizAttempt.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    take: SNAPSHOT_PAGE_SIZE,
+  });
+
+  if (attempts.length === 0) return [];
+
+  return attempts.map((a) => {
+    const question = a.question?.trim() || '';
+    const userAnswer = a.userAnswer?.trim() || '';
+    const correctAnswer = a.correctAnswer?.trim() || '';
+    const explanation = a.explanation?.trim() || '';
+
+    const content = [
+      question ? `**Question**: ${question}` : '',
+      userAnswer ? `**User answer**: ${userAnswer}` : '',
+      correctAnswer ? `**Correct answer**: ${correctAnswer}` : '',
+      explanation ? `**Explanation**: ${explanation}` : '',
+    ].filter(Boolean).join('\n\n');
+
+    const fingerprint = sha1(`${question}:${userAnswer}:${correctAnswer}:${a.correct}`);
+
+    return {
+      id: a.id,
+      label: question.slice(0, 80) || a.id,
+      ts: a.createdAt.toISOString(),
+      content,
+      metadata: {
+        topic: a.topic,
+        correct: a.correct,
+        difficulty: a.difficulty,
+      },
+      fingerprint,
+    };
+  });
+}
+
+/**
+ * Incremental variant: only quiz attempts created since lastRefresh.
+ */
+export async function readQuizEntitiesIncremental(
+  userId: string,
+  lastRefresh: Date,
+): Promise<Entity[]> {
+  const prisma = (await import('@/lib/db/client')).default;
+
+  const attempts = await prisma.learningQuizAttempt.findMany({
+    where: {
+      userId,
+      createdAt: { gt: lastRefresh },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: SNAPSHOT_PAGE_SIZE,
+  });
+
+  if (attempts.length === 0) return [];
+
+  return attempts.map((a) => {
+    const question = a.question?.trim() || '';
+    const userAnswer = a.userAnswer?.trim() || '';
+    const correctAnswer = a.correctAnswer?.trim() || '';
+    const explanation = a.explanation?.trim() || '';
+
+    const content = [
+      question ? `**Question**: ${question}` : '',
+      userAnswer ? `**User answer**: ${userAnswer}` : '',
+      correctAnswer ? `**Correct answer**: ${correctAnswer}` : '',
+      explanation ? `**Explanation**: ${explanation}` : '',
+    ].filter(Boolean).join('\n\n');
+
+    const fingerprint = sha1(`${question}:${userAnswer}:${correctAnswer}:${a.correct}`);
+
+    return {
+      id: a.id,
+      label: question.slice(0, 80) || a.id,
+      ts: a.createdAt.toISOString(),
+      content,
+      metadata: {
+        topic: a.topic,
+        correct: a.correct,
+        difficulty: a.difficulty,
+      },
+      fingerprint,
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Notebook (Mastery Session) Snapshot Adapter
+// ---------------------------------------------------------------------------
+
+/**
+ * Read notebook/mastery entities from PostgreSQL via Prisma.
+ * Uses LearningMasterySession model (with nested quiz attempts).
+ */
+export async function readNotebookEntities(userId: string): Promise<Entity[]> {
+  const prisma = (await import('@/lib/db/client')).default;
+
+  const sessions = await prisma.learningMasterySession.findMany({
+    where: { userId },
+    orderBy: { startedAt: 'desc' },
+    take: SNAPSHOT_PAGE_SIZE,
+    include: {
+      quizAttempts: {
+        orderBy: { createdAt: 'asc' },
+        take: 20,
+      },
+    },
+  });
+
+  if (sessions.length === 0) return [];
+
+  return sessions.map((s) => {
+    const blocks: string[] = [];
+
+    if (s.title) blocks.push(`# ${s.title}`);
+
+    const topics = s.topics as string[] | Record<string, unknown> | null;
+    if (topics) {
+      const topicList = Array.isArray(topics) ? topics.join(', ') : JSON.stringify(topics);
+      blocks.push(`**Topics**: ${topicList}`);
+    }
+
+    if (s.evaluation) {
+      const evalData = s.evaluation as Record<string, unknown>;
+      blocks.push(`**Evaluation**: ${JSON.stringify(evalData).slice(0, 200)}`);
+    }
+
+    for (const attempt of s.quizAttempts) {
+      blocks.push(`- Q: ${attempt.question} → ${attempt.correct ? '✓' : '✗'} ${attempt.userAnswer || ''}`);
+    }
+
+    const content = blocks.join('\n\n');
+    const fingerprint = sha1(`${s.id}:${s.updatedAt.toISOString()}:${s.quizAttempts.length}`);
+
+    return {
+      id: s.id,
+      label: s.title || s.id,
+      ts: (s.completedAt ?? s.startedAt).toISOString(),
+      content,
+      metadata: {
+        sessionId: s.id,
+        quizCount: s.quizAttempts.length,
+      },
+      fingerprint,
+    };
+  });
+}
+
+/**
+ * Incremental variant for notebook.
+ */
+export async function readNotebookEntitiesIncremental(
+  userId: string,
+  lastRefresh: Date,
+): Promise<Entity[]> {
+  const prisma = (await import('@/lib/db/client')).default;
+
+  const sessions = await prisma.learningMasterySession.findMany({
+    where: {
+      userId,
+      updatedAt: { gt: lastRefresh },
+    },
+    orderBy: { startedAt: 'desc' },
+    take: SNAPSHOT_PAGE_SIZE,
+    include: {
+      quizAttempts: {
+        orderBy: { createdAt: 'asc' },
+        take: 20,
+      },
+    },
+  });
+
+  if (sessions.length === 0) return [];
+
+  return sessions.map((s) => {
+    const blocks: string[] = [];
+
+    if (s.title) blocks.push(`# ${s.title}`);
+
+    const topics = s.topics as string[] | Record<string, unknown> | null;
+    if (topics) {
+      const topicList = Array.isArray(topics) ? topics.join(', ') : JSON.stringify(topics);
+      blocks.push(`**Topics**: ${topicList}`);
+    }
+
+    for (const attempt of s.quizAttempts) {
+      blocks.push(`- Q: ${attempt.question} → ${attempt.correct ? '✓' : '✗'} ${attempt.userAnswer || ''}`);
+    }
+
+    const content = blocks.join('\n\n');
+    const fingerprint = sha1(`${s.id}:${s.updatedAt.toISOString()}:${s.quizAttempts.length}`);
+
+    return {
+      id: s.id,
+      label: s.title || s.id,
+      ts: (s.completedAt ?? s.startedAt).toISOString(),
+      content,
+      metadata: {
+        sessionId: s.id,
+        quizCount: s.quizAttempts.length,
+      },
+      fingerprint,
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge Base Snapshot Adapter
+// ---------------------------------------------------------------------------
+
+/**
+ * Read knowledge base entities from PostgreSQL via Prisma.
+ * One entity per registered knowledge base (mirrors Python's kb_config adapter).
+ */
+export async function readKbEntities(userId: string): Promise<Entity[]> {
+  const prisma = (await import('@/lib/db/client')).default;
+
+  const kbs = await prisma.dtKnowledgeBase.findMany({
+    where: { userId },
+    orderBy: { updatedAt: 'desc' },
+    include: {
+      documents: {
+        where: { status: 'ready' },
+        select: { id: true, title: true, chunkCount: true },
+      },
+    },
+  });
+
+  if (kbs.length === 0) return [];
+
+  return kbs.map((kb) => {
+    const docList = kb.documents.map((d) => `- ${d.title} (${d.chunkCount} chunks)`).join('\n');
+    const content = [
+      `# ${kb.name}`,
+      kb.description ? kb.description : '',
+      `Documents: ${kb.documentCount} (${kb.totalChunks} total chunks)`,
+      kb.documents.length > 0 ? `## Documents\n${docList}` : '',
+    ].filter(Boolean).join('\n\n');
+
+    const fingerprint = sha1(`${kb.name}:${kb.description}:${kb.documentCount}:${kb.totalChunks}:${kb.updatedAt.toISOString()}`);
+
+    return {
+      id: kb.id,
+      label: kb.name,
+      ts: kb.updatedAt.toISOString(),
+      content,
+      metadata: {
+        kbId: kb.id,
+        name: kb.name,
+        documentCount: kb.documentCount,
+        totalChunks: kb.totalChunks,
+        embeddingModel: kb.embeddingModel,
+        status: kb.status,
+      },
+      fingerprint,
+    };
+  });
+}
+
+/**
+ * Incremental variant for kb.
+ */
+export async function readKbEntitiesIncremental(
+  userId: string,
+  lastRefresh: Date,
+): Promise<Entity[]> {
+  const prisma = (await import('@/lib/db/client')).default;
+
+  const kbs = await prisma.dtKnowledgeBase.findMany({
+    where: {
+      userId,
+      updatedAt: { gt: lastRefresh },
+    },
+    orderBy: { updatedAt: 'desc' },
+    include: {
+      documents: {
+        where: { status: 'ready' },
+        select: { id: true, title: true, chunkCount: true },
+      },
+    },
+  });
+
+  if (kbs.length === 0) return [];
+
+  return kbs.map((kb) => {
+    const docList = kb.documents.map((d) => `- ${d.title} (${d.chunkCount} chunks)`).join('\n');
+    const content = [
+      `# ${kb.name}`,
+      kb.description ? kb.description : '',
+      `Documents: ${kb.documentCount} (${kb.totalChunks} total chunks)`,
+      kb.documents.length > 0 ? `## Documents\n${docList}` : '',
+    ].filter(Boolean).join('\n\n');
+
+    const fingerprint = sha1(`${kb.name}:${kb.description}:${kb.documentCount}:${kb.totalChunks}:${kb.updatedAt.toISOString()}`);
+
+    return {
+      id: kb.id,
+      label: kb.name,
+      ts: kb.updatedAt.toISOString(),
+      content,
+      metadata: {
+        kbId: kb.id,
+        name: kb.name,
+        documentCount: kb.documentCount,
+        totalChunks: kb.totalChunks,
+        embeddingModel: kb.embeddingModel,
+        status: kb.status,
+      },
+      fingerprint,
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Book Snapshot Adapter
+// ---------------------------------------------------------------------------
+
+/**
+ * Read book entities from PostgreSQL via Prisma.
+ * Mirrors Python's book adapter: title, description, spine outline.
+ */
+export async function readBookEntities(userId: string): Promise<Entity[]> {
+  const prisma = (await import('@/lib/db/client')).default;
+
+  const books = await prisma.book.findMany({
+    where: { userId },
+    orderBy: { updatedAt: 'desc' },
+    take: SNAPSHOT_PAGE_SIZE,
+  });
+
+  if (books.length === 0) return [];
+
+  return books.map((b) => {
+    const blocks: string[] = [`# ${b.title}`];
+
+    if (b.subtitle) blocks.push(b.subtitle);
+
+    // Extract page titles from spine JSON
+    const spine = b.spine as { pages?: Array<{ title?: string; id?: string }> } | null;
+    if (spine?.pages && Array.isArray(spine.pages)) {
+      const pageTitles = spine.pages
+        .map((p) => p.title || p.id || '')
+        .filter(Boolean);
+      if (pageTitles.length > 0) {
+        blocks.push(`## Pages\n${pageTitles.map((p) => `- ${p}`).join('\n')}`);
+      }
+    }
+
+    const content = blocks.join('\n\n');
+    const fingerprint = sha1(`${b.title}:${b.subtitle}:${b.pageCount}:${b.updatedAt.toISOString()}`);
+
+    return {
+      id: b.id,
+      label: b.title || b.id,
+      ts: b.updatedAt.toISOString(),
+      content,
+      metadata: {
+        bookId: b.id,
+        pageCount: b.pageCount,
+        status: b.status,
+      },
+      fingerprint,
+    };
+  });
+}
+
+/**
+ * Incremental variant for book.
+ */
+export async function readBookEntitiesIncremental(
+  userId: string,
+  lastRefresh: Date,
+): Promise<Entity[]> {
+  const prisma = (await import('@/lib/db/client')).default;
+
+  const books = await prisma.book.findMany({
+    where: {
+      userId,
+      updatedAt: { gt: lastRefresh },
+    },
+    orderBy: { updatedAt: 'desc' },
+    take: SNAPSHOT_PAGE_SIZE,
+  });
+
+  if (books.length === 0) return [];
+
+  return books.map((b) => {
+    const blocks: string[] = [`# ${b.title}`];
+
+    if (b.subtitle) blocks.push(b.subtitle);
+
+    const spine = b.spine as { pages?: Array<{ title?: string; id?: string }> } | null;
+    if (spine?.pages && Array.isArray(spine.pages)) {
+      const pageTitles = spine.pages
+        .map((p) => p.title || p.id || '')
+        .filter(Boolean);
+      if (pageTitles.length > 0) {
+        blocks.push(`## Pages\n${pageTitles.map((p) => `- ${p}`).join('\n')}`);
+      }
+    }
+
+    const content = blocks.join('\n\n');
+    const fingerprint = sha1(`${b.title}:${b.subtitle}:${b.pageCount}:${b.updatedAt.toISOString()}`);
+
+    return {
+      id: b.id,
+      label: b.title || b.id,
+      ts: b.updatedAt.toISOString(),
+      content,
+      metadata: {
+        bookId: b.id,
+        pageCount: b.pageCount,
+        status: b.status,
+      },
+      fingerprint,
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Cowriter Snapshot Adapter
+// ---------------------------------------------------------------------------
+
+/**
+ * Read cowriter document entities from PostgreSQL via Prisma.
+ * Mirrors Python's cowriter adapter: title + content.
+ */
+export async function readCowriterEntities(userId: string): Promise<Entity[]> {
+  const prisma = (await import('@/lib/db/client')).default;
+
+  const docs = await prisma.cowriterDocument.findMany({
+    where: { userId },
+    orderBy: { updatedAt: 'desc' },
+    take: SNAPSHOT_PAGE_SIZE,
+  });
+
+  if (docs.length === 0) return [];
+
+  return docs.map((d) => {
+    // Only include first 2000 chars of content to keep entity size manageable
+    const contentPreview = d.content.length > 2000
+      ? d.content.slice(0, 2000) + '\n\n[... truncated]'
+      : d.content;
+    const content = `# ${d.title}\n\n${contentPreview}`;
+    const fingerprint = sha1(`${d.title}:${d.content.length}:${d.updatedAt.toISOString()}`);
+
+    return {
+      id: d.id,
+      label: d.title || d.id,
+      ts: d.updatedAt.toISOString(),
+      content,
+      metadata: {
+        docId: d.id,
+        title: d.title,
+        version: d.version,
+        status: d.status,
+      },
+      fingerprint,
+    };
+  });
+}
+
+/**
+ * Incremental variant for cowriter.
+ */
+export async function readCowriterEntitiesIncremental(
+  userId: string,
+  lastRefresh: Date,
+): Promise<Entity[]> {
+  const prisma = (await import('@/lib/db/client')).default;
+
+  const docs = await prisma.cowriterDocument.findMany({
+    where: {
+      userId,
+      updatedAt: { gt: lastRefresh },
+    },
+    orderBy: { updatedAt: 'desc' },
+    take: SNAPSHOT_PAGE_SIZE,
+  });
+
+  if (docs.length === 0) return [];
+
+  return docs.map((d) => {
+    const contentPreview = d.content.length > 2000
+      ? d.content.slice(0, 2000) + '\n\n[... truncated]'
+      : d.content;
+    const content = `# ${d.title}\n\n${contentPreview}`;
+    const fingerprint = sha1(`${d.title}:${d.content.length}:${d.updatedAt.toISOString()}`);
+
+    return {
+      id: d.id,
+      label: d.title || d.id,
+      ts: d.updatedAt.toISOString(),
+      content,
+      metadata: {
+        docId: d.id,
+        title: d.title,
+        version: d.version,
+        status: d.status,
+      },
+      fingerprint,
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Surface dispatcher
+// ---------------------------------------------------------------------------
+
+type EntityReader = (userId: string) => Promise<Entity[]>;
+type IncrementalEntityReader = (userId: string, lastRefresh: Date) => Promise<Entity[]>;
+
+const SURFACE_READERS: Record<string, [EntityReader, IncrementalEntityReader]> = {
+  chat: [readChatEntities, readChatEntitiesIncremental],
+  quiz: [readQuizEntities, readQuizEntitiesIncremental],
+  notebook: [readNotebookEntities, readNotebookEntitiesIncremental],
+  kb: [readKbEntities, readKbEntitiesIncremental],
+  book: [readBookEntities, readBookEntitiesIncremental],
+  cowriter: [readCowriterEntities, readCowriterEntitiesIncremental],
+};
+
+export const SUPPORTED_SURFACES = Object.keys(SURFACE_READERS) as Surface[];
+
+// ---------------------------------------------------------------------------
 // Diff
 // ---------------------------------------------------------------------------
 
@@ -353,21 +889,19 @@ export async function refreshSnapshot(
     // 1. Read previous state
     const prevState = await store.readState(userId, surface);
 
-    // 2. Read current entities (full or incremental)
-    let entities: Entity[];
-    if (surface === 'chat') {
-      if (prevState) {
-        entities = await readChatEntitiesIncremental(
-          userId,
-          new Date(prevState.lastRefresh),
-        );
-      } else {
-        entities = await readChatEntities(userId);
-      }
-    } else {
-      // Only chat surface is implemented for now
-      log.debug(`Snapshot for surface "${surface}" not yet implemented, skipping`);
+    // 2. Read current entities (full or incremental) via surface dispatcher
+    const readers = SURFACE_READERS[surface];
+    if (!readers) {
+      log.debug(`Snapshot for surface "${surface}" not supported, skipping`);
       return [];
+    }
+
+    const [fullReader, incrementalReader] = readers;
+    let entities: Entity[];
+    if (prevState) {
+      entities = await incrementalReader(userId, new Date(prevState.lastRefresh));
+    } else {
+      entities = await fullReader(userId);
     }
 
     // 3. Diff

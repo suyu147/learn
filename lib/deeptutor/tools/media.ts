@@ -1,3 +1,5 @@
+import { generateId } from '@/lib/utils';
+
 /**
  * Media Tools — Image generation, video generation, and voice synthesis.
  *
@@ -678,7 +680,7 @@ export class VoiceTool extends BaseTool {
     // Build SSML document
     const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${resolvedLang}"><voice name="${voice}">${escapeXml(text)}</voice></speak>`;
 
-    const connectionId = crypto.randomUUID().replace(/-/g, '');
+    const connectionId = generateId().replace(/-/g, '');
 
     log.info(`Edge TTS request: voice=${voice}, lang=${resolvedLang}, text_length=${text.length}`);
 

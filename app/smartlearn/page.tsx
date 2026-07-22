@@ -16,10 +16,12 @@ import {
   Send,
   X,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, generateId } from '@/lib/utils'
 import { useLearningPathStore } from '@/lib/store/learning-path'
 import { useResourcesStore } from '@/lib/store/resources'
 import { useLearningProfileStore } from '@/lib/store/learning-profile'
+import { useAuthStore } from '@/lib/store/auth-store'
+import { useRouter } from 'next/navigation'
 import { useSessionsStore } from '@/lib/store/sessions'
 import { consumeSSEStream, apiGet, apiPost } from '@/lib/api-client'
 import { getApiToken } from '@/lib/auth-token'
@@ -48,7 +50,8 @@ import { useResourceDecisionsStore } from '@/lib/store/resource-decisions'
 // Constants
 // ---------------------------------------------------------------------------
 
-const USER_ID = 'anonymous'
+/** Fallback user ID when no auth user is available */
+const FALLBACK_USER_ID = 'anonymous'
 
 const RESOURCE_ICON_MAP: Record<ResourceType, React.ComponentType<{ className?: string }>> = {
   document: FileText,
@@ -155,8 +158,11 @@ interface SmartLearnStreamEvent {
 
 export default function SmartLearnPage() {
   const i18n = useI18n()
+  const router = useRouter()
 
   // -- Store selectors --
+  const authUser = useAuthStore((s) => s.user)
+  const userId = authUser?.id ?? FALLBACK_USER_ID
   const path = useLearningPathStore((s) => s.path)
   const setPath = useLearningPathStore((s) => s.setPath)
   const updateNodeStatus = useLearningPathStore((s) => s.updateNodeStatus)
@@ -366,7 +372,7 @@ export default function SmartLearnPage() {
             dimensions: ProfileDimensions
             isNew?: boolean
           }
-        }>(`/api/v1/smartlearn/profile?userId=${USER_ID}`)
+        }>(`/api/v1/smartlearn/profile?userId=${userId}`)
 
         if (!cancelled) {
           setProfile({
@@ -451,7 +457,7 @@ export default function SmartLearnPage() {
             if (!existingPpt && scenes.length > 0) {
               const kps = (meta.knowledgePoints as string[] | undefined) ?? []
               const pptResource: Resource = {
-                id: crypto.randomUUID(),
+                id: generateId(),
                 userId: (meta.userId as string) || 'local-admin',
                 type: 'ppt',
                 title: kps.length > 0 ? `${kps.join('、')} - 动态课件` : '动态课件',
@@ -578,7 +584,7 @@ export default function SmartLearnPage() {
     // Create or reuse session
     let sessionId = currentSessionId
     if (!sessionId) {
-      const session = createSession(profile?.id ?? USER_ID, goal)
+      const session = createSession(profile?.id ?? userId, goal)
       sessionId = session.id
     }
 
@@ -623,6 +629,12 @@ export default function SmartLearnPage() {
           msg = body.error ?? msg
         } catch {
           // not JSON
+        }
+        // If 401, the session has expired — redirect to login
+        if (res.status === 401) {
+          useAuthStore.getState().logout()
+          router.push('/auth/login')
+          throw new Error('登录已过期，请重新登录')
         }
         throw new Error(msg)
       }
@@ -699,6 +711,11 @@ export default function SmartLearnPage() {
           } catch {
             // not JSON
           }
+          if (res.status === 401) {
+            useAuthStore.getState().logout()
+            router.push('/auth/login')
+            throw new Error('登录已过期，请重新登录')
+          }
           throw new Error(msg)
         }
 
@@ -774,6 +791,11 @@ export default function SmartLearnPage() {
         } catch {
           // not JSON
         }
+        if (res.status === 401) {
+          useAuthStore.getState().logout()
+          router.push('/auth/login')
+          throw new Error('登录已过期，请重新登录')
+        }
         throw new Error(msg)
       }
 
@@ -816,7 +838,7 @@ export default function SmartLearnPage() {
             dimensions: ProfileDimensions
           }
         }>('/api/v1/smartlearn/profile', {
-          userId: USER_ID,
+          userId: userId,
           dimensions,
         })
         updateDimensions(data.profile.dimensions)

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { getApiToken } from '@/lib/auth-token';
 
 export interface MemoryEntry {
   id: string;
@@ -34,6 +35,19 @@ function makeId(layer: string): string {
   return `${layer.toLowerCase()}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
+/**
+ * Build auth headers from localStorage token for API requests.
+ * Mirrors the pattern used by the chat API client.
+ * In 'disabled' or 'single' auth mode, the middleware auto-injects
+ * headers, so no token is needed. In 'multi' mode, the token must
+ * be present to avoid 401.
+ */
+function buildAuthHeaders(): Record<string, string> {
+  const token = getApiToken();
+  if (!token) return {};
+  return { Authorization: `Bearer ${token}` };
+}
+
 export const useMemoryStore = create<MemoryState>()(
   persist(
     (set, get) => ({
@@ -60,9 +74,11 @@ export const useMemoryStore = create<MemoryState>()(
       // ------------------------------------------------------------------
       consolidate: async (surface = 'chat') => {
         try {
+          const headers = buildAuthHeaders();
+
           const res = await fetch(
             `/api/v1/memory/consolidate?surface=${encodeURIComponent(surface)}`,
-            { method: 'POST' },
+            { method: 'POST', headers },
           );
 
           if (!res.ok) {
@@ -98,10 +114,12 @@ export const useMemoryStore = create<MemoryState>()(
       // ------------------------------------------------------------------
       syncFromServer: async (surface = 'chat') => {
         try {
+          const headers = buildAuthHeaders();
+
           // Fetch all L3 synthesis slots and the L2 summary for the surface in parallel.
           const [l3Res, l2Res] = await Promise.all([
-            fetch(`/api/v1/memory?layer=all_l3`),
-            fetch(`/api/v1/memory?layer=l2&surface=${encodeURIComponent(surface)}`),
+            fetch(`/api/v1/memory?layer=all_l3`, { headers }),
+            fetch(`/api/v1/memory?layer=l2&surface=${encodeURIComponent(surface)}`, { headers }),
           ]);
 
           const newEntries: MemoryEntry[] = [];
@@ -208,9 +226,14 @@ export const useMemoryStore = create<MemoryState>()(
         }
 
         try {
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            ...buildAuthHeaders(),
+          };
+
           const res = await fetch('/api/v1/memory', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify(body),
           });
 

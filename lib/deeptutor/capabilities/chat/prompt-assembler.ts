@@ -163,14 +163,22 @@ function buildMemoryBlock(memoryContext: string): string {
 /**
  * tools — Tool manifest and knowledge base note.
  * Lists available tools and any attached knowledge bases.
+ * When knowledge bases are attached, provides explicit instructions
+ * for when and how to use the rag tool (proactive RAG guidance).
  */
 function buildToolsBlock(context: PromptContext): string {
   const parts: string[] = [];
 
-  // Knowledge base prefix note
+  // Knowledge base prefix note — proactive RAG guidance
   if (context.knowledgeBases && context.knowledgeBases.length > 0) {
     parts.push(
-      `Knowledge bases attached: ${context.knowledgeBases.join(', ')}. Use the rag tool to search these knowledge bases for relevant information.`,
+      `Knowledge bases attached: ${context.knowledgeBases.join(', ')}`,
+      'IMPORTANT: You MUST use the rag tool to search knowledge bases when:',
+      '- The user asks questions about topics covered in their documents',
+      '- The user references specific content that might be in their knowledge bases',
+      '- You need factual data, definitions, or detailed information to answer accurately',
+      'Do NOT rely solely on your training data when relevant knowledge base content may exist. Always search first.',
+      `To search: call the rag tool with query=<search terms> and kb_name=<one of: ${context.knowledgeBases.join(', ')}>`,
     );
   }
 

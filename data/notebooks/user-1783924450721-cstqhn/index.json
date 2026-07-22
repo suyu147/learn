@@ -8,5 +8,15 @@
     "recordCount": 0,
     "createdAt": "2026-07-19T09:42:13.523Z",
     "updatedAt": "2026-07-19T09:42:13.523Z"
+  },
+  {
+    "id": "mrsq13nisk1ftd",
+    "name": "机器学习",
+    "description": "test",
+    "color": "#3B82F6",
+    "icon": "book",
+    "recordCount": 0,
+    "createdAt": "2026-07-20T04:25:07.518Z",
+    "updatedAt": "2026-07-20T04:25:07.518Z"
   }
 ]

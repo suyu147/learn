@@ -68,22 +68,99 @@ const L3_SLOT_CONFIG: Record<string, { focus: string; sections: string }> = {
 // LLM call wrapper for consolidator
 // ---------------------------------------------------------------------------
 
+/** Cached user LLM config per consolidator run cycle */
+let _cachedUserConfig: { providerId: ProviderId; modelId: string; apiKey: string } | null = null;
+
+/**
+ * Resolve the LLM config for the consolidator.
+ *
+ * Resolution order (mirrors Python's activate_llm_selection pattern):
+ * 1. Cached user config (set per-run via setUserLLMConfig)
+ * 2. User's stored API key (DtApiKey) + user settings (UserSettings)
+ * 3. Environment variables: DT_TOOL_API_KEY / DT_TOOL_PROVIDER / DT_TOOL_MODEL
+ * 4. OPENAI_API_KEY fallback
+ *
+ * Returns null if no usable config is found.
+ */
+async function resolveLLMConfig(): Promise<{ providerId: ProviderId; modelId: string; apiKey: string } | null> {
+  // 1. Cached user config (from explicit run-time selection)
+  if (_cachedUserConfig && _cachedUserConfig.apiKey) {
+    return _cachedUserConfig;
+  }
+
+  // 2. Try user's stored API key + settings
+  //    (lazy import to avoid circular deps at module load time)
+  try {
+    const { getApiKeyService } = await import('@/lib/deeptutor/services/config/api-key-service');
+    const { prisma } = await import('@/lib/db/client');
+    const apiKeyService = getApiKeyService();
+
+    // Try to find the first active API key for this user
+    // Since consolidator is server-side, we use the first available key
+    const keys = await prisma.dtApiKey.findMany({
+      where: { isActive: true },
+      take: 1,
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    if (keys.length > 0) {
+      const decryptedKey = apiKeyService.decrypt(keys[0].apiKey);
+      const providerId = (keys[0].provider || 'openai') as ProviderId;
+
+      // Get the user's preferred model from settings
+      const settings = await prisma.userSettings.findFirst({
+        where: { id: { not: '' } }, // any settings row
+        select: { model: true, provider: true },
+      });
+
+      const modelId = settings?.model || process.env.DT_TOOL_MODEL || 'gpt-4o-mini';
+      const finalProviderId = (settings?.provider || providerId) as ProviderId;
+
+      return { providerId: finalProviderId, modelId, apiKey: decryptedKey };
+    }
+  } catch (err) {
+    log.debug('Could not resolve LLM config from user settings:', err);
+  }
+
+  // 3. Environment variables
+  const envApiKey = process.env.DT_TOOL_API_KEY ?? process.env.OPENAI_API_KEY ?? '';
+  if (envApiKey) {
+    return {
+      providerId: (process.env.DT_TOOL_PROVIDER ?? 'openai') as ProviderId,
+      modelId: process.env.DT_TOOL_MODEL ?? 'gpt-4o-mini',
+      apiKey: envApiKey,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Set the user LLM config for the current consolidator run.
+ * Called by the memory-subscriber or API route before starting consolidation.
+ */
+export function setUserLLMConfig(config: { providerId: ProviderId; modelId: string; apiKey: string } | null): void {
+  _cachedUserConfig = config;
+}
+
 async function consolidatorLLM(params: {
   system: string;
   prompt: string;
   temperature: number;
   maxTokens: number;
 }): Promise<string> {
-  const providerId = (process.env.DT_TOOL_PROVIDER ?? 'openai') as ProviderId;
-  const modelId = process.env.DT_TOOL_MODEL ?? 'gpt-4o-mini';
-  const apiKey = process.env.DT_TOOL_API_KEY ?? process.env.OPENAI_API_KEY ?? '';
+  const config = await resolveLLMConfig();
 
-  if (!apiKey) {
-    log.warn('No API key for consolidator LLM calls');
-    return '[Consolidator not configured — set DT_TOOL_API_KEY or OPENAI_API_KEY]';
+  if (!config || !config.apiKey) {
+    log.warn('No LLM config available for consolidator — set user API key, DT_TOOL_API_KEY, or OPENAI_API_KEY');
+    return '[Consolidator not configured — no LLM API key available]';
   }
 
-  const { model } = getModel({ providerId, modelId, apiKey });
+  const { model } = getModel({
+    providerId: config.providerId,
+    modelId: config.modelId,
+    apiKey: config.apiKey,
+  });
 
   const result = await callLLM(
     {

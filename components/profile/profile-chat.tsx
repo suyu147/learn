@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Loader2, Bot, User, CheckCircle2, Plus, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { generateId } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,25 +33,32 @@ interface ProfileChatProps {
 
 export function ProfileChat({ mode = 'embedded', onComplete, onDimensionsUpdate }: ProfileChatProps) {
   const isOnboarding = mode === 'onboarding';
+  const { providerId, modelId, apiKey, baseUrl } = useSettingsStore();
+  const { profile, addConversationMessage, updateDimensions, archiveCurrentProfile, reset } =
+    useLearningProfileStore();
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
-  const [profileComplete, setProfileComplete] = useState(false);
+  const [profileComplete, setProfileComplete] = useState(() => isProfileComplete(profile?.dimensions));
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [dimensionNotice, setDimensionNotice] = useState<{ labels: string[]; completeness: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onCompleteCalledRef = useRef(false);
-  const { providerId, modelId, apiKey, baseUrl } = useSettingsStore();
-  const { profile, addConversationMessage, updateDimensions, archiveCurrentProfile, reset } =
-    useLearningProfileStore();
   const createWelcomeMessage = useCallback((): ConversationMessage => ({
-    id: crypto.randomUUID(),
+    id: generateId(),
     role: 'assistant',
     content:
       '你好！我是你的学习助手，想了解一下你的学习情况，这样我可以为你推荐最合适的学习资源。\n\n让我先问几个问题：\n1. 你目前学过哪些编程语言或技术？\n2. 你更喜欢通过什么方式学习（看视频、读文档、动手写代码）？\n3. 你学习的主要目标是什么？',
     timestamp: Date.now(),
   }), []);
+
+  // 同步 store dimensions 变化到 profileComplete 状态
+  useEffect(() => {
+    if (isProfileComplete(profile?.dimensions)) {
+      setProfileComplete(true);
+    }
+  }, [profile?.dimensions]);
 
   // 画像完成后：onboarding模式触发onComplete回调（仅一次），显示完成横幅但不锁定输入
   useEffect(() => {
@@ -98,7 +106,7 @@ export function ProfileChat({ mode = 'embedded', onComplete, onDimensionsUpdate 
     if (!input.trim() || isLoading) return;
 
     const userMessage: ConversationMessage = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       role: 'user',
       content: input.trim(),
       timestamp: Date.now(),
@@ -141,7 +149,7 @@ export function ProfileChat({ mode = 'embedded', onComplete, onDimensionsUpdate 
       let assistantContent = '';
 
       const assistantMessage: ConversationMessage = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         role: 'assistant',
         content: '',
         timestamp: Date.now(),
@@ -270,7 +278,7 @@ export function ProfileChat({ mode = 'embedded', onComplete, onDimensionsUpdate 
       setMessages((prev) => [
         ...prev,
         {
-          id: crypto.randomUUID(),
+          id: generateId(),
           role: 'assistant',
           content: '抱歉，我遇到了一些问题，请稍后再试。',
           timestamp: Date.now(),

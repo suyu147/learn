@@ -360,6 +360,19 @@ function cleanMermaidCode(raw: string): string {
     }
   }
 
+  // Fix: escape square brackets inside node labels
+  // Mermaid uses [label] for rectangular nodes, so [a,b] inside a label breaks parsing.
+  // Wrap labels containing [ or ] in double quotes: B[区间 [a,b]] → B["区间 [a,b]"]
+  cleaned = cleaned.replace(
+    /(\b\w+\b)\[([^\]]*(?:\[[^\]]*\][^\]]*)*)\]/g,
+    (_match, nodeId, label) => {
+      if (label.includes('[')) {
+        return `${nodeId}["${label}"]`;
+      }
+      return _match;
+    }
+  );
+
   return cleaned.trim();
 }
 

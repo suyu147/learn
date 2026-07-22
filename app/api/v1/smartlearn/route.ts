@@ -22,9 +22,11 @@ export async function POST(req: NextRequest) {
     const validated = await validatedBody(SmartLearnRequestSchema, req);
     const body = validated as unknown as LearnRequest;
 
-    const userId = await (async () => {
+    // Use userId from middleware-injected header (avoids redundant JWT verification)
+    // Falls back to authenticate() for direct calls without middleware
+    const userId = req.headers.get('x-user-id') ?? (await (async () => {
       try { return (await authenticate(req)).id; } catch { return 'anonymous'; }
-    })();
+    })());
 
     const sessionId = body.sessionId;
     const turnId = `turn_${Date.now()}`;
@@ -115,8 +117,9 @@ export async function POST(req: NextRequest) {
     return new Response(stream, {
       headers: {
         'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
+        'Cache-Control': 'no-cache, no-transform',
         'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
       },
     });
   } catch (err) {

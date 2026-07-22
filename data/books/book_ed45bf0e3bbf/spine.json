@@ -1,5 +1,5 @@
 {
-  "title": "机器学习：从原理到实践",
+  "title": "机器学习入门：从原理到实践",
   "chapters": [
     {
       "order": 0,
@@ -9,7 +9,7 @@
       "sourceAnchors": [],
       "prerequisites": [],
       "pageIds": [
-        "pg_7a65a564"
+        "pg_0a613a15"
       ],
       "summary": ""
     },
@@ -23,7 +23,7 @@
       "sourceAnchors": [],
       "prerequisites": [],
       "pageIds": [
-        "pg_b7a5d77c"
+        "pg_c2cda458"
       ],
       "summary": "Additional chapter"
     }

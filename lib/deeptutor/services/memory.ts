@@ -225,13 +225,14 @@ export class MemoryServiceImpl {
    * Consolidate memory for a user after a capability completes.
    *
    * Uses LLM-based fact extraction (runUpdateL2/runUpdateL3) by default.
-   * Falls back to simple text rollup if MEMORY_CONSOLIDATOR=v1 is set
-   * or if DT_TOOL_API_KEY/OPENAI_API_KEY is not configured.
+   * The consolidatorLLM function automatically resolves the LLM provider
+   * from: user API key → user settings → environment variables.
+   *
+   * Falls back to simple text rollup only if MEMORY_CONSOLIDATOR=v1 is set.
    */
   async consolidate(userId: string, surface: Surface): Promise<void> {
     try {
-      const useV1 = process.env.MEMORY_CONSOLIDATOR === 'v1'
-        || (!process.env.DT_TOOL_API_KEY && !process.env.OPENAI_API_KEY);
+      const useV1 = process.env.MEMORY_CONSOLIDATOR === 'v1';
 
       if (useV1) {
         log.info(`Using v1 (simple text) consolidator for ${userId}/${surface}`);
@@ -240,7 +241,7 @@ export class MemoryServiceImpl {
         // Step 2: L2 → L3 synthesis
         await this.synthesizeL3Recent(userId);
       } else {
-        log.info(`Using v2 (LLM) consolidator for ${userId}/${surface}`);
+        log.info(`Using LLM consolidator for ${userId}/${surface}`);
         // Step 1: L2 update (LLM fact extraction from snapshot)
         await runUpdateL2(
           userId,
@@ -423,4 +424,28 @@ export class MemoryServiceImpl {
 export interface MemoryService {
   read(userId: string, layer: 'L1' | 'L2' | 'L3'): Promise<string>;
   write(userId: string, layer: 'L1' | 'L2' | 'L3', content: string): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
+// Singleton accessor
+// ---------------------------------------------------------------------------
+
+let _instance: MemoryServiceImpl | null = null;
+
+/**
+ * Get the global MemoryService instance (lazy singleton).
+ * Returns null if not yet initialized (e.g. during bootstrap).
+ */
+export function getMemoryService(): MemoryServiceImpl | null {
+  if (!_instance) {
+    _instance = new MemoryServiceImpl();
+  }
+  return _instance;
+}
+
+/**
+ * Set the global MemoryService instance. Used during bootstrap.
+ */
+export function setMemoryService(instance: MemoryServiceImpl): void {
+  _instance = instance;
 }

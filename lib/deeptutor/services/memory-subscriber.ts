@@ -5,8 +5,8 @@
  * 1. Snapshot refresh → auto-emit L1 trace
  * 2. Memory consolidation (L1→L2→L3)
  *
- * Includes a per-user lock to prevent concurrent consolidate runs
- * from writing the same files simultaneously.
+ * Uses RunManager for per-surface exclusive locking, cooperative
+ * cancellation, and undo checkpoint support.
  *
  * Registered once during bootstrap.
  */
@@ -15,6 +15,7 @@ import { createLogger } from '@/lib/logger';
 import { getEventBus, EventBusEvents } from '@/lib/deeptutor/core/event-bus';
 import type { MemoryServiceImpl, Surface } from '@/lib/deeptutor/services/memory';
 import { refreshSnapshot, SnapshotStore } from '@/lib/deeptutor/services/memory/snapshot';
+import { getRunManager, type ConsolidatorLayer, type ConsolidatorKey } from '@/lib/deeptutor/services/memory/run-manager';
 
 const log = createLogger('MemorySubscriber');
 
@@ -41,13 +42,6 @@ interface CapabilityCompletePayload {
 }
 
 // ---------------------------------------------------------------------------
-// Per-user consolidation lock
-// ---------------------------------------------------------------------------
-
-/** Tracks which user+surface combos are currently consolidating */
-const consolidatingKeys = new Set<string>();
-
-// ---------------------------------------------------------------------------
 // Subscriber registration
 // ---------------------------------------------------------------------------
 
@@ -58,24 +52,27 @@ const consolidatingKeys = new Set<string>();
 export function registerMemorySubscriber(memoryService: MemoryServiceImpl): void {
   const eventBus = getEventBus();
   const snapshotStore = new SnapshotStore();
+  const runManager = getRunManager();
 
   eventBus.on(EventBusEvents.CAPABILITY_COMPLETE, (...args: unknown[]) => {
     const payload = args[0] as CapabilityCompletePayload;
     if (!payload || !payload.userId || !payload.capability) return;
 
     const surface = CAPABILITY_TO_SURFACE[payload.capability] ?? 'chat';
-    const lockKey = `${payload.userId}:${surface}`;
 
-    // Skip if a consolidation is already running for this user+surface
-    if (consolidatingKeys.has(lockKey)) {
-      log.debug(`Consolidation already in progress for ${lockKey}, skipping`);
+    // Use RunManager to lock the surface — prevents concurrent runs
+    const l2RunKey = surface as ConsolidatorKey;
+    if (runManager.isActive('L2', l2RunKey)) {
+      log.debug(`Consolidation already in progress for L2:${surface}, skipping`);
       return;
     }
 
-    consolidatingKeys.add(lockKey);
-
     // Fire-and-forget: snapshot + consolidation is async but we don't block on it
     (async () => {
+      // Start L2 run via RunManager
+      const runId = runManager.start('L2', l2RunKey);
+      if (!runId) return; // Race condition — another run started
+
       try {
         // Step 1: Snapshot refresh → auto-detect changes → emit L1 traces
         const changes = await refreshSnapshot(
@@ -107,8 +104,14 @@ export function registerMemorySubscriber(memoryService: MemoryServiceImpl): void
         // Step 2: Consolidation (L1→L2→L3)
         // Only run consolidate if there are new changes
         if (changes.length > 0) {
+          // Save checkpoint before consolidation
+          const existingL2 = await memoryService.readL2(payload.userId, surface);
+          await runManager.saveCheckpoint(payload.userId, 'L2', l2RunKey, existingL2);
+
           await memoryService.consolidate(payload.userId, surface);
         }
+
+        runManager.complete('L2', l2RunKey);
 
         log.debug(
           `Memory pipeline completed: user=${payload.userId}, ` +
@@ -116,12 +119,11 @@ export function registerMemorySubscriber(memoryService: MemoryServiceImpl): void
           `changes=${changes.length}`,
         );
       } catch (err) {
+        runManager.fail('L2', l2RunKey, err);
         log.warn('Memory pipeline failed:', err);
-      } finally {
-        consolidatingKeys.delete(lockKey);
       }
     })();
   });
 
-  log.info('Memory consolidation subscriber registered on CAPABILITY_COMPLETE (with Snapshot + lock)');
+  log.info('Memory consolidation subscriber registered on CAPABILITY_COMPLETE (with RunManager)');
 }

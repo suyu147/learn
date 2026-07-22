@@ -80,6 +80,19 @@ function resolveModel(provider: ImageGenProvider): string {
   }
 }
 
+/** Per-request timeout (ms) for a single fetch call */
+const FETCH_TIMEOUT_MS = 30_000;
+/** Overall timeout (ms) for the entire batch image generation */
+const BATCH_TIMEOUT_MS = 120_000;
+
+function createAbortController(timeoutMs: number): AbortController {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  // Prevent the Node.js timer from keeping the process alive
+  if (timer.unref) timer.unref();
+  return controller;
+}
+
 export async function generateImage(
   options: ImageGenerationOptions,
   elementId: string,
@@ -106,8 +119,12 @@ export async function generateImage(
         log.warn(`Unknown image generation provider: ${provider}`);
         return null;
     }
-  } catch (error) {
-    log.error(`Image generation failed for ${elementId}:`, error);
+  } catch (error: unknown) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      log.error(`Image generation timed out for ${elementId}`);
+    } else {
+      log.error(`Image generation failed for ${elementId}:`, error);
+    }
     return null;
   }
 }
@@ -120,6 +137,7 @@ async function generateWithSiliconFlow(
   const baseUrl = resolveBaseUrl('siliconflow');
   const model = resolveModel('siliconflow');
   const size = resolveSize(options.aspectRatio);
+  const { signal } = createAbortController(FETCH_TIMEOUT_MS);
 
   const response = await fetch(`${baseUrl}/images/generations`, {
     method: 'POST',
@@ -133,6 +151,7 @@ async function generateWithSiliconFlow(
       image_size: size,
       num_inference_steps: 20,
     }),
+    signal,
   });
 
   if (!response.ok) {
@@ -160,6 +179,7 @@ async function generateWithTongyi(
   const baseUrl = resolveBaseUrl('tongyi');
   const model = resolveModel('tongyi');
   const size = resolveSize(options.aspectRatio);
+  const { signal: submitSignal } = createAbortController(FETCH_TIMEOUT_MS);
 
   const response = await fetch(`${baseUrl}/services/aigc/text2image/image-synthesis`, {
     method: 'POST',
@@ -177,6 +197,7 @@ async function generateWithTongyi(
         style: options.style || '<auto>',
       },
     }),
+    signal: submitSignal,
   });
 
   if (!response.ok) {
@@ -196,10 +217,11 @@ async function generateWithTongyi(
   const maxPolls = 30;
   for (let i = 0; i < maxPolls; i++) {
     await new Promise((r) => setTimeout(r, 2000));
+    const { signal: pollSignal } = createAbortController(FETCH_TIMEOUT_MS);
 
     const pollResponse = await fetch(
       `${baseUrl}/tasks/${taskId}`,
-      { headers: { Authorization: `Bearer ${apiKey}` } },
+      { headers: { Authorization: `Bearer ${apiKey}` }, signal: pollSignal },
     );
 
     if (!pollResponse.ok) continue;
@@ -232,6 +254,7 @@ async function generateWithOpenAI(
   const baseUrl = resolveBaseUrl('openai');
   const model = resolveModel('openai');
   const size = resolveSizeOpenAI(options.aspectRatio);
+  const { signal } = createAbortController(FETCH_TIMEOUT_MS);
 
   const response = await fetch(`${baseUrl}/images/generations`, {
     method: 'POST',
@@ -246,6 +269,7 @@ async function generateWithOpenAI(
       size,
       quality: 'standard',
     }),
+    signal,
   });
 
   if (!response.ok) {
@@ -285,6 +309,7 @@ async function generateWithDoubao(
   };
 
   log.debug(`Doubao API request: ${baseUrl}/api/v3/images/generations, model=${model}, size=${size}`);
+  const { signal } = createAbortController(FETCH_TIMEOUT_MS);
 
   const response = await fetch(`${baseUrl}/api/v3/images/generations`, {
     method: 'POST',
@@ -293,6 +318,7 @@ async function generateWithDoubao(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify(requestBody),
+    signal,
   });
 
   if (!response.ok) {
@@ -376,7 +402,24 @@ export async function batchGenerateImages(
   };
 
   const workers = Array.from({ length: Math.min(concurrency, queue.length) }, () => worker());
-  await Promise.all(workers);
+
+  // Race the batch against an overall timeout so the PPT generation is never
+  // blocked indefinitely by slow/unreachable image APIs.
+  try {
+    await Promise.race([
+      Promise.all(workers),
+      new Promise<never>((_, reject) => {
+        const timer = setTimeout(() => reject(new DOMException('Batch image generation timed out', 'AbortError')), BATCH_TIMEOUT_MS);
+        if (timer.unref) timer.unref();
+      }),
+    ]);
+  } catch (error: unknown) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      log.warn(`Batch image generation timed out after ${BATCH_TIMEOUT_MS}ms, proceeding with partial results`);
+    } else {
+      log.error('Batch image generation failed:', error);
+    }
+  }
 
   return mapping;
 }

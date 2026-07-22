@@ -11,6 +11,7 @@ import { useSessionsStore } from '@/lib/store/sessions';
 import { useResourcesStore } from '@/lib/store/resources';
 import { useLearningPathStore } from '@/lib/store/learning-path';
 import { useLearningProfileStore } from '@/lib/store/learning-profile';
+import { generateId } from '@/lib/utils';
 import { RESOURCE_TYPE_LABELS, type Resource } from '@/lib/types/resource';
 
 interface Props {
@@ -113,7 +114,7 @@ export function TutorChatPanel({ selectedResource = null }: Props) {
     const history = messages;
     const attachedResourcesPayload = attachedResources.map(buildAttachedResourceSummary);
     const userMsg = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       role: 'user' as const,
       content: trimmedInput,
       attachedResourceIds,
@@ -147,7 +148,7 @@ export function TutorChatPanel({ selectedResource = null }: Props) {
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      const assistantId = crypto.randomUUID();
+      const assistantId = generateId();
       let assistantContent = '';
 
       appendTutorMessage(currentSessionId, {
@@ -179,7 +180,7 @@ export function TutorChatPanel({ selectedResource = null }: Props) {
       }
     } catch (error) {
       appendTutorMessage(currentSessionId, {
-        id: crypto.randomUUID(),
+        id: generateId(),
         role: 'assistant',
         content: '抱歉，我遇到了一些问题，请稍后再试。',
         attachedResourceIds,

@@ -19,53 +19,102 @@ function getUserId(config: { configurable?: { userId?: string } }): string {
 }
 
 /**
- * 判断某个维度是否已收集到有效数据（与 profile-utils.ts 的进度计算标准一致）。
- * 注意：只判断用户实际填写的内容，不判默认值。
+ * 安全合并：只应用 partial 中的有效数据，跳过空数组/空字符串以防止覆盖已有数据。
+ * 当 partial 中的数组为空、字符串为空时，保留 current 中的对应值。
  */
-function isDimensionFilled(key: keyof ProfileDimensions, dims: ProfileDimensions): boolean {
-  switch (key) {
-    case 'knowledgeBase': return dims.knowledgeBase.subjects.length > 0;
-    case 'cognitiveStyle': return dims.cognitiveStyle.preference.length > 0;
-    case 'learningGoals': return dims.learningGoals.shortTerm.length > 0 || dims.learningGoals.longTerm.length > 0;
-    case 'weakPoints': return dims.weakPoints.topics.length > 0 || dims.weakPoints.errorPatterns.length > 0;
-    case 'timePreference': return dims.timePreference.preferredDuration > 0 || dims.timePreference.preferredTimeSlot.length > 0;
-    case 'interests': return dims.interests.domains.length > 0;
-    case 'learningPace': return dims.learningPace.depthPreference.length > 0;
-    case 'errorPatterns': return dims.errorPatterns.commonMistakes.length > 0 || dims.errorPatterns.difficultAreas.length > 0;
-    default: return false;
+function safeMergeField<T extends Record<string, unknown>>(
+  current: T,
+  partial: Partial<T> | undefined,
+  arrayKeys: (keyof T)[],
+): T {
+  if (!partial) return current;
+  const merged = { ...current, ...partial };
+  for (const key of arrayKeys) {
+    const pv = partial[key];
+    if (Array.isArray(pv) && pv.length === 0) {
+      // 空数组不回写，保留 current 原有数据
+      merged[key] = current[key];
+    }
   }
+  return merged;
 }
 
-const DIMENSION_KEYS: (keyof ProfileDimensions)[] = [
-  'knowledgeBase', 'cognitiveStyle', 'learningGoals', 'weakPoints',
-  'timePreference', 'interests', 'learningPace', 'errorPatterns',
-];
+/** 判断标量值是否有效（非空字符串、非零数字） */
+function hasValidValue(v: unknown): boolean {
+  if (typeof v === 'string') return v.length > 0;
+  if (typeof v === 'number') return v > 0;
+  if (Array.isArray(v)) return v.length > 0;
+  return v != null;
+}
 
-/**
- * 合并画像维度：已填维度锁死不覆盖，只允许未填维度写入 partial 数据。
- */
 function mergeProfileDimensions(
   current: ProfileDimensions,
   partial: Partial<ProfileDimensions>,
 ): ProfileDimensions {
-  // 以 current 为基准（已带 DEFAULT_DIMENSIONS 兜底），只对未填维度应用 partial
-  const merged = { ...current } as Record<string, unknown>;
-
-  for (const key of DIMENSION_KEYS) {
-    const partialVal = (partial as Record<string, unknown>)[key];
-    if (!partialVal || typeof partialVal !== 'object') continue;
-
-    if (isDimensionFilled(key, current)) {
-      // 该维度已有有效数据 → 锁死，不覆盖
-      continue;
-    }
-
-    // 该维度未填写 → 允许写入 partial
-    const currentVal = (current as unknown as Record<string, unknown>)[key];
-    merged[key] = { ...(currentVal as object), ...partialVal };
-  }
-
-  return merged as unknown as ProfileDimensions;
+  return {
+    ...DEFAULT_DIMENSIONS,
+    ...current,
+    ...partial,
+    knowledgeBase: safeMergeField(
+      { ...DEFAULT_DIMENSIONS.knowledgeBase, ...current.knowledgeBase },
+      partial.knowledgeBase,
+      ['subjects'],
+    ),
+    cognitiveStyle: {
+      ...DEFAULT_DIMENSIONS.cognitiveStyle,
+      ...current.cognitiveStyle,
+      ...partial.cognitiveStyle,
+      // 空字符串不回写 preference
+      preference: partial.cognitiveStyle?.preference && partial.cognitiveStyle.preference.length > 0
+        ? partial.cognitiveStyle.preference
+        : (current.cognitiveStyle?.preference ?? DEFAULT_DIMENSIONS.cognitiveStyle.preference),
+    },
+    learningGoals: {
+      ...DEFAULT_DIMENSIONS.learningGoals,
+      ...current.learningGoals,
+      ...partial.learningGoals,
+      shortTerm: (partial.learningGoals?.shortTerm && partial.learningGoals.shortTerm.length > 0)
+        ? partial.learningGoals.shortTerm
+        : (current.learningGoals?.shortTerm ?? DEFAULT_DIMENSIONS.learningGoals.shortTerm),
+      longTerm: (partial.learningGoals?.longTerm && partial.learningGoals.longTerm.length > 0)
+        ? partial.learningGoals.longTerm
+        : (current.learningGoals?.longTerm ?? DEFAULT_DIMENSIONS.learningGoals.longTerm),
+    },
+    weakPoints: safeMergeField(
+      { ...DEFAULT_DIMENSIONS.weakPoints, ...current.weakPoints },
+      partial.weakPoints,
+      ['topics', 'errorPatterns'],
+    ),
+    timePreference: {
+      ...DEFAULT_DIMENSIONS.timePreference,
+      ...current.timePreference,
+      ...partial.timePreference,
+      preferredDuration: hasValidValue(partial.timePreference?.preferredDuration)
+        ? partial.timePreference!.preferredDuration
+        : (current.timePreference?.preferredDuration ?? DEFAULT_DIMENSIONS.timePreference.preferredDuration),
+      preferredTimeSlot: (partial.timePreference?.preferredTimeSlot && partial.timePreference.preferredTimeSlot.length > 0)
+        ? partial.timePreference.preferredTimeSlot
+        : (current.timePreference?.preferredTimeSlot ?? DEFAULT_DIMENSIONS.timePreference.preferredTimeSlot),
+    },
+    interests: safeMergeField(
+      { ...DEFAULT_DIMENSIONS.interests, ...current.interests },
+      partial.interests,
+      ['domains', 'preferredFormats'],
+    ),
+    learningPace: {
+      ...DEFAULT_DIMENSIONS.learningPace,
+      ...current.learningPace,
+      ...partial.learningPace,
+      depthPreference: (partial.learningPace?.depthPreference && partial.learningPace.depthPreference.length > 0)
+        ? partial.learningPace.depthPreference
+        : (current.learningPace?.depthPreference ?? DEFAULT_DIMENSIONS.learningPace.depthPreference),
+    },
+    errorPatterns: safeMergeField(
+      { ...DEFAULT_DIMENSIONS.errorPatterns, ...current.errorPatterns },
+      partial.errorPatterns,
+      ['commonMistakes', 'difficultAreas'],
+    ),
+  };
 }
 
 

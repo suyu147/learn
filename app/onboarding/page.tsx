@@ -17,12 +17,17 @@ export default function OnboardingPage() {
   const dimensions = useLearningProfileStore((s) => s.profile?.dimensions);
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isComplete, setIsComplete] = useState(false);
+  const [isComplete, setIsComplete] = useState(() => isProfileComplete(dimensions));
 
   const completeness = calculateProfileCompleteness(dimensions ?? null);
 
   // Debug: log dimension changes
   console.log('[OnboardingPage] dimensions changed, completeness:', completeness, '%', 'isComplete:', isComplete, 'dimensionKeys:', dimensions ? Object.keys(dimensions) : 'null');
+
+  // 同步 store dimensions 变化到 isComplete 状态
+  if (isProfileComplete(dimensions) && !isComplete) {
+    setIsComplete(true);
+  }
 
   const markCompleteAndRedirect = useCallback(async () => {
     setCompleting(true);

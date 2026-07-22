@@ -1,3 +1,4 @@
+import { generateId } from '@/lib/utils';
 import { streamLLM } from '@/lib/ai/llm';
 import { parseJsonResponse } from '@/lib/generation/json-repair';
 import { resolveModel } from '@/lib/server/resolve-model';
@@ -77,7 +78,7 @@ export async function planNode(
     }
 
     const node = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       title: parsed.title,
       knowledgePoints: parsed.knowledgePoints.slice(0, 4),
       resources: [],

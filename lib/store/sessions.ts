@@ -1,3 +1,4 @@
+import { generateId } from '@/lib/utils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -60,7 +61,7 @@ export const useSessionsStore = create<SessionsState>()(
         }
 
         const session: LearningSession = {
-          id: crypto.randomUUID(),
+          id: generateId(),
           profileId,
           goal,
           title: goal.slice(0, 30) + (goal.length > 30 ? '...' : ''),

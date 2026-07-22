@@ -6,6 +6,7 @@ import { DEFAULT_DIMENSIONS } from '@/lib/types/profile';
 import { fetchProfile, saveProfile } from '@/lib/api/learning-profile-api';
 import { createLogger } from '@/lib/logger';
 import { getApiToken } from '@/lib/auth-token';
+import { generateId } from '@/lib/utils';
 import { useAuthStore } from './auth-store';
 
 const log = createLogger('LearningProfileStore');
@@ -71,47 +72,72 @@ export const useLearningProfileStore = create<LearningProfileState>()(
         const currentState = get();
         const currentDimensions = currentState.profile?.dimensions ?? { ...DEFAULT_DIMENSIONS };
 
-        /**
-         * 判断某个维度是否已收集到有效数据（与 profile-utils.ts 的进度计算标准一致）。
-         * 已填维度锁死，后续无论 LLM 返回什么数据都不覆盖。
-         */
-        function isFilled(key: keyof ProfileDimensions, dims: ProfileDimensions): boolean {
-          switch (key) {
-            case 'knowledgeBase': return dims.knowledgeBase.subjects.length > 0;
-            case 'cognitiveStyle': return dims.cognitiveStyle.preference.length > 0;
-            case 'learningGoals': return dims.learningGoals.shortTerm.length > 0 || dims.learningGoals.longTerm.length > 0;
-            case 'weakPoints': return dims.weakPoints.topics.length > 0 || dims.weakPoints.errorPatterns.length > 0;
-            case 'timePreference': return dims.timePreference.preferredDuration > 0 || dims.timePreference.preferredTimeSlot.length > 0;
-            case 'interests': return dims.interests.domains.length > 0;
-            case 'learningPace': return dims.learningPace.depthPreference.length > 0;
-            case 'errorPatterns': return dims.errorPatterns.commonMistakes.length > 0 || dims.errorPatterns.difficultAreas.length > 0;
-            default: return false;
-          }
+        /** 安全取值：当 incoming 为空时回退到 current 的值 */
+        function safeArr<T>(incoming: T[] | undefined, current: T[]): T[] {
+          // incoming 为 undefined 或空数组时保留 current（防御 LLM 返回空数组覆盖已有数据）
+          if (!incoming || incoming.length === 0) return current;
+          return incoming;
         }
 
-        const DIM_KEYS: (keyof ProfileDimensions)[] = [
-          'knowledgeBase', 'cognitiveStyle', 'learningGoals', 'weakPoints',
-          'timePreference', 'interests', 'learningPace', 'errorPatterns',
-        ];
-
-        // 以当前维度为基准，只对未填维度合并 incoming 数据
-        const mergedDimensions = { ...currentDimensions } as Record<string, unknown>;
-
-        for (const key of DIM_KEYS) {
-          const incomingVal = (dimensions as Record<string, unknown>)[key];
-          if (!incomingVal || typeof incomingVal !== 'object') continue;
-
-          if (isFilled(key, currentDimensions)) {
-            // 已填 → 锁死，不覆盖
-            continue;
-          }
-
-          // 未填 → 合并
-          const currentVal = (currentDimensions as unknown as Record<string, unknown>)[key];
-          mergedDimensions[key] = { ...(currentVal as object), ...incomingVal };
+        /** 安全取值（字符串）：当 incoming 为空字符串时回退到 current */
+        function safeStr(incoming: string | undefined | null, current: string): string {
+          if (!incoming || incoming.length === 0) return current;
+          return incoming;
         }
 
-        const result = mergedDimensions as unknown as ProfileDimensions;
+        /** 安全取值（数字）：当 incoming 为 0 时回退到 current */
+        function safeNum(incoming: number | undefined | null, current: number): number {
+          if (incoming == null || incoming === 0) return current;
+          return incoming;
+        }
+
+        const mergedDimensions: ProfileDimensions = {
+          knowledgeBase: {
+            ...currentDimensions.knowledgeBase,
+            ...dimensions.knowledgeBase,
+            subjects: safeArr(dimensions.knowledgeBase?.subjects, currentDimensions.knowledgeBase.subjects),
+          },
+          cognitiveStyle: {
+            ...currentDimensions.cognitiveStyle,
+            ...dimensions.cognitiveStyle,
+            preference: safeStr(dimensions.cognitiveStyle?.preference, currentDimensions.cognitiveStyle.preference),
+          },
+          learningGoals: {
+            ...currentDimensions.learningGoals,
+            ...dimensions.learningGoals,
+            shortTerm: safeArr(dimensions.learningGoals?.shortTerm, currentDimensions.learningGoals.shortTerm),
+            longTerm: safeStr(dimensions.learningGoals?.longTerm, currentDimensions.learningGoals.longTerm),
+          },
+          weakPoints: {
+            ...currentDimensions.weakPoints,
+            ...dimensions.weakPoints,
+            topics: safeArr(dimensions.weakPoints?.topics, currentDimensions.weakPoints.topics),
+            errorPatterns: safeArr(dimensions.weakPoints?.errorPatterns, currentDimensions.weakPoints.errorPatterns),
+          },
+          timePreference: {
+            ...currentDimensions.timePreference,
+            ...dimensions.timePreference,
+            preferredDuration: safeNum(dimensions.timePreference?.preferredDuration, currentDimensions.timePreference.preferredDuration),
+            preferredTimeSlot: safeStr(dimensions.timePreference?.preferredTimeSlot, currentDimensions.timePreference.preferredTimeSlot),
+          },
+          interests: {
+            ...currentDimensions.interests,
+            ...dimensions.interests,
+            domains: safeArr(dimensions.interests?.domains, currentDimensions.interests.domains),
+            preferredFormats: safeArr(dimensions.interests?.preferredFormats, currentDimensions.interests.preferredFormats),
+          },
+          learningPace: {
+            ...currentDimensions.learningPace,
+            ...dimensions.learningPace,
+            depthPreference: safeStr(dimensions.learningPace?.depthPreference, currentDimensions.learningPace.depthPreference),
+          },
+          errorPatterns: {
+            ...currentDimensions.errorPatterns,
+            ...dimensions.errorPatterns,
+            commonMistakes: safeArr(dimensions.errorPatterns?.commonMistakes, currentDimensions.errorPatterns.commonMistakes),
+            difficultAreas: safeArr(dimensions.errorPatterns?.difficultAreas, currentDimensions.errorPatterns.difficultAreas),
+          },
+        };
 
         // 直接 mutate draft（immer 推荐模式），不要 return partial state
         // return + draft mutation 混用会导致 immer 行为不一致
@@ -125,11 +151,11 @@ export const useLearningProfileStore = create<LearningProfileState>()(
           }
 
           state.profile = {
-            id: state.profile?.id ?? crypto.randomUUID(),
+            id: state.profile?.id ?? generateId(),
             userId: getCurrentUserId(),
             updatedAt: new Date().toISOString(),
             version: (state.profile?.version ?? 0) + 1,
-            dimensions: result,
+            dimensions: mergedDimensions,
             conversationHistory: state.profile?.conversationHistory ?? [],
           };
         });
@@ -143,7 +169,7 @@ export const useLearningProfileStore = create<LearningProfileState>()(
           fetch('/api/v1/smartlearn/profile', {
             method: 'PATCH',
             headers,
-            body: JSON.stringify({ dimensions: result }),
+            body: JSON.stringify({ dimensions: mergedDimensions }),
           }).then((response) => {
             if (!response.ok) throw new Error(`Profile save failed (${response.status})`);
             set({ saveError: null });
@@ -178,7 +204,7 @@ export const useLearningProfileStore = create<LearningProfileState>()(
             conversationHistory: [...currentProfile.conversationHistory, message],
             updatedAt: new Date().toISOString(),
           } : {
-            id: crypto.randomUUID(),
+            id: generateId(),
             userId: getCurrentUserId(),
             updatedAt: new Date().toISOString(),
             version: 1,
@@ -233,7 +259,7 @@ export const useLearningProfileStore = create<LearningProfileState>()(
           if (serverProfile?.dimensions) {
             set((state) => {
               state.profile = {
-                id: serverProfile.id ?? crypto.randomUUID(),
+                id: serverProfile.id ?? generateId(),
                 userId: serverProfile.userId ?? userId,
                 version: serverProfile.version ?? 1,
                 dimensions: serverProfile.dimensions!,
